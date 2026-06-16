@@ -1,4 +1,4 @@
-import { isDemo, demoBoard, demoConfig, demoTickets, DEMO_BOARD_KEY } from "../demo";
+import { isDemo, demoBoard, demoConfig, demoTickets, demoRunSeeds, DEMO_BOARD_KEY } from "../demo";
 
 describe("isDemo", () => {
   const original = process.env.HANGAR_DEMO;
@@ -39,5 +39,21 @@ describe("demo config & tickets", () => {
       expect(t.boardKey).toBe(DEMO_BOARD_KEY);
       expect(columns.has(t.status)).toBe(true);
     }
+  });
+
+  it("seeds runs covering the active, awaiting-input, and done states", () => {
+    const seeds = demoRunSeeds();
+    expect(seeds.length).toBeGreaterThan(0);
+    const states = new Set(seeds.map((s) => s.state));
+    expect(states).toEqual(new Set(["running", "awaiting_input", "done"]));
+    for (const seed of seeds) {
+      expect(seed.id).toBeTruthy();
+      expect(seed.ticketKey).toMatch(/^DEMO-/);
+      expect(seed.events.length).toBeGreaterThan(0);
+    }
+    // The finished run carries a cost and a PR link.
+    const done = seeds.find((s) => s.state === "done");
+    expect(done?.prUrl).toMatch(/\/pull\/\d+$/);
+    expect(typeof done?.costUsd).toBe("number");
   });
 });

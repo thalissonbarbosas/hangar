@@ -65,7 +65,9 @@ body {
   font-size: 14px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
-  transition: background var(--t), color var(--t);
+  transition:
+    background var(--t),
+    color var(--t);
 }
 
 ::-webkit-scrollbar {
@@ -91,7 +93,10 @@ body {
   font: 600 13px var(--font);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: background var(--t), transform var(--t), box-shadow var(--t);
+  transition:
+    background var(--t),
+    transform var(--t),
+    box-shadow var(--t);
 }
 .btn:hover {
   background: var(--accent-hover);
@@ -115,7 +120,9 @@ body {
   padding: 8px 13px;
   font: 500 13px var(--font);
   cursor: pointer;
-  transition: border-color var(--t), background var(--t);
+  transition:
+    border-color var(--t),
+    background var(--t);
 }
 .btn-ghost:hover {
   border-color: var(--border-strong);
@@ -143,7 +150,10 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   cursor: pointer;
-  transition: border-color var(--t), background var(--t), color var(--t);
+  transition:
+    border-color var(--t),
+    background var(--t),
+    color var(--t);
 }
 .icon-btn:hover {
   border-color: var(--border-strong);
@@ -212,7 +222,9 @@ body {
   color: var(--text-muted);
   font-weight: 500;
   border: 1px solid transparent;
-  transition: color var(--t), background var(--t);
+  transition:
+    color var(--t),
+    background var(--t);
 }
 .pill input {
   display: none;
@@ -348,7 +360,10 @@ body {
   padding: 11px 12px;
   text-decoration: none;
   color: var(--text);
-  transition: border-color var(--t), transform var(--t), box-shadow var(--t);
+  transition:
+    border-color var(--t),
+    transform var(--t),
+    box-shadow var(--t);
 }
 .card:hover {
   border-color: var(--border-strong);
@@ -436,7 +451,9 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   padding: 11px 12px;
-  transition: border-color var(--t), transform var(--t);
+  transition:
+    border-color var(--t),
+    transform var(--t);
 }
 .agent:hover {
   border-color: var(--border-strong);
@@ -563,7 +580,9 @@ html[data-theme="light"] .model-haiku {
   padding: 9px 11px;
   font: 400 13px var(--font);
   width: 100%;
-  transition: border-color var(--t), box-shadow var(--t);
+  transition:
+    border-color var(--t),
+    box-shadow var(--t);
 }
 .settings input:focus {
   outline: none;
@@ -1634,7 +1653,10 @@ a.session-ticket {
   font: 600 13px var(--font);
   text-align: left;
   cursor: pointer;
-  transition: background var(--t), color var(--t), border-color var(--t);
+  transition:
+    background var(--t),
+    color var(--t),
+    border-color var(--t);
 }
 .settings-nav-item:hover {
   background: var(--surface-2);
@@ -1668,7 +1690,9 @@ a.session-ticket {
   padding: 9px 11px;
   font: 400 13px var(--font);
   width: 100%;
-  transition: border-color var(--t), box-shadow var(--t);
+  transition:
+    border-color var(--t),
+    box-shadow var(--t);
 }
 .settings-tabbed input:focus,
 .settings-tabbed select:focus {
@@ -2011,7 +2035,10 @@ a.session-ticket {
   background: var(--surface-2);
   color: var(--text-muted);
   cursor: pointer;
-  transition: border-color var(--t), background var(--t), color var(--t);
+  transition:
+    border-color var(--t),
+    background var(--t),
+    color var(--t);
 }
 .wf-step:disabled {
   cursor: default;
@@ -2220,7 +2247,10 @@ a.session-ticket {
   background: var(--surface-2);
   color: var(--text);
   cursor: pointer;
-  transition: border-color var(--t), background var(--t), color var(--t);
+  transition:
+    border-color var(--t),
+    background var(--t),
+    color var(--t);
 }
 .rq-opt:hover:not(:disabled) {
   border-color: var(--accent);

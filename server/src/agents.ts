@@ -29,7 +29,12 @@ function toAgent(sourcePath: string, fm: Record<string, string>): Agent {
     name: fm.name || path.basename(sourcePath).replace(/\.md$/, ""),
     description: fm.description || "",
     model: fm.model || undefined,
-    tools: fm.tools ? fm.tools.split(",").map((t) => t.trim()).filter(Boolean) : [],
+    tools: fm.tools
+      ? fm.tools
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean)
+      : [],
     sourcePath,
   };
 }

@@ -14,7 +14,16 @@ import {
   Search,
 } from "lucide-react";
 import { api } from "./api";
-import { Agent, BoardConfig, RunKind, RunSummary, Skill, Ticket, WorkflowRunSummary, isActive } from "./types";
+import {
+  Agent,
+  BoardConfig,
+  RunKind,
+  RunSummary,
+  Skill,
+  Ticket,
+  WorkflowRunSummary,
+  isActive,
+} from "./types";
 import { Board } from "./components/Board";
 import { Settings } from "./components/Settings";
 import { RunPanel } from "./components/RunPanel";
@@ -78,11 +87,17 @@ export function App() {
   }, []);
 
   const refreshRuns = useCallback(() => {
-    api.runs().then((r) => setRuns(r.runs)).catch(() => {});
+    api
+      .runs()
+      .then((r) => setRuns(r.runs))
+      .catch(() => {});
   }, []);
 
   const refreshWorkflowRuns = useCallback(() => {
-    api.workflowRuns().then((r) => setWorkflowRuns(r.runs)).catch(() => {});
+    api
+      .workflowRuns()
+      .then((r) => setWorkflowRuns(r.runs))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -115,7 +130,6 @@ export function App() {
 
   useEffect(() => {
     if (view === "board") loadTickets(selected);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, view]);
 
   // Persist board-show and assignee-filter preferences across reloads.
@@ -190,10 +204,16 @@ export function App() {
   }
 
   function stopWorkflow(id: string) {
-    api.stopWorkflow(id).then(refreshWorkflowRuns).catch(() => {});
+    api
+      .stopWorkflow(id)
+      .then(refreshWorkflowRuns)
+      .catch(() => {});
   }
   function deleteWorkflowRun(id: string) {
-    api.deleteWorkflowRun(id).then(refreshWorkflowRuns).catch(() => {});
+    api
+      .deleteWorkflowRun(id)
+      .then(refreshWorkflowRuns)
+      .catch(() => {});
   }
 
   function runStandalone(name: string, kind: RunKind, note: string, cwd?: string, title?: string) {
@@ -214,25 +234,39 @@ export function App() {
     api
       .handoff(parent.runId, name, kind, note)
       .then((r) => {
-        setActiveRun({ runId: r.runId, ticketKey: parent.ticketKey, agentName: name, ticketUrl: parent.ticketUrl });
+        setActiveRun({
+          runId: r.runId,
+          ticketKey: parent.ticketKey,
+          agentName: name,
+          ticketUrl: parent.ticketUrl,
+        });
         refreshRuns();
       })
       .catch((e) => setError(String(e.message ?? e)));
   }
   function stop(runId: string) {
-    api.stopRun(runId).then(refreshRuns).catch(() => {});
+    api
+      .stopRun(runId)
+      .then(refreshRuns)
+      .catch(() => {});
   }
   function deleteRun(runId: string) {
-    api.deleteRun(runId).then(() => {
-      setActiveRun((cur) => (cur?.runId === runId ? null : cur));
-      refreshRuns();
-    }).catch(() => {});
+    api
+      .deleteRun(runId)
+      .then(() => {
+        setActiveRun((cur) => (cur?.runId === runId ? null : cur));
+        refreshRuns();
+      })
+      .catch(() => {});
   }
   function clearRuns(scope: "finished" | "all") {
-    api.clearRuns(scope).then(() => {
-      if (scope === "all") setActiveRun(null);
-      refreshRuns();
-    }).catch(() => {});
+    api
+      .clearRuns(scope)
+      .then(() => {
+        if (scope === "all") setActiveRun(null);
+        refreshRuns();
+      })
+      .catch(() => {});
   }
 
   const runByTicket = useMemo(() => {
@@ -253,7 +287,7 @@ export function App() {
 
   const assignees = useMemo(
     () => [...new Set(tickets.map((t) => t.assignee).filter((a): a is string => !!a))].sort(),
-    [tickets]
+    [tickets],
   );
 
   // Drop a persisted assignee filter that no longer applies to the loaded board (e.g. after
@@ -300,7 +334,11 @@ export function App() {
             <div className="board-toggles">
               {boards.map((b) => (
                 <label key={b.key} className={selected.includes(b.key) ? "pill on" : "pill"}>
-                  <input type="checkbox" checked={selected.includes(b.key)} onChange={() => toggleBoard(b.key)} />
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(b.key)}
+                    onChange={() => toggleBoard(b.key)}
+                  />
                   {b.name}
                 </label>
               ))}
@@ -383,7 +421,13 @@ export function App() {
         </div>
       ) : view === "sessions" ? (
         <div className="settings-area">
-          <SessionsView runs={runs} onOpenRun={openRun} onStop={stop} onDelete={deleteRun} onClear={clearRuns} />
+          <SessionsView
+            runs={runs}
+            onOpenRun={openRun}
+            onStop={stop}
+            onDelete={deleteRun}
+            onClear={clearRuns}
+          />
         </div>
       ) : view === "run" ? (
         <div className="settings-area">

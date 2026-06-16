@@ -88,12 +88,14 @@ export function saveConfig(raw: HangarConfig): HangarConfig {
   validateConfig(raw);
   const clean: HangarConfig = {
     agentsDir: raw.agentsDir,
-    ...(raw.skillsDir ? { skillsDir: raw.skillsDir } : currentConfig?.skillsDir ? { skillsDir: currentConfig.skillsDir } : {}),
+    ...(raw.skillsDir
+      ? { skillsDir: raw.skillsDir }
+      : currentConfig?.skillsDir
+        ? { skillsDir: currentConfig.skillsDir }
+        : {}),
     boards: raw.boards.map((b) => {
       const paths = (b.repoPaths ?? (b.repoPath ? [b.repoPath] : [])).map((p) => p.trim()).filter(Boolean);
-      const agents = Array.isArray(b.agents)
-        ? b.agents.map((s) => String(s).trim()).filter(Boolean)
-        : [];
+      const agents = Array.isArray(b.agents) ? b.agents.map((s) => String(s).trim()).filter(Boolean) : [];
       const workflows = cleanWorkflows(b.workflows);
       return {
         key: b.key.trim(),
