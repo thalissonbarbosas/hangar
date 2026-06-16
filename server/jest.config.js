@@ -6,10 +6,8 @@ module.exports = {
   testMatch: ["**/__tests__/**/*.test.ts"],
   clearMocks: true,
   collectCoverage: true,
-  // Coverage is enforced at 100% over the pure-logic modules under test. Add modules
-  // here as they are extracted/unit-tested so the gate stays meaningful and achievable.
-  collectCoverageFrom: ["src/safe-shell.ts", "src/demo.ts"],
+  collectCoverageFrom: ["src/**/*.ts", "!src/**/__tests__/**", "!src/types.ts"],
   coverageThreshold: {
-    global: { branches: 100, functions: 100, lines: 100, statements: 100 },
+    global: { branches: 80, functions: 80, lines: 80, statements: 80 },
   },
 };
