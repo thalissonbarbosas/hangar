@@ -1,0 +1,495 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  X,
+  Bot,
+  Wrench,
+  ShieldQuestion,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Terminal,
+  Square,
+  Check,
+  Ban,
+  ExternalLink,
+  GitPullRequest,
+  GitBranch,
+  ListChecks,
+  Send,
+  MessageCircleQuestion,
+  User,
+} from "lucide-react";
+import { api } from "../api";
+import { Agent, RunEvent, RunKind, RunState, Skill, isActive } from "../types";
+import { HandoffModal } from "./HandoffModal";
+import { Markdown } from "./Markdown";
+
+function s(v: unknown): string {
+  return typeof v === "string" ? v : v == null ? "" : String(v);
+}
+
+function limitMessage(subtype: string): string {
+  if (subtype === "error_max_turns") return "Hit the max-turns limit — raise it in Settings → Run limits and hand off to continue.";
+  if (subtype === "error_max_budget_usd") return "Hit the per-run spend cap — raise it in Settings → Run limits.";
+  return subtype || "Run ended with an error";
+}
+
+export function RunPanel({
+  runId,
+  ticketKey,
+  agentName,
+  ticketUrl,
+  agents,
+  skills,
+  onHandoff,
+  onClose,
+}: {
+  runId: string;
+  ticketKey: string;
+  agentName: string;
+  ticketUrl?: string;
+  agents: Agent[];
+  skills: Skill[];
+  onHandoff: (name: string, kind: RunKind, note: string) => void;
+  onClose: () => void;
+}) {
+  const [events, setEvents] = useState<RunEvent[]>([]);
+  const [submitting, setSubmitting] = useState<Set<string>>(new Set());
+  const [handoff, setHandoff] = useState(false);
+  const [reconnect, setReconnect] = useState(0);
+  const [composer, setComposer] = useState("");
+  const [sending, setSending] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  // Reconnecting (bumped after sending a follow-up) re-opens the SSE so a resumed/steered
+  // turn streams in. The endpoint replays the full transcript first, so resetting is lossless.
+  useEffect(() => {
+    setEvents([]);
+    const es = new EventSource(`/api/runs/${runId}/stream`);
+    es.onmessage = (e) => {
+      try {
+        setEvents((prev) => [...prev, JSON.parse(e.data) as RunEvent]);
+      } catch {
+        /* ignore */
+      }
+    };
+    es.addEventListener("end", () => es.close());
+    return () => es.close();
+  }, [runId, reconnect]);
+
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
+  }, [events]);
+
+  const resolvedDecisions = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of events) if (e.kind === "permission_resolved") m.set(s(e.requestId), s(e.decision));
+    return m;
+  }, [events]);
+  const resolvedQuestions = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of events) if (e.kind === "question_resolved") m.set(s(e.requestId), s(e.answer));
+    return m;
+  }, [events]);
+  const pendingQuestion = useMemo(
+    () => events.some((e) => e.kind === "question" && !resolvedQuestions.has(s(e.requestId))),
+    [events, resolvedQuestions]
+  );
+
+  const state = useMemo<RunState>(
+    () => deriveState(events, resolvedDecisions, resolvedQuestions),
+    [events, resolvedDecisions, resolvedQuestions]
+  );
+  const sessionId = useMemo(
+    () => events.find((e) => e.kind === "system" && e.sessionId)?.sessionId as string | undefined,
+    [events]
+  );
+  const cost = useMemo(() => {
+    const r = [...events].reverse().find((e) => typeof e.costUsd === "number");
+    return r?.costUsd as number | undefined;
+  }, [events]);
+  const phase = useMemo(() => {
+    const p = [...events].reverse().find((e) => e.kind === "phase");
+    return p ? { label: s(p.label), done: Number(p.done) || 0, total: Number(p.total) || 0 } : null;
+  }, [events]);
+  const prUrl = useMemo(() => events.find((e) => e.kind === "pr")?.url as string | undefined, [events]);
+  const branch = useMemo(() => events.find((e) => e.kind === "worktree")?.branch as string | undefined, [events]);
+  const resultText = useMemo(() => {
+    const r = [...events].reverse().find((e) => e.kind === "result" && e.subtype === "success");
+    if (r?.result) return String(r.result);
+    return events.filter((e) => e.kind === "assistant_delta").map((e) => s(e.text)).join("");
+  }, [events]);
+
+  async function decide(requestId: string, decision: "allow" | "deny") {
+    setSubmitting((p) => new Set(p).add(requestId));
+    try {
+      await api.resolvePermission(runId, requestId, decision);
+    } catch {
+      setSubmitting((p) => {
+        const n = new Set(p);
+        n.delete(requestId);
+        return n;
+      });
+    }
+  }
+
+  // Send a follow-up: answers an open question, steers a running turn, or resumes a finished
+  // session. Reconnect to stream the resulting events back in.
+  async function sendFollowup(text: string) {
+    const t = text.trim();
+    if (!t || sending) return;
+    setSending(true);
+    try {
+      await api.sendMessage(runId, t);
+      setComposer("");
+      setReconnect((n) => n + 1);
+    } catch {
+      /* ignore — surfaced via the run state */
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="run-overlay" onClick={onClose}>
+      <aside className="run-panel" onClick={(e) => e.stopPropagation()}>
+        <header className="run-head">
+          <div className="run-head-main">
+            <StateBadge state={state} />
+            <span className="run-title">
+              <span className="run-ticket">{ticketKey}</span>
+              <span className="run-arrow">→</span>
+              <Bot size={14} /> {agentName}
+            </span>
+          </div>
+          <div className="run-head-actions">
+            <button className="btn-ghost sm" onClick={() => setHandoff(true)} title="Hand off result to another agent">
+              <GitBranch size={13} /> Hand off
+            </button>
+            {isActive(state) && (
+              <button className="btn-ghost danger sm" onClick={() => api.stopRun(runId)} title="Stop session">
+                <Square size={13} /> Stop
+              </button>
+            )}
+            <button className="icon-btn" onClick={onClose} title="Close">
+              <X size={17} />
+            </button>
+          </div>
+        </header>
+
+        <div className="run-sub">
+          {ticketUrl && (
+            <a href={ticketUrl} target="_blank" rel="noreferrer" title="Open in Jira">
+              <ExternalLink size={11} /> Jira
+            </a>
+          )}
+          {prUrl && (
+            <a href={prUrl} target="_blank" rel="noreferrer" title={prUrl}>
+              <GitPullRequest size={11} /> PR
+            </a>
+          )}
+          {branch && (
+            <span title="Isolated worktree branch">
+              <GitBranch size={11} /> {branch}
+            </span>
+          )}
+          {sessionId && <span title="Claude Code session id">session {sessionId.slice(0, 8)}</span>}
+          {typeof cost === "number" && <span>${cost.toFixed(4)}</span>}
+        </div>
+
+        {phase && (
+          <div className={`run-phase${isActive(state) ? " active" : ""}`} title="Current step (from the agent's todo list)">
+            {isActive(state) ? <Loader2 size={13} className="spin" /> : <ListChecks size={13} />}
+            <span className="run-phase-label">{phase.label}</span>
+            {phase.total > 0 && <span className="run-phase-count">{phase.done}/{phase.total}</span>}
+          </div>
+        )}
+
+        <div className="run-body" ref={bodyRef}>
+          {events.length === 0 && (
+            <div className="run-line muted">
+              <Loader2 size={14} className="spin" /> Connecting…
+            </div>
+          )}
+          {renderEvents(events, resolvedDecisions, resolvedQuestions, submitting, decide, sendFollowup)}
+        </div>
+
+        {(sessionId || isActive(state)) && (
+          <form
+            className={`run-composer${pendingQuestion ? " asking" : ""}`}
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendFollowup(composer);
+            }}
+          >
+            <textarea
+              value={composer}
+              onChange={(e) => setComposer(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendFollowup(composer);
+                }
+              }}
+              rows={1}
+              placeholder={
+                pendingQuestion
+                  ? "Type your answer…"
+                  : isActive(state)
+                    ? "Send a message to the session…"
+                    : "Send a follow-up (resumes the session)…"
+              }
+            />
+            <button className="btn sm" type="submit" disabled={!composer.trim() || sending} title="Send (Enter)">
+              <Send size={14} />
+            </button>
+          </form>
+        )}
+
+        {handoff && (
+          <HandoffModal
+            fromLabel={agentName}
+            agents={agents}
+            skills={skills}
+            initialNote={resultText}
+            onRun={(name, kind, note) => {
+              onHandoff(name, kind, note);
+              setHandoff(false);
+            }}
+            onCancel={() => setHandoff(false)}
+          />
+        )}
+      </aside>
+    </div>
+  );
+}
+
+// Walk from the newest event and return on the first state-bearing one. This handles
+// resumed/multi-turn sessions correctly: a later turn's state overrides an earlier result.
+function deriveState(
+  events: RunEvent[],
+  resolvedPerms: Map<string, string>,
+  resolvedQs: Map<string, string>
+): RunState {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    switch (e.kind) {
+      case "result":
+        return e.subtype === "success" ? "done" : "error";
+      case "stopped":
+        return "stopped";
+      case "error":
+        return "error";
+      case "state":
+        return e.state as RunState;
+      case "question":
+        if (!resolvedQs.has(s(e.requestId))) return "awaiting_input";
+        break;
+      case "permission_request":
+        if (!resolvedPerms.has(s(e.requestId))) return "awaiting_input";
+        break;
+    }
+  }
+  return "starting";
+}
+
+// Coalesce assistant_delta chunks into Markdown blocks, interleaved with other events.
+function renderEvents(
+  events: RunEvent[],
+  resolved: Map<string, string>,
+  resolvedQuestions: Map<string, string>,
+  submitting: Set<string>,
+  decide: (id: string, d: "allow" | "deny") => void,
+  answer: (text: string) => void
+) {
+  const out: JSX.Element[] = [];
+  let buf = "";
+  let bufKey = 0;
+  const flush = (live = false) => {
+    if (!buf) return;
+    out.push(
+      <div className={`run-line text${live ? " live" : ""}`} key={`t-${bufKey++}`}>
+        <Markdown>{buf}</Markdown>
+      </div>
+    );
+    buf = "";
+  };
+
+  for (const e of events) {
+    if (e.kind === "assistant_delta") {
+      buf += s(e.text);
+      continue;
+    }
+    flush();
+    const el = renderOther(e, resolved, resolvedQuestions, submitting, decide, answer);
+    if (el) out.push(el);
+  }
+  flush(true);
+  return out;
+}
+
+function renderOther(
+  e: RunEvent,
+  resolved: Map<string, string>,
+  resolvedQuestions: Map<string, string>,
+  submitting: Set<string>,
+  decide: (id: string, d: "allow" | "deny") => void,
+  answer: (text: string) => void
+): JSX.Element | null {
+  switch (e.kind) {
+    case "tool_use":
+      return (
+        <div className="run-line tool" key={e.seq}>
+          <Wrench size={13} />
+          <span className="tool-name">{s(e.tool)}</span>
+          <span className="tool-input">{s(e.input)}</span>
+        </div>
+      );
+    case "permission_request": {
+      const id = s(e.requestId);
+      const decision = resolved.get(id);
+      if (decision) {
+        return (
+          <div className={`run-line resolved ${decision}`} key={e.seq}>
+            {decision === "allow" ? <Check size={13} /> : <Ban size={13} />}
+            {decision === "allow" ? "Approved" : "Denied"} <b>{s(e.tool)}</b>
+          </div>
+        );
+      }
+      const busy = submitting.has(id);
+      return (
+        <div className="perm-request" key={e.seq}>
+          <div className="perm-head">
+            <ShieldQuestion size={15} /> Approve <b>{s(e.tool)}</b>?
+          </div>
+          <div className="perm-input">{s(e.input)}</div>
+          <div className="perm-actions">
+            <button className="btn sm" disabled={busy} onClick={() => decide(id, "allow")}>
+              <Check size={14} /> Allow
+            </button>
+            <button className="btn-ghost danger sm" disabled={busy} onClick={() => decide(id, "deny")}>
+              <Ban size={14} /> Deny
+            </button>
+          </div>
+        </div>
+      );
+    }
+    case "worktree":
+      return (
+        <div className="run-line muted" key={e.seq}>
+          <GitBranch size={13} /> worktree {s(e.repo)} @ {s(e.branch)}
+        </div>
+      );
+    case "system":
+      return (
+        <div className="run-line muted" key={e.seq}>
+          <Terminal size={13} /> {s(e.message)}
+        </div>
+      );
+    case "info":
+      return e.message ? (
+        <div className="run-line muted" key={e.seq}>
+          {s(e.message)}
+        </div>
+      ) : null;
+    case "stopped":
+      return (
+        <div className="run-result stopped" key={e.seq}>
+          <Square size={14} /> Session stopped by operator
+        </div>
+      );
+    case "result":
+      return e.subtype === "success" ? (
+        <div className="run-result done" key={e.seq}>
+          <div className="run-result-head">
+            <CheckCircle2 size={15} /> Result
+          </div>
+          <div className="run-result-body">
+            <Markdown>{s(e.result)}</Markdown>
+          </div>
+        </div>
+      ) : (
+        <div className="run-result error" key={e.seq}>
+          <AlertCircle size={15} /> {limitMessage(s(e.subtype))}
+        </div>
+      );
+    case "error":
+      return (
+        <div className="run-result error" key={e.seq}>
+          <AlertCircle size={15} /> {s(e.message)}
+        </div>
+      );
+    case "user_message":
+      return (
+        <div className="run-user" key={e.seq}>
+          <span className="run-user-label">
+            <User size={12} /> You
+          </span>
+          <div className="run-user-text">{s(e.text)}</div>
+        </div>
+      );
+    case "question": {
+      const rid = s(e.requestId);
+      const ans = resolvedQuestions.get(rid);
+      const questions = (Array.isArray(e.questions) ? e.questions : []) as {
+        question: string;
+        header?: string;
+        options: { label: string; description?: string }[];
+      }[];
+      return (
+        <div className="run-question" key={e.seq}>
+          <div className="rq-head">
+            <MessageCircleQuestion size={15} /> The agent is asking
+          </div>
+          {questions.map((q, qi) => (
+            <div className="rq-block" key={qi}>
+              {q.header && <span className="rq-tag">{q.header}</span>}
+              <div className="rq-text">{q.question}</div>
+              <div className="rq-options">
+                {(q.options ?? []).map((o, oi) => (
+                  <button
+                    key={oi}
+                    className="rq-opt"
+                    disabled={!!ans}
+                    title={o.description}
+                    onClick={() => answer(o.label)}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          {ans ? (
+            <div className="rq-answered">
+              <Check size={12} /> You answered: {ans}
+            </div>
+          ) : (
+            <div className="rq-hint">Pick an option, or type a reply below.</div>
+          )}
+        </div>
+      );
+    }
+    default:
+      return null;
+  }
+}
+
+function StateBadge({ state }: { state: RunState }) {
+  const map: Record<RunState, { label: string; cls: string; icon: JSX.Element }> = {
+    queued: { label: "Queued", cls: "await", icon: <Loader2 size={13} /> },
+    starting: { label: "Starting", cls: "running", icon: <Loader2 size={13} className="spin" /> },
+    running: { label: "Running", cls: "running", icon: <Loader2 size={13} className="spin" /> },
+    awaiting_input: { label: "Needs input", cls: "await", icon: <ShieldQuestion size={13} /> },
+    done: { label: "Done", cls: "done", icon: <CheckCircle2 size={13} /> },
+    error: { label: "Error", cls: "error", icon: <AlertCircle size={13} /> },
+    stopped: { label: "Stopped", cls: "stopped", icon: <Square size={13} /> },
+  };
+  const m = map[state];
+  return (
+    <span className={`run-badge ${m.cls}`}>
+      {m.icon}
+      {m.label}
+    </span>
+  );
+}

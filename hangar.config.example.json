@@ -1,0 +1,14 @@
+{
+  "agentsDir": "~/.claude/agents",
+  "boards": [
+    {
+      "key": "DEMO",
+      "name": "My Project",
+      "statuses": ["To Do", "In Progress", "In Review", "Done"],
+      "repoPaths": ["~/path/to/your/repo"],
+      "agents": ["code-reviewer", "debugger"]
+    }
+  ],
+  "bypassPermissions": true,
+  "isolateRuns": true
+}
