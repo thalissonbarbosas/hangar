@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ExternalLink, Tag, Flag, Bot, Activity, ChevronDown, Loader2, Sparkles, StickyNote, Workflow as WorkflowIcon } from "lucide-react";
+import {
+  ExternalLink,
+  Tag,
+  Flag,
+  Bot,
+  Activity,
+  ChevronDown,
+  Loader2,
+  Sparkles,
+  StickyNote,
+  Workflow as WorkflowIcon,
+} from "lucide-react";
 import {
   Agent,
   BoardConfig,
@@ -17,7 +28,16 @@ import {
 import { Avatar } from "./Avatar";
 import { NoteModal } from "./NoteModal";
 
-const COLUMN_COLORS = ["#4f7cff", "#10b981", "#e08e0b", "#ec4899", "#8b5cf6", "#0ea5e9", "#f43f5e", "#14b8a6"];
+const COLUMN_COLORS = [
+  "#4f7cff",
+  "#10b981",
+  "#e08e0b",
+  "#ec4899",
+  "#8b5cf6",
+  "#0ea5e9",
+  "#f43f5e",
+  "#14b8a6",
+];
 
 const STATE_LABEL: Record<RunState, string> = {
   queued: "queued",
@@ -148,7 +168,11 @@ function AssignMenu({ ticketKey, ctx }: { ticketKey: string; ctx: CardCtx }) {
       {open &&
         pos &&
         createPortal(
-          <div className="assign-pop" ref={popRef} style={{ position: "fixed", top: pos.top, left: pos.left }}>
+          <div
+            className="assign-pop"
+            ref={popRef}
+            style={{ position: "fixed", top: pos.top, left: pos.left }}
+          >
             {ctx.workflows.length > 0 && (
               <div className="assign-col">
                 <div className="assign-col-head">
@@ -173,7 +197,14 @@ function AssignMenu({ ticketKey, ctx }: { ticketKey: string; ctx: CardCtx }) {
                 <Bot size={12} /> Agents
               </div>
               {ctx.agents.map((a) => (
-                <ItemRow key={a.name} name={a.name} kind="agent" sub={a.description} onRun={() => run(a.name, "agent")} onNote={() => askNote(a.name, "agent")} />
+                <ItemRow
+                  key={a.name}
+                  name={a.name}
+                  kind="agent"
+                  sub={a.description}
+                  onRun={() => run(a.name, "agent")}
+                  onNote={() => askNote(a.name, "agent")}
+                />
               ))}
             </div>
             <div className="assign-col">
@@ -194,7 +225,7 @@ function AssignMenu({ ticketKey, ctx }: { ticketKey: string; ctx: CardCtx }) {
               ))}
             </div>
           </div>,
-          document.body
+          document.body,
         )}
       {pendingNote &&
         (() => {
@@ -270,7 +301,11 @@ function TicketCard({ ticket, ctx }: { ticket: Ticket; ctx: CardCtx }) {
       <div className="card-actions">
         {run ? (
           <>
-            <button className={`run-tag ${run.state}`} onClick={() => ctx.onOpenRun(run)} title={`Open session (${run.agentName})`}>
+            <button
+              className={`run-tag ${run.state}`}
+              onClick={() => ctx.onOpenRun(run)}
+              title={`Open session (${run.agentName})`}
+            >
               {active ? <Loader2 size={12} className="spin" /> : <Activity size={12} />}
               {run.kind === "skill" ? <Sparkles size={11} /> : <Bot size={11} />}
               {run.agentName} · {STATE_LABEL[run.state]}

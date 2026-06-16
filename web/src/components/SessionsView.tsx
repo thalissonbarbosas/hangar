@@ -75,14 +75,22 @@ export function SessionsView({
         </span>
       </div>
 
-      {runs.length === 0 && <div className="empty">No sessions yet. Assign an agent to a ticket to start one.</div>}
+      {runs.length === 0 && (
+        <div className="empty">No sessions yet. Assign an agent to a ticket to start one.</div>
+      )}
 
       <div className="sessions-list">
         {runs.map((r) => (
           <div className={`session-row${isActive(r.state) ? " active" : ""}`} key={r.id}>
             <StateChip state={r.state} />
             {r.ticketUrl ? (
-              <a className="session-ticket" href={r.ticketUrl} target="_blank" rel="noreferrer" title="Open in Jira">
+              <a
+                className="session-ticket"
+                href={r.ticketUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="Open in Jira"
+              >
                 {r.ticketKey} <ExternalLink size={11} />
               </a>
             ) : (

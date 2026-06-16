@@ -142,7 +142,11 @@ function advance(wf: WorkflowRun): void {
   launchStep(wf); // persists the new step
 }
 
-export async function startWorkflow(boardKey: string, workflowId: string, ticket: Ticket): Promise<WorkflowRun> {
+export async function startWorkflow(
+  boardKey: string,
+  workflowId: string,
+  ticket: Ticket,
+): Promise<WorkflowRun> {
   const cfg = getConfig();
   const board = cfg.boards.find((b) => b.key === boardKey);
   if (!board) throw new Error(`Unknown board: ${boardKey}`);

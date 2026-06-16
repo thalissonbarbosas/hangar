@@ -66,7 +66,7 @@ export function allSkills(cfg: HangarConfig): Skill[] {
     }
   }
   return [...user, ...repoSkills].sort(
-    (a, b) => a.name.localeCompare(b.name) || (a.source ?? "").localeCompare(b.source ?? "")
+    (a, b) => a.name.localeCompare(b.name) || (a.source ?? "").localeCompare(b.source ?? ""),
   );
 }
 

@@ -36,8 +36,8 @@ export function SkillRunner({
           <Sparkles size={17} /> Run a skill or agent
         </h2>
         <p className="hint">
-          Run an ad-hoc task — no Jira ticket required. Mention ticket keys or links in the note if
-          you want the agent to pull them in.
+          Run an ad-hoc task — no Jira ticket required. Mention ticket keys or links in the note if you want
+          the agent to pull them in.
         </p>
 
         <div className="field">
@@ -101,7 +101,9 @@ export function SkillRunner({
           <button className="btn" disabled={!canRun} onClick={run}>
             <Play size={14} /> Run
           </button>
-          {!canRun && <span className="hint">Pick {kind === "skill" ? "a skill" : "an agent"} and write a task.</span>}
+          {!canRun && (
+            <span className="hint">Pick {kind === "skill" ? "a skill" : "an agent"} and write a task.</span>
+          )}
         </div>
       </section>
     </div>

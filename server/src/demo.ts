@@ -38,7 +38,7 @@ export function demoTickets(): Ticket[] {
     status: string,
     issuetype: string,
     priority: string,
-    assignee: string | null
+    assignee: string | null,
   ): Ticket => ({
     key: `DEMO-${n}`,
     summary,
@@ -164,13 +164,13 @@ export function demoRunSeeds(): DemoRunSeed[] {
             "Starting from the report: a 500 when the email has a trailing space. Let me find the " +
             "login handler and the validation it runs.\n\n",
         },
-        { kind: "tool_use", tool: "Grep", input: "pattern: \"login\", glob: \"src/**/*.ts\"" },
+        { kind: "tool_use", tool: "Grep", input: 'pattern: "login", glob: "src/**/*.ts"' },
         { kind: "tool_use", tool: "Read", input: "src/auth/login.ts" },
         { kind: "phase", label: "Reproducing the failure", done: 1, total: 3 },
         {
           kind: "assistant_delta",
           text:
-            "Found it — `findUserByEmail` is called with the raw input, so `\"a@b.com \"` misses the " +
+            'Found it — `findUserByEmail` is called with the raw input, so `"a@b.com "` misses the ' +
             "index and a downstream `.id` read throws. Writing a failing test before the fix.",
         },
         { kind: "tool_use", tool: "Write", input: "tests/auth/login.trailing-space.spec.ts" },
@@ -204,7 +204,7 @@ export function demoRunSeeds(): DemoRunSeed[] {
           requestId: "demo-q-1",
           questions: [
             {
-              question: "package.json pins \"engines.node\": \">=18\". Bump it to >=22 to match CI?",
+              question: 'package.json pins "engines.node": ">=18". Bump it to >=22 to match CI?',
               header: "engines",
               options: [
                 { label: "Yes, bump to >=22", description: "Keep package.json and CI in lockstep." },

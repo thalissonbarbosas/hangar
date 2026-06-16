@@ -125,16 +125,31 @@ function LimitsSection({ onSaved }: { onSaved: () => void }) {
       </h2>
       <div className="field">
         <label>Max turns per run</label>
-        <input type="number" min={1} placeholder="300 (default)" value={turns} onChange={(e) => setTurns(e.target.value)} onBlur={save} />
+        <input
+          type="number"
+          min={1}
+          placeholder="300 (default)"
+          value={turns}
+          onChange={(e) => setTurns(e.target.value)}
+          onBlur={save}
+        />
       </div>
       <div className="field">
         <label>Max spend per run (USD)</label>
-        <input type="number" min={0} step="0.5" placeholder="no cap" value={budget} onChange={(e) => setBudget(e.target.value)} onBlur={save} />
+        <input
+          type="number"
+          min={0}
+          step="0.5"
+          placeholder="no cap"
+          value={budget}
+          onChange={(e) => setBudget(e.target.value)}
+          onBlur={save}
+        />
       </div>
       <p className="hint">
-        Long replicate-fix-test agents can exceed the default — raise turns for them. The spend cap
-        is a safety net for unrestricted (bypass) mode: a run stops if it crosses it. Leave blank for
-        defaults (300 turns, no cap).
+        Long replicate-fix-test agents can exceed the default — raise turns for them. The spend cap is a
+        safety net for unrestricted (bypass) mode: a run stops if it crosses it. Leave blank for defaults (300
+        turns, no cap).
       </p>
       <div className="row">
         {saved === "saving" && <span className="hint">Saving…</span>}
@@ -229,10 +244,17 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
       </div>
       <div className="exclusive-list">
         {repoSkills.map((s) =>
-          row(`repo:${s.name}:${s.repo ?? ""}`, s.name, s.repo ? `${s.name} (${s.repo})` : s.name, <Columns3 size={12} />)
+          row(
+            `repo:${s.name}:${s.repo ?? ""}`,
+            s.name,
+            s.repo ? `${s.name} (${s.repo})` : s.name,
+            <Columns3 size={12} />,
+          ),
         )}
         {repoSkills.length === 0 && (
-          <span className="hint">No project skills — set a board's codebase paths to surface its <code>.claude/skills</code>.</span>
+          <span className="hint">
+            No project skills — set a board's codebase paths to surface its <code>.claude/skills</code>.
+          </span>
         )}
       </div>
       <div className="row" style={{ marginTop: 10 }}>
@@ -286,16 +308,16 @@ function IsolationSection({ onSaved }: { onSaved: () => void }) {
       <label className="switch-row">
         <input type="checkbox" checked={isolate} onChange={(e) => setMode(e.target.checked)} />
         <span>
-          <b>Git worktree per run</b> — each session gets its own branch and checkout, so multiple
-          agents on the same repo don't conflict.
+          <b>Git worktree per run</b> — each session gets its own branch and checkout, so multiple agents on
+          the same repo don't conflict.
         </span>
       </label>
       <div className="hint-box">
         <GitBranch size={15} />
         <span>
           When on, a run in a git repo executes in a temp worktree on a <code>hangar/…</code>
-          branch (shown in the run panel). Non-git paths run in place. When off, all runs share the
-          repo directory — avoid dispatching two writers at once.
+          branch (shown in the run panel). Non-git paths run in place. When off, all runs share the repo
+          directory — avoid dispatching two writers at once.
         </span>
       </div>
       <div className="row" style={{ marginTop: 10 }}>
@@ -343,9 +365,7 @@ function PermissionsSection({ onSaved }: { onSaved: () => void }) {
 
   return (
     <section className="card-panel">
-      <h2>
-        {bypass ? <ShieldAlert size={17} /> : <ShieldCheck size={17} />} Agent permissions
-      </h2>
+      <h2>{bypass ? <ShieldAlert size={17} /> : <ShieldCheck size={17} />} Agent permissions</h2>
       <label className="switch-row">
         <input type="checkbox" checked={bypass} onChange={(e) => setMode(e.target.checked)} />
         <span>
@@ -357,16 +377,16 @@ function PermissionsSection({ onSaved }: { onSaved: () => void }) {
         <div className="warn-box">
           <ShieldAlert size={15} />
           <span>
-            The agent can edit files, run any shell command, <code>git push</code>, and write to
-            databases in the board's repo — <b>with no approval</b>. Use only where you trust it to act.
+            The agent can edit files, run any shell command, <code>git push</code>, and write to databases in
+            the board's repo — <b>with no approval</b>. Use only where you trust it to act.
           </span>
         </div>
       ) : (
         <div className="hint-box">
           <ShieldCheck size={15} />
           <span>
-            Gated mode: reads, file edits, and read-only shell run automatically; mutating shell
-            commands pause for Allow / Deny.
+            Gated mode: reads, file edits, and read-only shell run automatically; mutating shell commands
+            pause for Allow / Deny.
           </span>
         </div>
       )}
@@ -430,7 +450,9 @@ function JiraSection() {
   async function runTest() {
     setTest({ ok: true, text: "Testing…" });
     const r = await api.testJira({ baseUrl, email, token: token || undefined });
-    setTest(r.ok ? { ok: true, text: `Connected as ${r.displayName}` } : { ok: false, text: r.error ?? "Failed" });
+    setTest(
+      r.ok ? { ok: true, text: `Connected as ${r.displayName}` } : { ok: false, text: r.error ?? "Failed" },
+    );
   }
 
   return (
@@ -440,7 +462,11 @@ function JiraSection() {
       </h2>
       <div className="field">
         <label>Base URL</label>
-        <input value={baseUrl} placeholder="https://your-domain.atlassian.net" onChange={(e) => setBaseUrl(e.target.value)} />
+        <input
+          value={baseUrl}
+          placeholder="https://your-domain.atlassian.net"
+          onChange={(e) => setBaseUrl(e.target.value)}
+        />
       </div>
       <div className="field">
         <label>Email</label>
@@ -843,7 +869,11 @@ function WorkflowsSection({ onSaved }: { onSaved: () => void }) {
                 value={w.name}
                 onChange={(e) => patchWorkflow(w.id, { name: e.target.value })}
               />
-              <button className="btn-ghost danger" onClick={() => removeWorkflow(w.id)} title="Remove workflow">
+              <button
+                className="btn-ghost danger"
+                onClick={() => removeWorkflow(w.id)}
+                title="Remove workflow"
+              >
                 <Trash2 size={15} />
               </button>
             </div>
@@ -922,7 +952,9 @@ function StepsEditor({
               className="step-note"
               placeholder="optional instruction for this step…"
               value={s.note ?? ""}
-              onChange={(e) => onChange(steps.map((x, idx) => (idx === i ? { ...x, note: e.target.value } : x)))}
+              onChange={(e) =>
+                onChange(steps.map((x, idx) => (idx === i ? { ...x, note: e.target.value } : x)))
+              }
             />
             <button className="chip-btn" onClick={() => move(i, -1)} title="Move up">
               <ChevronUp size={13} />
@@ -971,7 +1003,8 @@ function PathsEditor({ paths, onChange }: { paths: string[]; onChange: (p: strin
   return (
     <div className="paths-editor">
       <div className="paths-label">
-        Codebase paths <span className="hint">— first is the working dir; the rest are also accessible to the agent</span>
+        Codebase paths{" "}
+        <span className="hint">— first is the working dir; the rest are also accessible to the agent</span>
       </div>
       {paths.map((p, i) => (
         <div className="path-row" key={i}>
@@ -981,7 +1014,11 @@ function PathsEditor({ paths, onChange }: { paths: string[]; onChange: (p: strin
             value={p}
             onChange={(e) => onChange(paths.map((x, idx) => (idx === i ? e.target.value : x)))}
           />
-          <button className="chip-btn remove" onClick={() => onChange(paths.filter((_, idx) => idx !== i))} title="Remove path">
+          <button
+            className="chip-btn remove"
+            onClick={() => onChange(paths.filter((_, idx) => idx !== i))}
+            title="Remove path"
+          >
             <X size={14} />
           </button>
         </div>
@@ -1026,7 +1063,11 @@ function StatusEditor({
             <button className="chip-btn" onClick={() => move(i, 1)} title="Move right">
               <ChevronRight size={13} />
             </button>
-            <button className="chip-btn remove" onClick={() => onChange(statuses.filter((_, idx) => idx !== i))} title="Remove">
+            <button
+              className="chip-btn remove"
+              onClick={() => onChange(statuses.filter((_, idx) => idx !== i))}
+              title="Remove"
+            >
               <X size={13} />
             </button>
           </span>

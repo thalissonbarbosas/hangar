@@ -5,7 +5,7 @@ describe("buildJql", () => {
 
   it("filters by project and the board's statuses, ordered by Rank", () => {
     expect(buildJql(board, false)).toBe(
-      'project = "PP" AND status in ("To Do", "In Progress") ORDER BY Rank ASC'
+      'project = "PP" AND status in ("To Do", "In Progress") ORDER BY Rank ASC',
     );
   });
 
