@@ -376,11 +376,28 @@ body {
   align-items: center;
   margin-bottom: 6px;
 }
+.card-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
 .card-key {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   font: 600 12px var(--mono);
+  color: var(--accent);
+}
+.card-pr {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 600 12px var(--mono);
+  color: var(--text-muted);
+  transition: color var(--t);
+}
+.card-pr:hover {
   color: var(--accent);
 }
 .card-priority {

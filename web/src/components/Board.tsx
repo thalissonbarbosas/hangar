@@ -10,6 +10,7 @@ import {
   Loader2,
   Sparkles,
   StickyNote,
+  GitPullRequest,
   Workflow as WorkflowIcon,
 } from "lucide-react";
 import {
@@ -250,6 +251,7 @@ function AssignMenu({ ticketKey, ctx }: { ticketKey: string; ctx: CardCtx }) {
 function TicketCard({ ticket, ctx }: { ticket: Ticket; ctx: CardCtx }) {
   const run = ctx.runByTicket.get(ticket.key);
   const active = run ? isActive(run.state) : false;
+  const prNum = run?.prUrl?.match(/\/pull\/(\d+)/)?.[1];
   const [dragging, setDragging] = useState(false);
 
   function onDragStart(e: React.DragEvent) {
@@ -268,10 +270,25 @@ function TicketCard({ ticket, ctx }: { ticket: Ticket; ctx: CardCtx }) {
       onDragEnd={() => setDragging(false)}
     >
       <div className="card-key-row">
-        <a className="card-key" href={ticket.url} target="_blank" rel="noreferrer" draggable={false}>
-          {ticket.key}
-          <ExternalLink size={11} />
-        </a>
+        <span className="card-links">
+          <a className="card-key" href={ticket.url} target="_blank" rel="noreferrer" draggable={false}>
+            {ticket.key}
+            <ExternalLink size={11} />
+          </a>
+          {run?.prUrl && (
+            <a
+              className="card-pr"
+              href={run.prUrl}
+              target="_blank"
+              rel="noreferrer"
+              draggable={false}
+              title="Open pull request"
+            >
+              <GitPullRequest size={11} />
+              {prNum ? `#${prNum}` : "PR"}
+            </a>
+          )}
+        </span>
         {ticket.priority && (
           <span className="card-priority" style={{ color: priorityColor(ticket.priority) }}>
             <Flag size={10} />
