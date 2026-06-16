@@ -9,7 +9,9 @@ import type { WorkflowRun } from "./workflows";
 // attached to its ticket after a restart.
 
 const ROOT = path.resolve(__dirname, "..", "..");
-const DATA_DIR = process.env.HANGAR_DATA_DIR ? expandHome(process.env.HANGAR_DATA_DIR) : path.join(ROOT, ".hangar");
+const DATA_DIR = process.env.HANGAR_DATA_DIR
+  ? expandHome(process.env.HANGAR_DATA_DIR)
+  : path.join(ROOT, ".hangar");
 const RUNS_DIR = path.join(DATA_DIR, "runs");
 const WORKFLOWS_DIR = path.join(DATA_DIR, "workflows");
 
@@ -57,6 +59,7 @@ export const saveRunRecord = (record: RunRecord): void => writeRecord(RUNS_DIR, 
 export const deleteRunRecord = (id: string): void => deleteRecord(RUNS_DIR, id);
 export const loadRunRecords = (): RunRecord[] => loadRecords<RunRecord>(RUNS_DIR);
 
-export const saveWorkflowRecord = (record: WorkflowRecord): void => writeRecord(WORKFLOWS_DIR, record.id, record);
+export const saveWorkflowRecord = (record: WorkflowRecord): void =>
+  writeRecord(WORKFLOWS_DIR, record.id, record);
 export const deleteWorkflowRecord = (id: string): void => deleteRecord(WORKFLOWS_DIR, id);
 export const loadWorkflowRecords = (): WorkflowRecord[] => loadRecords<WorkflowRecord>(WORKFLOWS_DIR);

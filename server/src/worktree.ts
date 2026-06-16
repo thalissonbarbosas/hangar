@@ -23,7 +23,12 @@ async function gitRoot(dir: string): Promise<string | null> {
 }
 
 function sanitize(s: string): string {
-  return s.replace(/[^A-Za-z0-9._-]/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "run";
+  return (
+    s
+      .replace(/[^A-Za-z0-9._-]/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "run"
+  );
 }
 
 /**

@@ -62,7 +62,8 @@ export function WorkflowsBar({
   function toggle(key: string) {
     setCollapsed((prev) => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       try {
         localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...next]));
       } catch {
@@ -136,7 +137,9 @@ export function WorkflowsBar({
               {!isCollapsed && (
                 <div className="workflow-runs">
                   {runs.length === 0 && (
-                    <div className="workflow-empty">No tickets in this workflow yet — start one from a card's Assign menu.</div>
+                    <div className="workflow-empty">
+                      No tickets in this workflow yet — start one from a card's Assign menu.
+                    </div>
                   )}
                   {runs.map((r) => {
                     const active = isWorkflowActive(r.status);
@@ -150,7 +153,11 @@ export function WorkflowsBar({
                               <Square size={12} />
                             </button>
                           ) : (
-                            <button className="chip-btn remove" title="Remove workflow run" onClick={() => onDelete(r.id)}>
+                            <button
+                              className="chip-btn remove"
+                              title="Remove workflow run"
+                              onClick={() => onDelete(r.id)}
+                            >
                               <Trash2 size={12} />
                             </button>
                           )}
@@ -173,7 +180,9 @@ export function WorkflowsBar({
                                 {st.kind === "skill" ? <Sparkles size={10} /> : <Bot size={10} />}
                                 <span className="wf-step-label">{st.name}</span>
                                 {done && <Check size={11} />}
-                                {isCurrent && r.status === "running" && <Loader2 size={11} className="spin" />}
+                                {isCurrent && r.status === "running" && (
+                                  <Loader2 size={11} className="spin" />
+                                )}
                               </button>
                             );
                           })}
@@ -185,7 +194,7 @@ export function WorkflowsBar({
               )}
             </div>
           );
-        })
+        }),
       )}
     </div>
   );

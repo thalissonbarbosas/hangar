@@ -30,7 +30,11 @@ async function jiraGet<T>(env: JiraEnv, pathAndQuery: string): Promise<T> {
 async function jiraPost(env: JiraEnv, pathAndQuery: string, body: unknown): Promise<void> {
   const res = await fetch(`${env.baseUrl}${pathAndQuery}`, {
     method: "POST",
-    headers: { Authorization: authHeader(env), "Content-Type": "application/json", Accept: "application/json" },
+    headers: {
+      Authorization: authHeader(env),
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -98,7 +102,7 @@ export async function testConnection(env: JiraEnv): Promise<{ displayName: strin
 export async function listProjects(env: JiraEnv): Promise<{ key: string; name: string }[]> {
   const data = await jiraGet<{ values?: { key: string; name: string }[] }>(
     env,
-    "/rest/api/3/project/search?maxResults=100&orderBy=key"
+    "/rest/api/3/project/search?maxResults=100&orderBy=key",
   );
   return (data.values ?? []).map((p) => ({ key: p.key, name: p.name }));
 }
@@ -113,7 +117,7 @@ interface JiraTransition {
 export async function listTransitions(env: JiraEnv, key: string): Promise<JiraTransition[]> {
   const data = await jiraGet<{ transitions?: JiraTransition[] }>(
     env,
-    `/rest/api/3/issue/${encodeURIComponent(key)}/transitions`
+    `/rest/api/3/issue/${encodeURIComponent(key)}/transitions`,
   );
   return data.transitions ?? [];
 }
@@ -126,17 +130,22 @@ export async function transitionIssue(env: JiraEnv, key: string, targetStatus: s
     transitions.find((t) => (t.to?.name ?? "").toLowerCase() === want) ??
     transitions.find((t) => t.name.toLowerCase() === want);
   if (!match) {
-    const avail = transitions.map((t) => t.to?.name ?? t.name).filter(Boolean).join(", ");
+    const avail = transitions
+      .map((t) => t.to?.name ?? t.name)
+      .filter(Boolean)
+      .join(", ");
     throw new Error(`No legal transition to "${targetStatus}". Available from here: ${avail || "(none)"}.`);
   }
-  await jiraPost(env, `/rest/api/3/issue/${encodeURIComponent(key)}/transitions`, { transition: { id: match.id } });
+  await jiraPost(env, `/rest/api/3/issue/${encodeURIComponent(key)}/transitions`, {
+    transition: { id: match.id },
+  });
 }
 
 /** Distinct status names available on a project, in first-seen order (for filling columns). */
 export async function listStatuses(env: JiraEnv, projectKey: string): Promise<string[]> {
   const data = await jiraGet<{ statuses?: { name: string }[] }[]>(
     env,
-    `/rest/api/3/project/${encodeURIComponent(projectKey)}/statuses`
+    `/rest/api/3/project/${encodeURIComponent(projectKey)}/statuses`,
   );
   const seen = new Set<string>();
   const out: string[] = [];

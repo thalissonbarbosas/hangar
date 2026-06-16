@@ -96,7 +96,7 @@ does not manage its own key.
 ## Conventions & gotchas
 
 - **Match the existing style**: 2-space indent, double quotes, terse explanatory comments that
-  state the *why*. No formatter/linter is configured — mirror surrounding code.
+  state the _why_. No formatter/linter is configured — mirror surrounding code.
 - **Naming**: the product is **Hangar**. The old name was FleetView — do not reintroduce it.
   The folder is `hangar/`, config is `hangar.config.json`, data dir `.hangar/`, injected env is
   `HANGAR_*`, and worktree branches are `hangar/…`.

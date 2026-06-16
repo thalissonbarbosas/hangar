@@ -39,8 +39,8 @@ export function HandoffModal({
           </button>
         </div>
         <p className="hint">
-          Starts a new session in the same repo. The note is pre-filled with the previous result —
-          edit it to tell the next agent what to do.
+          Starts a new session in the same repo. The note is pre-filled with the previous result — edit it to
+          tell the next agent what to do.
         </p>
 
         <div className="field">
@@ -84,6 +84,6 @@ export function HandoffModal({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

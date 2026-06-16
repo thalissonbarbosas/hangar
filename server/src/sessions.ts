@@ -5,6 +5,7 @@ import { createWorktree, removeWorktree, Worktree } from "./worktree";
 import { saveRunRecord, deleteRunRecord, loadRunRecords, RunRecord } from "./store";
 import { Ticket } from "./types";
 import { demoRunSeeds } from "./demo";
+import { isSafeBashCommand } from "./safe-shell";
 
 // "Only risky actions" approval model: reads AND file edits run automatically;
 // everything else (shell commands, kill, and any other state-changing/unknown tool)
@@ -106,7 +107,12 @@ function emit(run: Run, kind: string, data: Record<string, unknown> = {}): void 
   }
   const st = kind === "state" ? String((data as { state?: string }).state ?? "") : "";
   const terminal =
-    kind === "result" || kind === "stopped" || kind === "error" || st === "done" || st === "error" || st === "stopped";
+    kind === "result" ||
+    kind === "stopped" ||
+    kind === "error" ||
+    st === "done" ||
+    st === "error" ||
+    st === "stopped";
   persist(run, terminal);
 }
 
@@ -151,7 +157,7 @@ function persist(run: Run, immediate = false): void {
     setTimeout(() => {
       saveTimers.delete(run.id);
       saveRunRecord(toRecord(run));
-    }, 1000)
+    }, 1000),
   );
 }
 
@@ -190,9 +196,11 @@ export function mapModel(m?: string): string | undefined {
 // Derive the run's "current phase" from a TodoWrite call: the in-progress todo (or the next
 // unfinished one) is the current step. Most agents/skills drive their work through TodoWrite.
 function updatePhase(run: Run, input: unknown): void {
-  const todos = (input as { todos?: Array<{ content?: string; activeForm?: string; status?: string }> })?.todos;
+  const todos = (input as { todos?: Array<{ content?: string; activeForm?: string; status?: string }> })
+    ?.todos;
   if (!Array.isArray(todos) || todos.length === 0) return;
-  const current = todos.find((t) => t.status === "in_progress") ?? todos.find((t) => t.status !== "completed");
+  const current =
+    todos.find((t) => t.status === "in_progress") ?? todos.find((t) => t.status !== "completed");
   const total = todos.length;
   const done = todos.filter((t) => t.status === "completed").length;
   const label = current ? current.activeForm || current.content || "" : "All steps complete";
@@ -210,55 +218,6 @@ function previewInput(tool: string, input: unknown): string {
   } catch {
     return "";
   }
-}
-
-// Read-only shell utilities that are safe to auto-run. Anything not here (or any
-// command with file-writing redirection / command substitution) prompts for approval.
-const SAFE_BASH = new Set([
-  "ls", "cd", "pwd", "cat", "bat", "head", "tail", "wc", "grep", "egrep", "fgrep", "rg", "ag",
-  "ack", "find", "fd", "echo", "printf", "which", "type", "whereis", "file", "stat", "du", "df",
-  "tree", "sort", "uniq", "cut", "tr", "comm", "join", "paste", "fold", "nl", "tac", "xxd", "od",
-  "strings", "basename", "dirname", "realpath", "readlink", "date", "whoami", "id", "hostname",
-  "uname", "jq", "yq", "column", "sha1sum", "sha256sum", "md5sum", "cksum", "true", "false",
-  "test", "[", "seq", "expand", "diff", "cmp", "less", "more",
-]);
-const GIT_READ = new Set([
-  "diff", "log", "show", "status", "blame", "rev-parse", "ls-files", "ls-tree", "cat-file",
-  "describe", "shortlog", "whatchanged", "grep",
-]);
-const GH_READ = new Set(["pr view", "pr diff", "pr list", "pr checks", "pr status", "repo view", "issue view", "issue list"]);
-
-function isSafeSegment(seg: string): boolean {
-  const tokens = seg.split(/\s+/).filter(Boolean);
-  let i = 0;
-  while (i < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i])) i++; // skip VAR=val
-  const c = tokens[i];
-  if (!c) return false;
-  const args = tokens.slice(i + 1);
-  if (c === "git") {
-    const sub = args.find((a) => !a.startsWith("-"));
-    return !sub || GIT_READ.has(sub);
-  }
-  if (c === "gh") {
-    const nf = args.filter((a) => !a.startsWith("-"));
-    return GH_READ.has(`${nf[0] ?? ""} ${nf[1] ?? ""}`.trim());
-  }
-  if (c === "sed") return !args.some((a) => a === "-i" || a.startsWith("-i")); // sed -i writes
-  return SAFE_BASH.has(c);
-}
-
-/** Conservative: a Bash command is "safe" only if every piece is a known read-only command. */
-export function isSafeBashCommand(command: string): boolean {
-  const cmd = command.trim();
-  if (!cmd) return false;
-  if (cmd.includes("$(") || cmd.includes("`")) return false; // command substitution — unknown contents
-  if (/>\s*(?!&)/.test(cmd)) return false; // file-writing redirection (2>&1 is fine)
-  const segments = cmd
-    .replace(/&&|\|\|/g, "\n")
-    .split(/[\n;|]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return segments.length > 0 && segments.every(isSafeSegment);
 }
 
 const PR_RE = /https?:\/\/github\.com\/[^\s)\]"'>]+\/pull\/\d+/i;
@@ -284,7 +243,9 @@ function buildPrompt(opts: { ticket?: Ticket; note?: string; skillName?: string;
   }
 
   const lines = [
-    skillName ? `Use the "${skillName}" skill to work the following Jira ticket.` : "Work the following Jira ticket.",
+    skillName
+      ? `Use the "${skillName}" skill to work the following Jira ticket.`
+      : "Work the following Jira ticket.",
     `Ticket: ${ticket.key} — ${ticket.summary}`,
     `Status: ${ticket.status}${ticket.issuetype ? `   Type: ${ticket.issuetype}` : ""}`,
     ticket.assignee ? `Assignee: ${ticket.assignee}` : "",
@@ -375,9 +336,8 @@ export function seedDemoRuns(): void {
       ts: Math.min(startedAt + i * 1000, endedAt ?? now),
     }));
     const sessionId = events.find((e) => e.kind === "system" && e.sessionId)?.sessionId as string | undefined;
-    const result = [...events].reverse().find((e) => e.kind === "result" && e.subtype === "success")?.result as
-      | string
-      | undefined;
+    const result = [...events].reverse().find((e) => e.kind === "result" && e.subtype === "success")
+      ?.result as string | undefined;
     const run: Run = {
       id: seed.id,
       ticketKey: seed.ticketKey,
@@ -625,7 +585,10 @@ function parseQuestions(input: unknown): ParsedQuestion[] {
       multiSelect: !!q.multiSelect,
       options: opts.map((o) => {
         const opt = o as Record<string, unknown>;
-        return { label: String(opt.label ?? ""), description: opt.description ? String(opt.description) : undefined };
+        return {
+          label: String(opt.label ?? ""),
+          description: opt.description ? String(opt.description) : undefined,
+        };
       }),
     };
   });
@@ -642,7 +605,8 @@ function requestQuestion(run: Run, input: Record<string, unknown>): Promise<unkn
     run.questions.set(requestId, (answer) => {
       run.questions.delete(requestId);
       emit(run, "question_resolved", { requestId, answer });
-      if (run.questions.size === 0 && run.pending.size === 0 && run.state === "awaiting_input") setState(run, "running");
+      if (run.questions.size === 0 && run.pending.size === 0 && run.state === "awaiting_input")
+        setState(run, "running");
       resolve({ behavior: "deny", message: answer });
     });
   });
@@ -678,7 +642,9 @@ interface OptionOpts {
 function buildOptions(run: Run, opts: OptionOpts): Record<string, unknown> {
   const composeProject = `hangar-${run.id.slice(0, 8)}`;
   const portOffset = (portCounter++ % 50) * 100;
-  emit(run, "info", { message: `Runtime: COMPOSE_PROJECT_NAME=${composeProject}, HANGAR_PORT_OFFSET=${portOffset}` });
+  emit(run, "info", {
+    message: `Runtime: COMPOSE_PROJECT_NAME=${composeProject}, HANGAR_PORT_OFFSET=${portOffset}`,
+  });
 
   const base: Record<string, unknown> = {
     ...(opts.model && opts.model !== "(default)" ? { model: opts.model } : {}),
@@ -697,7 +663,9 @@ function buildOptions(run: Run, opts: OptionOpts): Record<string, unknown> {
       ? { maxBudgetUsd: getConfig().maxBudgetUsd }
       : {}),
     // Skill runs load user settings (~/.claude); repo skills also load project settings (cwd/.claude).
-    ...(opts.skillName ? { settingSources: opts.skillSource === "repo" ? ["user", "project"] : ["user"] } : {}),
+    ...(opts.skillName
+      ? { settingSources: opts.skillSource === "repo" ? ["user", "project"] : ["user"] }
+      : {}),
     ...(opts.resume ? { resume: opts.resume } : {}),
   };
 
@@ -844,7 +812,13 @@ async function drive(run: Run, ctx: DriveCtx): Promise<void> {
     ? `You are operating as the "${run.agentName}" agent.\n\n${agent.body.trim()}`
     : undefined;
 
-  const options = buildOptions(run, { systemPrompt, model, skillName, skillSource: ctx.skillSource, additionalDirectories });
+  const options = buildOptions(run, {
+    systemPrompt,
+    model,
+    skillName,
+    skillSource: ctx.skillSource,
+    additionalDirectories,
+  });
   await streamTurn(run, options, buildPrompt({ ticket, note, skillName, cwd: run.cwd }));
 }
 

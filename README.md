@@ -25,11 +25,11 @@ run, with a human in the loop when it matters.
   as `additionalDirectories` for cross-repo work).
 - **Live run panel** — token-by-token output, tool calls, the captured session id and running
   cost, and an auto-detected PR link.
-- **Human-in-the-loop** — run unrestricted, or *gated*: reads and edits auto-run while risky
+- **Human-in-the-loop** — run unrestricted, or _gated_: reads and edits auto-run while risky
   shell commands pause for approval. Agent questions surface right in the panel with answer buttons.
 - **Run isolation** — each run gets its own git worktree + branch, so multiple agents work the
   same repo in parallel without clobbering each other. Per-run env namespaces Docker/compose
-  stacks; an *exclusive runtime* list serializes agents that need shared ports/tunnels.
+  stacks; an _exclusive runtime_ list serializes agents that need shared ports/tunnels.
 - **Workflows & handoffs** — chain agents/skills into per-board pipelines, or hand one run's
   result straight to another agent.
 - **No credentials? No problem** — a built-in [demo mode](#demo-mode) runs the whole thing on a
@@ -117,14 +117,14 @@ Run records persist as JSON under `.hangar/` so transcripts and results survive 
 
 `hangar.config.json` (see [`hangar.config.example.json`](hangar.config.example.json)):
 
-| Field | Meaning |
-|---|---|
-| `agentsDir` | where to read agents (default `~/.claude/agents`) |
-| `boards[]` | `key` (Jira project), `name`, `statuses` (column order), `repoPaths`, optional `agents` / `workflows` |
-| `bypassPermissions` | `true` = unrestricted; `false` = gated (approve risky shell) |
-| `isolateRuns` | run each session in its own git worktree + branch (default on) |
-| `exclusiveAgents` | agent/skill names that need shared ports/tunnels — run one at a time |
-| `maxTurns` / `maxBudgetUsd` | per-run limits (default 300 turns, no spend cap) |
+| Field                       | Meaning                                                                                               |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `agentsDir`                 | where to read agents (default `~/.claude/agents`)                                                     |
+| `boards[]`                  | `key` (Jira project), `name`, `statuses` (column order), `repoPaths`, optional `agents` / `workflows` |
+| `bypassPermissions`         | `true` = unrestricted; `false` = gated (approve risky shell)                                          |
+| `isolateRuns`               | run each session in its own git worktree + branch (default on)                                        |
+| `exclusiveAgents`           | agent/skill names that need shared ports/tunnels — run one at a time                                  |
+| `maxTurns` / `maxBudgetUsd` | per-run limits (default 300 turns, no spend cap)                                                      |
 
 Environment (`.env`, see [`.env.example`](.env.example)): `JIRA_BASE_URL`, `JIRA_EMAIL`,
 `JIRA_API_TOKEN`, optional `JIRA_MY_TICKETS_ONLY`, `PORT`, and `HANGAR_DEMO`.

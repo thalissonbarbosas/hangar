@@ -29,8 +29,10 @@ function s(v: unknown): string {
 }
 
 function limitMessage(subtype: string): string {
-  if (subtype === "error_max_turns") return "Hit the max-turns limit — raise it in Settings → Run limits and hand off to continue.";
-  if (subtype === "error_max_budget_usd") return "Hit the per-run spend cap — raise it in Settings → Run limits.";
+  if (subtype === "error_max_turns")
+    return "Hit the max-turns limit — raise it in Settings → Run limits and hand off to continue.";
+  if (subtype === "error_max_budget_usd")
+    return "Hit the per-run spend cap — raise it in Settings → Run limits.";
   return subtype || "Run ended with an error";
 }
 
@@ -93,16 +95,16 @@ export function RunPanel({
   }, [events]);
   const pendingQuestion = useMemo(
     () => events.some((e) => e.kind === "question" && !resolvedQuestions.has(s(e.requestId))),
-    [events, resolvedQuestions]
+    [events, resolvedQuestions],
   );
 
   const state = useMemo<RunState>(
     () => deriveState(events, resolvedDecisions, resolvedQuestions),
-    [events, resolvedDecisions, resolvedQuestions]
+    [events, resolvedDecisions, resolvedQuestions],
   );
   const sessionId = useMemo(
     () => events.find((e) => e.kind === "system" && e.sessionId)?.sessionId as string | undefined,
-    [events]
+    [events],
   );
   const cost = useMemo(() => {
     const r = [...events].reverse().find((e) => typeof e.costUsd === "number");
@@ -113,11 +115,17 @@ export function RunPanel({
     return p ? { label: s(p.label), done: Number(p.done) || 0, total: Number(p.total) || 0 } : null;
   }, [events]);
   const prUrl = useMemo(() => events.find((e) => e.kind === "pr")?.url as string | undefined, [events]);
-  const branch = useMemo(() => events.find((e) => e.kind === "worktree")?.branch as string | undefined, [events]);
+  const branch = useMemo(
+    () => events.find((e) => e.kind === "worktree")?.branch as string | undefined,
+    [events],
+  );
   const resultText = useMemo(() => {
     const r = [...events].reverse().find((e) => e.kind === "result" && e.subtype === "success");
     if (r?.result) return String(r.result);
-    return events.filter((e) => e.kind === "assistant_delta").map((e) => s(e.text)).join("");
+    return events
+      .filter((e) => e.kind === "assistant_delta")
+      .map((e) => s(e.text))
+      .join("");
   }, [events]);
 
   async function decide(requestId: string, decision: "allow" | "deny") {
@@ -163,7 +171,11 @@ export function RunPanel({
             </span>
           </div>
           <div className="run-head-actions">
-            <button className="btn-ghost sm" onClick={() => setHandoff(true)} title="Hand off result to another agent">
+            <button
+              className="btn-ghost sm"
+              onClick={() => setHandoff(true)}
+              title="Hand off result to another agent"
+            >
               <GitBranch size={13} /> Hand off
             </button>
             {isActive(state) && (
@@ -198,10 +210,17 @@ export function RunPanel({
         </div>
 
         {phase && (
-          <div className={`run-phase${isActive(state) ? " active" : ""}`} title="Current step (from the agent's todo list)">
+          <div
+            className={`run-phase${isActive(state) ? " active" : ""}`}
+            title="Current step (from the agent's todo list)"
+          >
             {isActive(state) ? <Loader2 size={13} className="spin" /> : <ListChecks size={13} />}
             <span className="run-phase-label">{phase.label}</span>
-            {phase.total > 0 && <span className="run-phase-count">{phase.done}/{phase.total}</span>}
+            {phase.total > 0 && (
+              <span className="run-phase-count">
+                {phase.done}/{phase.total}
+              </span>
+            )}
           </div>
         )}
 
@@ -240,7 +259,12 @@ export function RunPanel({
                     : "Send a follow-up (resumes the session)…"
               }
             />
-            <button className="btn sm" type="submit" disabled={!composer.trim() || sending} title="Send (Enter)">
+            <button
+              className="btn sm"
+              type="submit"
+              disabled={!composer.trim() || sending}
+              title="Send (Enter)"
+            >
               <Send size={14} />
             </button>
           </form>
@@ -269,7 +293,7 @@ export function RunPanel({
 function deriveState(
   events: RunEvent[],
   resolvedPerms: Map<string, string>,
-  resolvedQs: Map<string, string>
+  resolvedQs: Map<string, string>,
 ): RunState {
   for (let i = events.length - 1; i >= 0; i--) {
     const e = events[i];
@@ -300,7 +324,7 @@ function renderEvents(
   resolvedQuestions: Map<string, string>,
   submitting: Set<string>,
   decide: (id: string, d: "allow" | "deny") => void,
-  answer: (text: string) => void
+  answer: (text: string) => void,
 ) {
   const out: JSX.Element[] = [];
   let buf = "";
@@ -310,7 +334,7 @@ function renderEvents(
     out.push(
       <div className={`run-line text${live ? " live" : ""}`} key={`t-${bufKey++}`}>
         <Markdown>{buf}</Markdown>
-      </div>
+      </div>,
     );
     buf = "";
   };
@@ -334,7 +358,7 @@ function renderOther(
   resolvedQuestions: Map<string, string>,
   submitting: Set<string>,
   decide: (id: string, d: "allow" | "deny") => void,
-  answer: (text: string) => void
+  answer: (text: string) => void,
 ): JSX.Element | null {
   switch (e.kind) {
     case "tool_use":

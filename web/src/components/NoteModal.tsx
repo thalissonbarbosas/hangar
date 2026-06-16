@@ -51,6 +51,6 @@ export function NoteModal({
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
