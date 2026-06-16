@@ -39,7 +39,7 @@ async function jiraPost(env: JiraEnv, pathAndQuery: string, body: unknown): Prom
   }
 }
 
-function buildJql(board: BoardConfig, myTicketsOnly: boolean): string {
+export function buildJql(board: BoardConfig, myTicketsOnly: boolean): string {
   const statuses = board.statuses.map((s) => `"${s.replace(/"/g, '\\"')}"`).join(", ");
   const clauses = [`project = "${board.key}"`, `status in (${statuses})`];
   if (myTicketsOnly) clauses.push("assignee = currentUser()");

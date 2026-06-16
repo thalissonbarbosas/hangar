@@ -178,7 +178,7 @@ export function loadPersistedRuns(): void {
   if (maxSeq >= seq) seq = maxSeq + 1; // avoid seq collisions with newly emitted events
 }
 
-function mapModel(m?: string): string | undefined {
+export function mapModel(m?: string): string | undefined {
   if (!m) return undefined;
   const x = m.toLowerCase();
   if (x === "opus") return "claude-opus-4-8";
