@@ -144,3 +144,7 @@ By default agents run **unrestricted** — like `claude --dangerously-skip-permi
 can edit files and run any shell command, including `git push`. A topbar flag makes this visible,
 and **gated** mode (Settings → Agent permissions) holds mutating/unknown shell commands for an
 explicit Allow/Deny. Run Hangar against repos you trust, and prefer gated mode if you're unsure.
+
+## License
+
+[MIT](LICENSE) © Thalisson Barbosa
