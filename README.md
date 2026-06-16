@@ -43,7 +43,7 @@ Try Hangar with **no Jira and no config** — a fictional board with seeded sess
 HANGAR_DEMO=1 npm run dev
 ```
 
-Open **http://localhost:5173**. Your real config and credentials are never read or written in
+Open **http://localhost:5180**. Your real config and credentials are never read or written in
 this mode. (This is exactly how the screenshots in this README were produced.)
 
 ## Quick start
@@ -63,10 +63,10 @@ Then either explore in **[demo mode](#demo-mode)**, or connect your own Jira:
 ```sh
 cp .env.example .env                               # add your Jira base URL, email, API token
 cp hangar.config.example.json hangar.config.json   # or just configure boards in the UI
-npm run dev                                         # server :3001 + web :5173
+npm run dev                                         # server :3001 + web :5180
 ```
 
-Open **http://localhost:5173** and click **⚙ Settings** to finish setup:
+Open **http://localhost:5180** and click **⚙ Settings** to finish setup:
 
 - **Jira connection** — base URL, email, and an [API token](https://id.atlassian.com/manage-profile/security/api-tokens),
   with a **Test** button. Saved to `.env` (the token is write-only — never sent back to the browser).
@@ -134,9 +134,12 @@ Environment (`.env`, see [`.env.example`](.env.example)): `JIRA_BASE_URL`, `JIRA
 ```sh
 npm run dev         # server + web together
 npm run dev:server  # server only (:3001)
-npm run dev:web     # web only (:5173)
+npm run dev:web     # web only (:5180)
 npm run typecheck   # tsc --noEmit across server + web
 ```
+
+The UI port defaults to **5180** and is configurable — set `WEB_PORT` in `.env` (the proxy to the
+server follows `PORT`). For example, `WEB_PORT=8080` serves the UI on http://localhost:8080.
 
 ## Permissions & safety
 
