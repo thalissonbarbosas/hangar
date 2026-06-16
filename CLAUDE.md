@@ -26,7 +26,7 @@ and `web/`. Workspaces are NOT used — each installs into its own `node_modules
 Run from the repo root:
 
 - `npm run install:all` — install server + web deps (root deps come from a plain `npm install`)
-- `npm run dev` — start server (`:3001`) and web (`:5173`) together via `concurrently`
+- `npm run dev` — start server (`:3001`) and web (`:5180`, override with `WEB_PORT`) via `concurrently`
 - `npm run dev:server` / `npm run dev:web` — run one side alone
 - `npm run typecheck` — `tsc --noEmit` across server + web. **Run this after any change** — there
   is no test suite yet, so typecheck is the gate.
