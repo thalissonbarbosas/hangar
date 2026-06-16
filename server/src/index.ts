@@ -369,14 +369,20 @@ app.get("/api/runs/:id/stream", (req, res) => {
   req.on("close", () => run.listeners.delete(listener));
 });
 
-app.listen(PORT, () => {
-  const jira = loadJiraEnv();
-  console.log(`Hangar server on http://localhost:${PORT}`);
-  console.log(
-    `  boards: ${getConfig()
-      .boards.map((b) => b.key)
-      .join(", ")}`,
-  );
-  console.log(`  agentsDir: ${getConfig().agentsDir}`);
-  console.log(`  jira: ${jira ? jira.baseUrl : "NOT CONFIGURED (set in Settings)"}`);
-});
+// Export the app so tests (and other entry points) can mount it without binding a port.
+export { app };
+
+// Only listen when run directly as the entrypoint — not when imported (e.g. by tests).
+if (require.main === module) {
+  app.listen(PORT, () => {
+    const jira = loadJiraEnv();
+    console.log(`Hangar server on http://localhost:${PORT}`);
+    console.log(
+      `  boards: ${getConfig()
+        .boards.map((b) => b.key)
+        .join(", ")}`,
+    );
+    console.log(`  agentsDir: ${getConfig().agentsDir}`);
+    console.log(`  jira: ${jira ? jira.baseUrl : "NOT CONFIGURED (set in Settings)"}`);
+  });
+}
