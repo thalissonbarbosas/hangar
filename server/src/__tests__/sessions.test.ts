@@ -1,5 +1,13 @@
 // ---- Mocks ----------------------------------------------------------------
 
+// fs.existsSync — sessions.ts uses this to validate the working directory before spawning.
+// Tests use fake paths that don't exist on disk, so we mock it to return true by default.
+const existsSyncMock = jest.fn().mockReturnValue(true);
+jest.mock("fs", () => ({
+  ...jest.requireActual("fs"),
+  existsSync: (...args: unknown[]) => existsSyncMock(...args),
+}));
+
 // Controllable in-memory config swapped per test.
 type Cfg = {
   agentsDir: string;
@@ -144,6 +152,7 @@ beforeEach(() => {
   releaseHold = null;
   lastQueryOptions = null;
   lastCanUseTool = null;
+  existsSyncMock.mockReset().mockReturnValue(true); // fake paths don't exist on disk — assume valid
   createWorktree.mockReset().mockResolvedValue(null); // default: not a git repo → run in place
   removeWorktree.mockReset().mockResolvedValue(undefined);
   loadAgent.mockReset().mockReturnValue({
@@ -488,6 +497,37 @@ describe("handoff (parentRunId)", () => {
     expect(child.parentRunId).toBe(parent.id);
     expect(child.ticketKey).toBe("PP-1");
     expect(child.cwd).toBe(parent.cwd);
+  });
+
+  it("reuses the parent's worktree when the parent was isolated (no new branch created)", async () => {
+    mockCfg = baseCfg({ isolateRuns: true });
+    createWorktree
+      .mockResolvedValueOnce({ path: "/wt/a", branch: "hangar/PP-1-abc", repoRoot: "/repo/a" })
+      .mockResolvedValueOnce({ path: "/wt/b", branch: "hangar/PP-1-def", repoRoot: "/repo/b" });
+    const parent = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await waitForState(parent, "done");
+    createWorktree.mockClear();
+
+    const child = sessions.startRun({ kind: "agent", name: "reviewer", parentRunId: parent.id });
+    await waitForState(child, "done");
+
+    // No new worktree should have been created for the child.
+    expect(createWorktree).not.toHaveBeenCalled();
+    expect(child.skipWorktree).toBe(true);
+    expect(child.branch).toBe("hangar/PP-1-abc");
+    expect(child.cwd).toBe("/wt/a");
+    // Additional dirs come from parent.runtimeDirs (the mapped worktree paths).
+    expect(child.additionalDirectories).toEqual(["/wt/b"]);
+  });
+});
+
+describe("missing working directory", () => {
+  it("errors the run immediately when cwd doesn't exist", async () => {
+    existsSyncMock.mockReturnValue(false);
+    const run = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await waitForState(run, "error");
+    expect(run.state).toBe("error");
+    expect(run.error).toMatch(/does not exist/);
   });
 });
 
