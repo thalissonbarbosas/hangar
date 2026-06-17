@@ -223,13 +223,11 @@ describe("fetchTicketPr", () => {
   const issueBase = { id: "10001", fields: { comment: { comments: [] } } };
 
   it("returns the first PR URL from the dev-status API", async () => {
-    fetchMock
-      .mockResolvedValueOnce(okJson(issueBase))
-      .mockResolvedValueOnce(
-        okJson({
-          detail: [{ pullRequests: [{ url: "https://github.com/org/repo/pull/1", status: "MERGED" }] }],
-        }),
-      );
+    fetchMock.mockResolvedValueOnce(okJson(issueBase)).mockResolvedValueOnce(
+      okJson({
+        detail: [{ pullRequests: [{ url: "https://github.com/org/repo/pull/1", status: "MERGED" }] }],
+      }),
+    );
     expect(await fetchTicketPr(env, "PP-1")).toBe("https://github.com/org/repo/pull/1");
   });
 
