@@ -141,6 +141,61 @@ export async function transitionIssue(env: JiraEnv, key: string, targetStatus: s
   });
 }
 
+const GITHUB_PR_RE = /https?:\/\/github\.com\/[^\s)"'>]+\/pull\/\d+/i;
+
+/**
+ * Try to find a GitHub PR URL linked to a Jira issue. Checks (in order):
+ *  1. Jira dev-status API (GitHub integration — linked PRs shown in the Development panel).
+ *  2. Remote issue links (manually linked URLs on the issue).
+ *  3. Comments — scans ADF JSON for embedded PR URLs.
+ * Returns the first URL found, or null if none.
+ */
+export async function fetchTicketPr(env: JiraEnv, key: string): Promise<string | null> {
+  // One call gets the numeric id (needed for dev-status) + comments.
+  const issue = await jiraGet<{
+    id: string;
+    fields: { comment?: { comments?: unknown[] } };
+  }>(env, `/rest/api/3/issue/${encodeURIComponent(key)}?fields=id,comment`);
+
+  // 1. Dev-status API — linked PRs from the GitHub integration.
+  try {
+    const devInfo = await jiraGet<{ detail?: Array<{ pullRequests?: Array<{ url?: string }> }> }>(
+      env,
+      `/rest/dev-status/latest/issue/detail?issueId=${encodeURIComponent(issue.id)}&applicationType=github&dataType=pullrequest`,
+    );
+    for (const d of devInfo.detail ?? []) {
+      for (const pr of d.pullRequests ?? []) {
+        if (pr.url) return pr.url;
+      }
+    }
+  } catch {
+    // dev-status is not available on all Jira plans — fall through to other sources
+  }
+
+  // 2. Remote links (manually linked issues / web links on the issue).
+  try {
+    const remoteLinks = await jiraGet<Array<{ object?: { url?: string } }>>(
+      env,
+      `/rest/api/3/issue/${encodeURIComponent(key)}/remotelink`,
+    );
+    for (const link of remoteLinks ?? []) {
+      const url = link.object?.url ?? "";
+      if (GITHUB_PR_RE.test(url)) return url;
+    }
+  } catch {
+    // remote links may be restricted — fall through
+  }
+
+  // 3. Comments — Jira uses ADF (JSON); stringify and scan for PR URLs.
+  for (const comment of issue.fields.comment?.comments ?? []) {
+    const text = JSON.stringify(comment);
+    const m = text.match(GITHUB_PR_RE);
+    if (m) return m[0];
+  }
+
+  return null;
+}
+
 /** Distinct status names available on a project, in first-seen order (for filling columns). */
 export async function listStatuses(env: JiraEnv, projectKey: string): Promise<string[]> {
   const data = await jiraGet<{ statuses?: { name: string }[] }[]>(

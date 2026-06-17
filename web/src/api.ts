@@ -65,6 +65,9 @@ export const api = {
     getJson<{ statuses: string[] }>(`/api/jira/statuses?project=${encodeURIComponent(project)}`),
   transitionTicket: (key: string, status: string) =>
     sendJson<{ ok: boolean }>("POST", `/api/tickets/${encodeURIComponent(key)}/transition`, { status }),
+  ticketPr: (key: string) => getJson<{ prUrl: string | null }>(`/api/tickets/${encodeURIComponent(key)}/pr`),
+  checkPath: (path: string) =>
+    getJson<{ exists: boolean }>(`/api/fs/exists?path=${encodeURIComponent(path)}`),
   startRun: (ticket: Ticket, name: string, kind: RunKind = "agent", note?: string) =>
     sendJson<StartRunResult>("POST", "/api/runs", { ticket, name, kind, note }),
   startStandalone: (name: string, kind: RunKind, note: string, cwd?: string, title?: string) =>

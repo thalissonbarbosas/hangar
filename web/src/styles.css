@@ -1622,6 +1622,18 @@ a.session-ticket {
 .path-row .repo-input {
   margin-bottom: 0;
 }
+.path-row .repo-input.path-missing {
+  border-color: var(--error, #ef4444);
+}
+.path-status-icon {
+  flex-shrink: 0;
+}
+.path-status-icon.ok {
+  color: var(--success, #10b981);
+}
+.path-status-icon.missing {
+  color: var(--error, #ef4444);
+}
 .runner-select {
   width: 100%;
   background: var(--surface-2);

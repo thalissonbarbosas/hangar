@@ -151,6 +151,31 @@ describe("ticket transition", () => {
   });
 });
 
+describe("ticket PR lookup", () => {
+  it("GET /api/tickets/:key/pr returns null in demo mode (no Jira)", async () => {
+    const res = await request(app).get("/api/tickets/DEMO-1/pr");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ prUrl: null });
+  });
+});
+
+describe("filesystem path check", () => {
+  it("GET /api/fs/exists returns true for a real path and false for a missing one", async () => {
+    const real = await request(app).get("/api/fs/exists?path=/tmp");
+    expect(real.status).toBe(200);
+    expect(real.body.exists).toBe(true);
+
+    const missing = await request(app).get("/api/fs/exists?path=/this/does/not/exist/at/all");
+    expect(missing.status).toBe(200);
+    expect(missing.body.exists).toBe(false);
+  });
+
+  it("GET /api/fs/exists returns 400 when path is missing", async () => {
+    const res = await request(app).get("/api/fs/exists");
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("runs lifecycle", () => {
   it("rejects an unknown agent (404)", async () => {
     const res = await request(app)

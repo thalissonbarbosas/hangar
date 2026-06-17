@@ -26,6 +26,7 @@ import {
   WorkflowConfig,
   isActive,
 } from "../types";
+import { api } from "../api";
 import { Avatar } from "./Avatar";
 import { NoteModal } from "./NoteModal";
 
@@ -251,8 +252,21 @@ function AssignMenu({ ticketKey, ctx }: { ticketKey: string; ctx: CardCtx }) {
 function TicketCard({ ticket, ctx }: { ticket: Ticket; ctx: CardCtx }) {
   const run = ctx.runByTicket.get(ticket.key);
   const active = run ? isActive(run.state) : false;
-  const prNum = run?.prUrl?.match(/\/pull\/(\d+)/)?.[1];
+  const [jiraPrUrl, setJiraPrUrl] = useState<string | null>(null);
+  const prUrl = run?.prUrl ?? jiraPrUrl;
+  const prNum = prUrl?.match(/\/pull\/(\d+)/)?.[1];
   const [dragging, setDragging] = useState(false);
+
+  // When there is no run-detected PR URL, try to pull one from Jira (dev panel, remote links, comments).
+  useEffect(() => {
+    if (run?.prUrl || !ticket.key) return;
+    api
+      .ticketPr(ticket.key)
+      .then(({ prUrl: p }) => {
+        if (p) setJiraPrUrl(p);
+      })
+      .catch(() => {});
+  }, [ticket.key, run?.prUrl]);
 
   function onDragStart(e: React.DragEvent) {
     const data: TicketDragData = { key: ticket.key, boardKey: ticket.boardKey, status: ticket.status };
@@ -275,10 +289,10 @@ function TicketCard({ ticket, ctx }: { ticket: Ticket; ctx: CardCtx }) {
             {ticket.key}
             <ExternalLink size={11} />
           </a>
-          {run?.prUrl && (
+          {prUrl && (
             <a
               className="card-pr"
-              href={run.prUrl}
+              href={prUrl}
               target="_blank"
               rel="noreferrer"
               draggable={false}

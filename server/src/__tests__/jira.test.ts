@@ -6,6 +6,7 @@ import {
   listStatuses,
   listTransitions,
   transitionIssue,
+  fetchTicketPr,
 } from "../jira";
 import type { JiraEnv } from "../config";
 import type { BoardConfig } from "../types";
@@ -215,5 +216,70 @@ describe("transitionIssue", () => {
       .mockResolvedValueOnce(okJson({ transitions: [{ id: "1", name: "Go", to: { name: "Go" } }] }))
       .mockResolvedValueOnce(errResponse(400, "bad transition"));
     await expect(transitionIssue(env, "PP-1", "Go")).rejects.toThrow(/Jira 400/);
+  });
+});
+
+describe("fetchTicketPr", () => {
+  const issueBase = { id: "10001", fields: { comment: { comments: [] } } };
+
+  it("returns the first PR URL from the dev-status API", async () => {
+    fetchMock
+      .mockResolvedValueOnce(okJson(issueBase))
+      .mockResolvedValueOnce(
+        okJson({ detail: [{ pullRequests: [{ url: "https://github.com/org/repo/pull/1" }] }] }),
+      );
+    expect(await fetchTicketPr(env, "PP-1")).toBe("https://github.com/org/repo/pull/1");
+  });
+
+  it("falls back to remote links when dev-status returns nothing", async () => {
+    fetchMock
+      .mockResolvedValueOnce(okJson(issueBase))
+      .mockResolvedValueOnce(okJson({ detail: [] })) // dev-status: no PRs
+      .mockResolvedValueOnce(okJson([{ object: { url: "https://github.com/org/repo/pull/2" } }]));
+    expect(await fetchTicketPr(env, "PP-1")).toBe("https://github.com/org/repo/pull/2");
+  });
+
+  it("falls back to comments when dev-status and remote links yield nothing", async () => {
+    const issue = {
+      id: "10001",
+      fields: {
+        comment: { comments: [{ body: { text: "see https://github.com/org/repo/pull/3 for fix" } }] },
+      },
+    };
+    fetchMock
+      .mockResolvedValueOnce(okJson(issue))
+      .mockResolvedValueOnce(okJson({ detail: [] }))
+      .mockResolvedValueOnce(okJson([]));
+    expect(await fetchTicketPr(env, "PP-1")).toBe("https://github.com/org/repo/pull/3");
+  });
+
+  it("returns null when no PR URL is found anywhere", async () => {
+    fetchMock
+      .mockResolvedValueOnce(okJson(issueBase))
+      .mockResolvedValueOnce(okJson({ detail: [] }))
+      .mockResolvedValueOnce(okJson([]));
+    expect(await fetchTicketPr(env, "PP-1")).toBeNull();
+  });
+
+  it("skips dev-status when it throws and continues to remote links", async () => {
+    fetchMock
+      .mockResolvedValueOnce(okJson(issueBase))
+      .mockRejectedValueOnce(new Error("not available"))
+      .mockResolvedValueOnce(okJson([{ object: { url: "https://github.com/org/repo/pull/4" } }]));
+    expect(await fetchTicketPr(env, "PP-1")).toBe("https://github.com/org/repo/pull/4");
+  });
+
+  it("skips remote links when they throw and continues to comments", async () => {
+    const issue = {
+      id: "10001",
+      fields: {
+        comment: { comments: [{ body: "PR at https://github.com/org/repo/pull/5" }] },
+      },
+    };
+    fetchMock
+      .mockResolvedValueOnce(okJson(issue))
+      .mockResolvedValueOnce(okJson({ detail: [] }))
+      .mockRejectedValueOnce(new Error("forbidden")); // remote links throws
+    expect(await fetchTicketPr(env, "PP-1")).toBe("https://github.com/org/repo/pull/5");
   });
 });
