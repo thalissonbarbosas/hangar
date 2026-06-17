@@ -9,6 +9,7 @@ import {
   jiraSettingsView,
   saveJiraSettings,
   expandHome,
+  boardPaths,
   JiraEnv,
   PORT,
 } from "./config";
@@ -64,8 +65,14 @@ app.get("/api/health", (_req, res) => {
 });
 
 // Full board config (keys, names, statuses, repo paths) + agents dir.
+// Each board gets resolvedPaths: the home-expanded versions of its repoPaths, so the
+// client can match repo skills to the board without knowing the home directory.
 app.get("/api/config", (_req, res) => {
-  res.json(getConfig());
+  const cfg = getConfig();
+  res.json({
+    ...cfg,
+    boards: cfg.boards.map((b) => ({ ...b, resolvedPaths: boardPaths(b) })),
+  });
 });
 
 // Save board config (from the Settings UI).
