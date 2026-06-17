@@ -1045,9 +1045,7 @@ function PathsEditor({ paths, onChange }: { paths: string[]; onChange: (p: strin
             onBlur={(e) => onBlur(i, e.target.value)}
           />
           {statuses[i] === "ok" && <Check size={14} className="path-status-icon ok" />}
-          {statuses[i] === "missing" && (
-            <AlertCircle size={14} className="path-status-icon missing" title="Directory not found" />
-          )}
+          {statuses[i] === "missing" && <AlertCircle size={14} className="path-status-icon missing" />}
           <button
             className="chip-btn remove"
             onClick={() => {
