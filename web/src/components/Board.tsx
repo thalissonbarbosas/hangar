@@ -442,10 +442,14 @@ export function Board({
 }) {
   // Restrict the Assign menu to the board's enabled agents (empty/undefined = all).
   const boardAgents = board.agents?.length ? agents.filter((a) => board.agents!.includes(a.name)) : agents;
+  // Show user-scoped skills always; repo skills only if their repoPath belongs to this board.
+  const boardSkills = board.resolvedPaths?.length
+    ? skills.filter((s) => s.source !== "repo" || board.resolvedPaths!.includes(s.repoPath ?? ""))
+    : skills;
   const ctx: CardCtx = {
     boardKey: board.key,
     agents: boardAgents,
-    skills,
+    skills: boardSkills,
     workflows: (board.workflows ?? []).filter((w) => w.steps.length > 0),
     runByTicket,
     onAssign,

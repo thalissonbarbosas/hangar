@@ -18,6 +18,7 @@ export interface BoardConfig {
   repoPaths?: string[];
   agents?: string[]; // enabled agent names; undefined/empty = all
   workflows?: WorkflowConfig[];
+  resolvedPaths?: string[]; // server-expanded repoPaths (no ~), for skill filtering
 }
 
 export interface FullConfig {
