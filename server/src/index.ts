@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { existsSync } from "fs";
 import {
   loadConfig,
   getConfig,
@@ -7,12 +8,20 @@ import {
   loadJiraEnv,
   jiraSettingsView,
   saveJiraSettings,
+  expandHome,
   JiraEnv,
   PORT,
 } from "./config";
 import { loadAgents, loadAgent } from "./agents";
 import { allSkills, skillExists, findSkill } from "./skills";
-import { fetchTickets, testConnection, listProjects, listStatuses, transitionIssue } from "./jira";
+import {
+  fetchTickets,
+  testConnection,
+  listProjects,
+  listStatuses,
+  transitionIssue,
+  fetchTicketPr,
+} from "./jira";
 import {
   startRun,
   getRun,
@@ -186,6 +195,27 @@ app.get("/api/tickets", async (req, res) => {
   } catch (err) {
     res.status(502).json({ error: String(err instanceof Error ? err.message : err) });
   }
+});
+
+// PR URL for a ticket — checks Jira dev-status API, remote links, and comments in order.
+app.get("/api/tickets/:key/pr", async (req, res) => {
+  if (isDemo()) return res.json({ prUrl: null });
+  const jira = requireJira(res);
+  if (!jira) return;
+  try {
+    const prUrl = await fetchTicketPr(jira, req.params.key);
+    res.json({ prUrl });
+  } catch (err) {
+    res.status(502).json({ error: String(err instanceof Error ? err.message : err) });
+  }
+});
+
+// Check whether a filesystem path exists (used by the Settings UI to validate codebase paths).
+app.get("/api/fs/exists", (req, res) => {
+  const raw = String(req.query.path ?? "").trim();
+  if (!raw) return res.status(400).json({ error: "path query param required" });
+  const expanded = expandHome(raw);
+  res.json({ exists: existsSync(expanded) });
 });
 
 // Move a ticket to a target status (drag-and-drop between columns). Body: { status }.
