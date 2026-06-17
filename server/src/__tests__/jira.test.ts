@@ -226,9 +226,27 @@ describe("fetchTicketPr", () => {
     fetchMock
       .mockResolvedValueOnce(okJson(issueBase))
       .mockResolvedValueOnce(
-        okJson({ detail: [{ pullRequests: [{ url: "https://github.com/org/repo/pull/1" }] }] }),
+        okJson({
+          detail: [{ pullRequests: [{ url: "https://github.com/org/repo/pull/1", status: "MERGED" }] }],
+        }),
       );
     expect(await fetchTicketPr(env, "PP-1")).toBe("https://github.com/org/repo/pull/1");
+  });
+
+  it("prefers the OPEN PR when a ticket has both a closed and an open PR", async () => {
+    fetchMock.mockResolvedValueOnce(okJson(issueBase)).mockResolvedValueOnce(
+      okJson({
+        detail: [
+          {
+            pullRequests: [
+              { url: "https://github.com/org/repo/pull/10", status: "DECLINED" },
+              { url: "https://github.com/org/repo/pull/11", status: "OPEN" },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(await fetchTicketPr(env, "PP-1")).toBe("https://github.com/org/repo/pull/11");
   });
 
   it("falls back to remote links when dev-status returns nothing", async () => {
