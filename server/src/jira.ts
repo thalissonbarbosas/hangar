@@ -158,15 +158,19 @@ export async function fetchTicketPr(env: JiraEnv, key: string): Promise<string |
   }>(env, `/rest/api/3/issue/${encodeURIComponent(key)}?fields=id,comment`);
 
   // 1. Dev-status API — linked PRs from the GitHub integration.
+  // Collect all PRs, then prefer OPEN ones over closed/merged so a ticket with
+  // both a stale closed PR and a new open PR surfaces the right link.
   try {
-    const devInfo = await jiraGet<{ detail?: Array<{ pullRequests?: Array<{ url?: string }> }> }>(
+    const devInfo = await jiraGet<{
+      detail?: Array<{ pullRequests?: Array<{ url?: string; status?: string }> }>;
+    }>(
       env,
       `/rest/dev-status/latest/issue/detail?issueId=${encodeURIComponent(issue.id)}&applicationType=github&dataType=pullrequest`,
     );
-    for (const d of devInfo.detail ?? []) {
-      for (const pr of d.pullRequests ?? []) {
-        if (pr.url) return pr.url;
-      }
+    const prs = (devInfo.detail ?? []).flatMap((d) => d.pullRequests ?? []).filter((pr) => pr.url);
+    if (prs.length > 0) {
+      const open = prs.find((pr) => pr.status === "OPEN");
+      return (open ?? prs[0]).url!;
     }
   } catch {
     // dev-status is not available on all Jira plans — fall through to other sources
