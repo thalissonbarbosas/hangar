@@ -250,6 +250,15 @@ export function App() {
       .then(refreshRuns)
       .catch(() => {});
   }
+  function resumeRun(runId: string, text: string) {
+    api
+      .sendMessage(runId, text)
+      .then(() => {
+        openRunById(runId);
+        refreshRuns();
+      })
+      .catch((e) => setError(String(e.message ?? e)));
+  }
   function deleteRun(runId: string) {
     api
       .deleteRun(runId)
@@ -426,6 +435,7 @@ export function App() {
             onOpenRun={openRun}
             onStop={stop}
             onDelete={deleteRun}
+            onResume={resumeRun}
             onClear={clearRuns}
           />
         </div>

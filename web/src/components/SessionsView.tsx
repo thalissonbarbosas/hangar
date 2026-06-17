@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Bot,
   Square,
@@ -10,6 +12,9 @@ import {
   Trash2,
   GitPullRequest,
   Sparkles,
+  RotateCcw,
+  Play,
+  X,
 } from "lucide-react";
 import { RunState, RunSummary, isActive } from "../types";
 
@@ -45,14 +50,18 @@ export function SessionsView({
   onOpenRun,
   onStop,
   onDelete,
+  onResume,
   onClear,
 }: {
   runs: RunSummary[];
   onOpenRun: (run: RunSummary) => void;
   onStop: (runId: string) => void;
   onDelete: (runId: string) => void;
+  onResume: (runId: string, text: string) => void;
   onClear: (scope: "finished" | "all") => void;
 }) {
+  const [pendingResume, setPendingResume] = useState<RunSummary | null>(null);
+  const [resumeText, setResumeText] = useState("");
   const active = runs.filter((r) => isActive(r.state));
   const finished = runs.length - active.length;
 
@@ -120,16 +129,83 @@ export function SessionsView({
                   <Square size={13} /> Stop
                 </button>
               )}
+              {!isActive(r.state) && (
+                <button
+                  className="btn-ghost sm"
+                  onClick={() => {
+                    setResumeText("");
+                    setPendingResume(r);
+                  }}
+                  title="Resume session"
+                >
+                  <RotateCcw size={13} /> Resume
+                </button>
+              )}
               <button className="btn-ghost sm" onClick={() => onOpenRun(r)} title="Open session">
                 <ExternalLink size={13} /> Open
               </button>
-              <button className="icon-btn sm" onClick={() => onDelete(r.id)} title="Delete session">
-                <Trash2 size={14} />
-              </button>
+              {!isActive(r.state) && (
+                <button className="icon-btn sm" onClick={() => onDelete(r.id)} title="Delete session">
+                  <Trash2 size={14} />
+                </button>
+              )}
             </span>
           </div>
         ))}
       </div>
+
+      {pendingResume &&
+        createPortal(
+          <div className="modal-overlay" onClick={() => setPendingResume(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <div className="modal-head">
+                <span className="modal-title">
+                  <RotateCcw size={15} /> Resume <b>{pendingResume.agentName}</b>
+                  {pendingResume.ticketKey && (
+                    <>
+                      {" on "}
+                      <span className="mono">{pendingResume.ticketKey}</span>
+                    </>
+                  )}
+                </span>
+                <button className="icon-btn" onClick={() => setPendingResume(null)} title="Cancel">
+                  <X size={16} />
+                </button>
+              </div>
+              <p className="hint">Send a message to resume this session from where it left off.</p>
+              <textarea
+                className="note-input"
+                autoFocus
+                rows={4}
+                placeholder="e.g. Continue with the failing tests — focus on the auth module."
+                value={resumeText}
+                onChange={(e) => setResumeText(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && resumeText.trim()) {
+                    onResume(pendingResume.id, resumeText.trim());
+                    setPendingResume(null);
+                  }
+                }}
+              />
+              <div className="modal-actions">
+                <button className="btn-ghost" onClick={() => setPendingResume(null)}>
+                  Cancel
+                </button>
+                <button
+                  className="btn"
+                  disabled={!resumeText.trim()}
+                  onClick={() => {
+                    onResume(pendingResume.id, resumeText.trim());
+                    setPendingResume(null);
+                  }}
+                >
+                  <Play size={14} /> Resume
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
