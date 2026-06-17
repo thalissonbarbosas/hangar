@@ -999,7 +999,33 @@ function StepsEditor({
   );
 }
 
+type PathStatus = "unchecked" | "ok" | "missing";
+
 function PathsEditor({ paths, onChange }: { paths: string[]; onChange: (p: string[]) => void }) {
+  const [statuses, setStatuses] = useState<PathStatus[]>(() => paths.map(() => "unchecked"));
+
+  // Keep status array length in sync when paths are added or removed.
+  useEffect(() => {
+    setStatuses((prev) => paths.map((_, i) => prev[i] ?? "unchecked"));
+  }, [paths.length]);
+
+  function setStatus(i: number, s: PathStatus) {
+    setStatuses((prev) => prev.map((x, idx) => (idx === i ? s : x)));
+  }
+
+  async function onBlur(i: number, val: string) {
+    if (!val.trim()) {
+      setStatus(i, "unchecked");
+      return;
+    }
+    try {
+      const { exists } = await api.checkPath(val.trim());
+      setStatus(i, exists ? "ok" : "missing");
+    } catch {
+      setStatus(i, "unchecked");
+    }
+  }
+
   return (
     <div className="paths-editor">
       <div className="paths-label">
@@ -1009,21 +1035,38 @@ function PathsEditor({ paths, onChange }: { paths: string[]; onChange: (p: strin
       {paths.map((p, i) => (
         <div className="path-row" key={i}>
           <input
-            className="repo-input"
+            className={`repo-input${statuses[i] === "missing" ? " path-missing" : ""}`}
             placeholder="~/dev/ReviewWave/eyeconic"
             value={p}
-            onChange={(e) => onChange(paths.map((x, idx) => (idx === i ? e.target.value : x)))}
+            onChange={(e) => {
+              onChange(paths.map((x, idx) => (idx === i ? e.target.value : x)));
+              setStatus(i, "unchecked");
+            }}
+            onBlur={(e) => onBlur(i, e.target.value)}
           />
+          {statuses[i] === "ok" && <Check size={14} className="path-status-icon ok" />}
+          {statuses[i] === "missing" && (
+            <AlertCircle size={14} className="path-status-icon missing" title="Directory not found" />
+          )}
           <button
             className="chip-btn remove"
-            onClick={() => onChange(paths.filter((_, idx) => idx !== i))}
+            onClick={() => {
+              onChange(paths.filter((_, idx) => idx !== i));
+              setStatuses((prev) => prev.filter((_, idx) => idx !== i));
+            }}
             title="Remove path"
           >
             <X size={14} />
           </button>
         </div>
       ))}
-      <button className="btn-ghost sm" onClick={() => onChange([...paths, ""])}>
+      <button
+        className="btn-ghost sm"
+        onClick={() => {
+          onChange([...paths, ""]);
+          setStatuses((prev) => [...prev, "unchecked"]);
+        }}
+      >
         <Plus size={14} /> Add path
       </button>
     </div>
