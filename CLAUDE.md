@@ -107,5 +107,7 @@ does not manage its own key.
 - Never commit `.env`, `hangar.config.json`, or anything under `.hangar/` — all gitignored
   (secrets / personal board config / runtime data). Ship changes to the committed templates
   (`.env.example`, `hangar.config.example.json`) instead.
+- **PR titles**: plain sentence case, no type prefix. Write `Fix open-PR preference in dev-status`,
+  not `bugfix: Fix open-PR preference` or `feat/my-branch: Fix open-PR preference`.
 - No automated tests exist yet — verify changes with `npm run typecheck` and, where it matters, by
   running `npm run dev` and exercising the flow in the UI.
