@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { existsSync } from "fs";
 import { expandHome, getConfig, boardPaths } from "./config";
 import { loadAgent, AgentDetail } from "./agents";
 import { createWorktree, removeWorktree, Worktree } from "./worktree";
@@ -452,6 +453,8 @@ export function startRun(opts: StartOpts): Run {
   let ticketKey = "";
   let ticketUrl: string | undefined;
   let title: string | undefined;
+  let branch = opts.branch;
+  let skipWorktree = opts.skipWorktree;
   const parent = opts.parentRunId ? runs.get(opts.parentRunId) : undefined;
 
   if (opts.cwdOverride) {
@@ -467,10 +470,18 @@ export function startRun(opts: StartOpts): Run {
   } else if (parent) {
     // Handoff: reuse the parent's working context; the note carries the prior result.
     cwd = parent.cwd;
-    additionalDirectories = parent.additionalDirectories ?? [];
+    // Use the already-mapped worktree dirs if the parent ran isolated.
+    additionalDirectories = parent.runtimeDirs ?? parent.additionalDirectories ?? [];
     ticketKey = parent.ticketKey;
     ticketUrl = parent.ticketUrl;
     title = parent.ticketKey ? undefined : `${opts.name} ← ${parent.agentName}`;
+    // If the parent already created a worktree, reuse it so the handoff stays on the same
+    // branch. Without this, drive() would create a new worktree (new branch) and a follow-up
+    // "ship it" would open a second PR instead of pushing to the existing one.
+    if (parent.worktrees?.length) {
+      skipWorktree = true;
+      branch = parent.branch;
+    }
   } else if (opts.ticket) {
     const paths = boardPaths(cfg.boards.find((b) => b.key === opts.ticket!.boardKey));
     cwd = paths[0] ?? process.cwd();
@@ -498,8 +509,8 @@ export function startRun(opts: StartOpts): Run {
     model: model ?? "(default)",
     cwd,
     additionalDirectories,
-    branch: opts.branch,
-    skipWorktree: opts.skipWorktree,
+    branch,
+    skipWorktree,
     skillSource: opts.skillSource,
     state: "starting",
     startedAt: Date.now(),
@@ -807,6 +818,13 @@ async function drive(run: Run, ctx: DriveCtx): Promise<void> {
     additionalDirectories = mapped;
   }
   run.runtimeDirs = additionalDirectories; // reused on resume
+
+  if (!existsSync(run.cwd)) {
+    throw new Error(
+      `Working directory does not exist: "${run.cwd}". ` +
+        `Check the repoPaths for this board in hangar.config.json.`,
+    );
+  }
 
   const systemPrompt = agent?.body?.trim()
     ? `You are operating as the "${run.agentName}" agent.\n\n${agent.body.trim()}`
