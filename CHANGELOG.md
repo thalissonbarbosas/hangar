@@ -18,6 +18,8 @@ _Nothing yet._
 
 ## [0.3.0] - 2026-06-17
 
+Shipped in [#13](https://github.com/thalissonbarbosas/hangar/pull/13).
+
 ### Added
 
 - **AI Workflow demo seeding** — `HANGAR_DEMO=1` now shows a populated AI Workflow connection (a
