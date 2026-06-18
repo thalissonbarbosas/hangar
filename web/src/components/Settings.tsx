@@ -308,7 +308,7 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
     Promise.all([api.config(), api.agents(), api.skills(), api.aiwfStatus()]).then(([c, a, s, ast]) => {
       setExclusive(c.exclusiveAgents ?? []);
       setAgents(a.agents);
-      const found = new Set(ast.skillsFound);
+      const found = new Set(ast.skillGroups?.flatMap((g: { skills: string[] }) => g.skills) ?? []);
       const enriched = s.skills.map((sk) => (found.has(sk.name) ? { ...sk, aiwf: true } : sk));
       enriched.sort((a, b) => {
         const pa = skillProject(a) ?? "￿";
@@ -927,7 +927,7 @@ function BoardSkillsSection({ onSaved }: { onSaved: () => void }) {
   useEffect(() => {
     Promise.all([api.config(), api.skills(), api.aiwfStatus()]).then(([c, s, ast]) => {
       setBoards(c.boards);
-      const found = new Set(ast.skillsFound);
+      const found = new Set(ast.skillGroups?.flatMap((g: { skills: string[] }) => g.skills) ?? []);
       const enriched = s.skills.map((sk) => (found.has(sk.name) ? { ...sk, aiwf: true } : sk));
       enriched.sort((a, b) => {
         const pa = skillProject(a) ?? "￿";

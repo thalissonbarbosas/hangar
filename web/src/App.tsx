@@ -121,8 +121,10 @@ export function App() {
   }, []);
 
   // Mark skills from the aiwf toolkit so downstream components can group/tag them.
+  // Use skillGroups (the authoritative phase→skills spec) rather than skillsFound
+  // (detection-based, incomplete if the server hasn't reloaded since install).
   const enrichedSkills = useMemo(() => {
-    const found = new Set(aiwf?.skillsFound ?? []);
+    const found = new Set(aiwf?.skillGroups?.flatMap((g) => g.skills) ?? []);
     if (!found.size) return skills;
     return skills.map((s) => (found.has(s.name) ? { ...s, aiwf: true as const } : s));
   }, [skills, aiwf]);
