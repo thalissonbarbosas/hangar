@@ -177,6 +177,62 @@ describe("card store", () => {
     expect(() => aiwf.appendCardHistory("p1", "DP-404", { phase: "x", skill: "y", at: 1 })).not.toThrow();
   });
 
+  it("appendCardHistory persists prUrl to the card's pr: frontmatter when supplied", () => {
+    aiwf.createCard(project, { title: "With PR" });
+    aiwf.appendCardHistory(
+      "p1",
+      "DP-1",
+      { phase: "Delivery", skill: "pr", at: 1 },
+      "https://github.com/me/repo/pull/42",
+    );
+    const card = aiwf.getCard(project, "DP-1")!;
+    expect(card.prUrl).toBe("https://github.com/me/repo/pull/42");
+    // also visible via listCards
+    expect(aiwf.listCards(project)[0].prUrl).toBe("https://github.com/me/repo/pull/42");
+  });
+
+  it("appendCardHistory trims whitespace from prUrl before writing", () => {
+    aiwf.createCard(project, { title: "PR trim" });
+    aiwf.appendCardHistory(
+      "p1",
+      "DP-1",
+      { phase: "Delivery", skill: "pr", at: 1 },
+      "  https://github.com/me/repo/pull/7  ",
+    );
+    expect(aiwf.getCard(project, "DP-1")!.prUrl).toBe("https://github.com/me/repo/pull/7");
+  });
+
+  it("appendCardHistory does not add or clear pr: when prUrl is absent or empty", () => {
+    aiwf.createCard(project, { title: "No PR" });
+    // no prUrl supplied — pr: is not added
+    aiwf.appendCardHistory("p1", "DP-1", { phase: "Planning", skill: "prd", at: 1 });
+    expect(aiwf.getCard(project, "DP-1")!.prUrl).toBeUndefined();
+    // empty string — existing pr: is not cleared
+    aiwf.appendCardHistory(
+      "p1",
+      "DP-1",
+      { phase: "Delivery", skill: "pr", at: 2 },
+      "https://github.com/me/repo/pull/1",
+    );
+    aiwf.appendCardHistory("p1", "DP-1", { phase: "Delivery", skill: "pr", at: 3 }, "");
+    expect(aiwf.getCard(project, "DP-1")!.prUrl).toBe("https://github.com/me/repo/pull/1");
+  });
+
+  it("appendCardHistory still appends history and updates skill when prUrl is supplied", () => {
+    aiwf.createCard(project, { title: "History + PR" });
+    aiwf.appendCardHistory(
+      "p1",
+      "DP-1",
+      { phase: "Delivery", skill: "pr", at: 1, summary: "opened PR" },
+      "https://github.com/me/repo/pull/99",
+    );
+    const card = aiwf.getCard(project, "DP-1")!;
+    expect(card.history?.length).toBe(1);
+    expect(card.history?.[0].summary).toBe("opened PR");
+    expect(card.skill).toBe("pr");
+    expect(card.prUrl).toBe("https://github.com/me/repo/pull/99");
+  });
+
   it("ignores a malformed history block, keeping the description", () => {
     fs.mkdirSync(aiwf.boardDir(project), { recursive: true });
     fs.writeFileSync(

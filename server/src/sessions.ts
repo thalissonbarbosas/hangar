@@ -764,15 +764,21 @@ async function streamTurn(run: Run, options: Record<string, unknown>, seedText: 
           run.result = msg.result;
           emit(run, "result", { subtype: "success", result: msg.result, costUsd: msg.total_cost_usd });
           // Record this session in the card's history (aiwf card runs only).
+          // Pass run.prUrl so a detected PR is persisted to the card's frontmatter.
           if (run.aiwfProjectId && run.ticketKey) {
             try {
-              appendCardHistory(run.aiwfProjectId, run.ticketKey, {
-                phase: run.aiwfPhase ?? "",
-                skill: run.agentName,
-                at: Date.now(),
-                runId: run.id,
-                summary: (msg.result ?? "").slice(0, 300),
-              });
+              appendCardHistory(
+                run.aiwfProjectId,
+                run.ticketKey,
+                {
+                  phase: run.aiwfPhase ?? "",
+                  skill: run.agentName,
+                  at: Date.now(),
+                  runId: run.id,
+                  summary: (msg.result ?? "").slice(0, 300),
+                },
+                run.prUrl,
+              );
             } catch {
               /* don't let history persistence break the run */
             }
