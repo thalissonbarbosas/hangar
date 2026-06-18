@@ -32,9 +32,7 @@ export function projectOf(
   // 1. AI Workflow run — look up by id; fall back to the raw id string if not found.
   if (run.aiwfProjectId) {
     const proj = aiwfProjects.find((p) => p.id === run.aiwfProjectId);
-    return proj
-      ? { key: proj.id, label: proj.name }
-      : { key: run.aiwfProjectId, label: run.aiwfProjectId };
+    return proj ? { key: proj.id, label: proj.name } : { key: run.aiwfProjectId, label: run.aiwfProjectId };
   }
   // 2. Jira-board run — strip trailing `-<number>` to get the board key prefix.
   if (run.ticketKey) {
@@ -141,9 +139,7 @@ export function SessionsView({
 
   // Filter the list for the active tab; preserve the incoming active-first / newest-first order.
   const visibleRuns =
-    activeTab === "All"
-      ? runs
-      : runs.filter((r) => projectOf(r, boards, aiwfProjects).key === activeTab);
+    activeTab === "All" ? runs : runs.filter((r) => projectOf(r, boards, aiwfProjects).key === activeTab);
 
   function openInTerminal(runId: string) {
     if (!terminalConfigured) {
