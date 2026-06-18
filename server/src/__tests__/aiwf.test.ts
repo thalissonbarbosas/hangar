@@ -243,6 +243,42 @@ describe("card store", () => {
     expect(card.history).toEqual([]);
     expect(card.description).toBe("the body");
   });
+
+  it("setCardArchived sets archived: true on the card and is reflected in listCards", () => {
+    aiwf.createCard(project, { title: "Archive me" });
+    aiwf.setCardArchived(project, "DP-1", true);
+    const card = aiwf.getCard(project, "DP-1")!;
+    expect(card.archived).toBe(true);
+    expect(aiwf.listCards(project)[0].archived).toBe(true);
+  });
+
+  it("setCardArchived with false removes the archived key (unarchive)", () => {
+    aiwf.createCard(project, { title: "Unarchive me" });
+    aiwf.setCardArchived(project, "DP-1", true);
+    aiwf.setCardArchived(project, "DP-1", false);
+    const card = aiwf.getCard(project, "DP-1")!;
+    // archived key must be absent after unarchive, not merely false
+    expect(card.archived).toBeUndefined();
+    // verify the file does not contain 'archived:' at all
+    const dir = aiwf.boardDir(project);
+    const content = fs.readFileSync(path.join(dir, "DP-1.md"), "utf8");
+    expect(content).not.toContain("archived:");
+  });
+
+  it("setCardArchived throws for a missing card key, mirroring transitionCard", () => {
+    expect(() => aiwf.setCardArchived(project, "DP-99", true)).toThrow(/Card not found/);
+  });
+
+  it("deleteCard removes the card file and returns true; returns false when not found", () => {
+    aiwf.createCard(project, { title: "Delete me" });
+    expect(aiwf.getCard(project, "DP-1")).not.toBeNull();
+    const removed = aiwf.deleteCard(project, "DP-1");
+    expect(removed).toBe(true);
+    expect(aiwf.getCard(project, "DP-1")).toBeNull();
+    expect(aiwf.listCards(project)).toHaveLength(0);
+    // second call: file is gone
+    expect(aiwf.deleteCard(project, "DP-1")).toBe(false);
+  });
 });
 
 describe("detectAiwf", () => {

@@ -91,6 +91,7 @@ export interface Ticket {
   kind?: "thread" | "task";
   skill?: string;
   history?: AiwfHistoryEntry[];
+  archived?: boolean; // aiwf: soft-hidden from active board columns (reversible)
 }
 
 export interface AiwfHistoryEntry {
