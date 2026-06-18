@@ -22,6 +22,8 @@ import {
   listCards,
   createCard,
   transitionCard,
+  setCardArchived,
+  deleteCard,
   uninstallAiwf,
   getCard,
   boardDir,
@@ -422,6 +424,31 @@ app.post("/api/aiwf/projects/:id/cards/:key/transition", (req, res) => {
   } catch (err) {
     res.status(400).json({ error: String(err instanceof Error ? err.message : err) });
   }
+});
+
+// Soft-archive or unarchive a card. Body: { archived: boolean } (defaults to true).
+// Demo mode returns success without writing to disk.
+app.post("/api/aiwf/projects/:id/cards/:key/archive", (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  const archived = req.body?.archived !== false; // coerce: absent or true → true, explicit false → false
+  if (isDemo()) return res.json({ ok: true });
+  try {
+    setCardArchived(p, req.params.key, archived);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: String(err instanceof Error ? err.message : err) });
+  }
+});
+
+// Permanently remove a card file. Demo mode returns success without touching disk.
+app.delete("/api/aiwf/projects/:id/cards/:key", (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  if (isDemo()) return res.json({ ok: true });
+  const removed = deleteCard(p, req.params.key);
+  if (!removed) return res.status(404).json({ error: "No such card" });
+  res.json({ ok: true });
 });
 
 // Start a phase skill as an in-place session against a card. The card's current phase is
