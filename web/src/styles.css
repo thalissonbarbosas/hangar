@@ -2293,9 +2293,23 @@ a.session-ticket {
   background: var(--accent-soft);
   color: var(--accent);
 }
+.rq-opt.selected {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 .rq-opt:disabled {
   opacity: 0.5;
   cursor: default;
+}
+.rq-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .rq-hint {
   font-size: 11px;

@@ -466,51 +466,119 @@ function renderOther(
           <div className="run-user-text">{s(e.text)}</div>
         </div>
       );
-    case "question": {
-      const rid = s(e.requestId);
-      const ans = resolvedQuestions.get(rid);
-      const questions = (Array.isArray(e.questions) ? e.questions : []) as {
-        question: string;
-        header?: string;
-        options: { label: string; description?: string }[];
-      }[];
+    case "question":
       return (
-        <div className="run-question" key={e.seq}>
-          <div className="rq-head">
-            <MessageCircleQuestion size={15} /> The agent is asking
-          </div>
-          {questions.map((q, qi) => (
-            <div className="rq-block" key={qi}>
-              {q.header && <span className="rq-tag">{q.header}</span>}
-              <div className="rq-text">{q.question}</div>
-              <div className="rq-options">
-                {(q.options ?? []).map((o, oi) => (
-                  <button
-                    key={oi}
-                    className="rq-opt"
-                    disabled={!!ans}
-                    title={o.description}
-                    onClick={() => answer(o.label)}
-                  >
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-          {ans ? (
-            <div className="rq-answered">
-              <Check size={12} /> You answered: {ans}
-            </div>
-          ) : (
-            <div className="rq-hint">Pick an option, or type a reply below.</div>
-          )}
-        </div>
+        <QuestionCard key={e.seq} e={e} answered={resolvedQuestions.get(s(e.requestId))} answer={answer} />
       );
-    }
     default:
       return null;
   }
+}
+
+interface ParsedQuestion {
+  question: string;
+  header?: string;
+  multiSelect?: boolean;
+  options: { label: string; description?: string }[];
+}
+
+// Build the single string we hand back to the session. With multiple questions we label each
+// answer with its header/question so the model can tell them apart; a lone question stays terse.
+function formatAnswer(questions: ParsedQuestion[], picks: string[][]): string {
+  if (questions.length === 1) return picks[0].join(", ");
+  return questions.map((q, qi) => `${q.header || q.question}: ${picks[qi].join(", ")}`).join("\n");
+}
+
+// Renders an AskUserQuestion prompt. Selections accumulate locally so every question (and every
+// pick within a multiSelect question) is captured before a single combined answer is sent — a
+// lone single-select question keeps the one-click fast path.
+function QuestionCard({
+  e,
+  answered,
+  answer,
+}: {
+  e: RunEvent;
+  answered?: string;
+  answer: (text: string) => void;
+}) {
+  const questions = (Array.isArray(e.questions) ? e.questions : []) as ParsedQuestion[];
+  const [picks, setPicks] = useState<string[][]>(() => questions.map(() => []));
+  const oneClick = questions.length === 1 && !questions[0]?.multiSelect;
+
+  const toggle = (qi: number, label: string, multi: boolean) => {
+    if (oneClick) {
+      answer(label);
+      return;
+    }
+    setPicks((prev) => {
+      const next = prev.map((row) => [...row]);
+      const row = next[qi] ?? (next[qi] = []);
+      const at = row.indexOf(label);
+      if (multi) {
+        if (at >= 0) row.splice(at, 1);
+        else row.push(label);
+      } else {
+        next[qi] = at >= 0 ? [] : [label];
+      }
+      return next;
+    });
+  };
+
+  const complete = questions.length > 0 && questions.every((_, qi) => (picks[qi]?.length ?? 0) > 0);
+  const disabled = !!answered;
+
+  return (
+    <div className="run-question">
+      <div className="rq-head">
+        <MessageCircleQuestion size={15} /> The agent is asking
+      </div>
+      {questions.map((q, qi) => (
+        <div className="rq-block" key={qi}>
+          {q.header && <span className="rq-tag">{q.header}</span>}
+          <div className="rq-text">{q.question}</div>
+          <div className="rq-options">
+            {(q.options ?? []).map((o, oi) => {
+              const selected = (picks[qi] ?? []).includes(o.label);
+              return (
+                <button
+                  key={oi}
+                  className={`rq-opt${selected ? " selected" : ""}`}
+                  disabled={disabled}
+                  title={o.description}
+                  onClick={() => toggle(qi, o.label, !!q.multiSelect)}
+                >
+                  {selected && <Check size={12} />}
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      {answered ? (
+        <div className="rq-answered">
+          <Check size={12} /> You answered: {answered}
+        </div>
+      ) : oneClick ? (
+        <div className="rq-hint">Pick an option, or type a reply below.</div>
+      ) : (
+        <div className="rq-actions">
+          <button
+            className="btn sm"
+            disabled={!complete}
+            onClick={() => answer(formatAnswer(questions, picks))}
+          >
+            <Send size={13} /> Send answer{questions.length > 1 ? "s" : ""}
+          </button>
+          <span className="rq-hint">
+            {complete
+              ? "Send your selections, or type a reply below."
+              : "Choose an option for each question."}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function StateBadge({ state }: { state: RunState }) {

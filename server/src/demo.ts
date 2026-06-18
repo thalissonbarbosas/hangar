@@ -272,6 +272,16 @@ export function demoRunSeeds(): DemoRunSeed[] {
                 { label: "Leave at >=18", description: "CI runs 22 but the package still allows 18." },
               ],
             },
+            {
+              question: "Which CI jobs should run on the Node 22 matrix?",
+              header: "ci matrix",
+              multiSelect: true,
+              options: [
+                { label: "lint", description: "ESLint + Prettier check." },
+                { label: "typecheck", description: "tsc --noEmit across server + web." },
+                { label: "test", description: "Jest server suite." },
+              ],
+            },
           ],
         },
         { kind: "state", state: "awaiting_input" },
