@@ -345,9 +345,17 @@ export function getCard(project: AiwfProject, key: string): Ticket | null {
 
 /**
  * Append a history entry to a card (called when a session against it finishes), and record the
- * skill as the card's most recent. Resolves the project by id; no-op if it/the card is gone.
+ * skill as the card's most recent. When `prUrl` is a non-empty string, also writes it to the
+ * card's `pr:` frontmatter so the link survives the run (restarts/reloads). An absent/empty
+ * `prUrl` leaves any existing `pr:` untouched — never clears a known PR.
+ * Resolves the project by id; no-op if it/the card is gone.
  */
-export function appendCardHistory(projectId: string, key: string, entry: AiwfHistoryEntry): void {
+export function appendCardHistory(
+  projectId: string,
+  key: string,
+  entry: AiwfHistoryEntry,
+  prUrl?: string,
+): void {
   const project = getAiwfProjects().find((p) => p.id === projectId);
   if (!project) return;
   const file = findCardFile(project, key);
@@ -355,5 +363,6 @@ export function appendCardHistory(projectId: string, key: string, entry: AiwfHis
   const { fm, description, history } = parseCardFile(fs.readFileSync(file, "utf8"));
   history.push(entry);
   if (entry.skill && entry.skill !== "task") fm.skill = entry.skill;
+  if (prUrl?.trim()) fm.pr = prUrl.trim();
   fs.writeFileSync(file, serializeCard(fm, description, history));
 }
