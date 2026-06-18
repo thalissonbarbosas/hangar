@@ -57,6 +57,7 @@ import {
   loadPersistedRuns,
   seedDemoRuns,
 } from "./sessions";
+import { openInTerminal, TerminalError } from "./terminal";
 import { isDemo, demoTickets } from "./demo";
 import {
   startWorkflow,
@@ -493,6 +494,20 @@ app.post("/api/runs/:id/message", (req, res) => {
   const mode = sendMessage(run, text);
   if (mode === "none") return res.status(409).json({ error: "Run has no open session to message." });
   res.json({ ok: true, mode });
+});
+
+// Open the run's Claude session in the operator's configured terminal (resume from where it left
+// off). 400 when no terminal is configured / the run has no resumable session.
+app.post("/api/runs/:id/terminal", (req, res) => {
+  const run = getRun(req.params.id);
+  if (!run) return res.status(404).json({ error: "No such run" });
+  try {
+    const command = openInTerminal(run);
+    res.json({ ok: true, command });
+  } catch (err) {
+    if (err instanceof TerminalError) return res.status(400).json({ error: err.message });
+    res.status(500).json({ error: String(err instanceof Error ? err.message : err) });
+  }
 });
 
 // Stop a run (interrupt the session).
