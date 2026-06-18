@@ -15,6 +15,7 @@ import {
   Play,
   Activity,
   Bot,
+  X,
 } from "lucide-react";
 import { api } from "../api";
 import {
@@ -89,6 +90,21 @@ export function AiWorkflowBar({
       .catch((e) => onError(String(e.message ?? e)))
       .finally(() => setBusy(false));
   }
+  function removeProject(p: AiwfProject) {
+    if (
+      !window.confirm(
+        `Remove project “${p.name}” from AI Workflow? This only unregisters it from Hangar — your repo ` +
+          "stays untouched and the project's board state is left on disk in Hangar's data dir.",
+      )
+    )
+      return;
+    setBusy(true);
+    api
+      .deleteAiwfProject(p.id)
+      .then(() => onReload())
+      .catch((e) => onError(String(e.message ?? e)))
+      .finally(() => setBusy(false));
+  }
 
   return (
     <div className="subbar aiwf-bar">
@@ -116,6 +132,14 @@ export function AiWorkflowBar({
                   onClick={() => setEditing(p)}
                 >
                   <Pencil size={12} />
+                </button>
+                <button
+                  className="aiwf-proj-remove has-tip"
+                  data-tip="Remove project"
+                  disabled={busy}
+                  onClick={() => removeProject(p)}
+                >
+                  <X size={12} />
                 </button>
               </span>
             ))}

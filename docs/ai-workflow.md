@@ -67,6 +67,11 @@ project repo, which stays pristine. A task's durable description/acceptance crit
 tracked `docs/specs/NNN_*.md` (via the `spec` skill); the lasting record lives in `docs/` + the PR.
 Point dev and stable Hangar instances at one `HANGAR_DATA_DIR` to share a project's board.
 
+**Remove** — hovering a project chip in the sub-bar reveals a remove (✕) button. It unregisters the
+project from Hangar (after a confirm) via `DELETE /api/aiwf/projects/:id`; your repo stays untouched
+and the project's board state under `<HANGAR_DATA_DIR>/aiwf/<projectId>/board/` is left on disk. If
+the removed project was the selected one, the view falls back to the first remaining project.
+
 ## The phase board
 
 The board **columns are the aiwf lifecycle phases** plus a terminal **Complete** column
