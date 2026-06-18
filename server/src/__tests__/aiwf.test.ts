@@ -69,6 +69,33 @@ describe("constants", () => {
   });
 });
 
+describe("skillNeedsWorktree", () => {
+  it("isolates source-editing implementation skills in a worktree", () => {
+    for (const s of ["feature", "fix"]) {
+      expect(aiwf.skillNeedsWorktree(s)).toBe(true);
+    }
+    expect(aiwf.WORKTREE_SKILLS.has("feature")).toBe(true);
+  });
+  it("runs doc, review, and self-delivering skills in place (no worktree)", () => {
+    // planning/design/doc/review/delivery + the autopilot/factory orchestrators (they spawn their own
+    // worktree subagents and open their own PRs, so an outer worktree would only fragment their git).
+    for (const s of [
+      "prd",
+      "architecture",
+      "roadmap",
+      "spec",
+      "new-project",
+      "review",
+      "commit",
+      "pr",
+      "autopilot",
+      "factory",
+    ]) {
+      expect(aiwf.skillNeedsWorktree(s)).toBe(false);
+    }
+  });
+});
+
 describe("projectRunNote", () => {
   it("returns undefined with no note and a non-roadmap skill", () => {
     expect(aiwf.projectRunNote("feature", project)).toBeUndefined();

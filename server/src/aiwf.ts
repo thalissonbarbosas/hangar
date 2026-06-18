@@ -39,6 +39,20 @@ export const COLUMN_SKILLS: Record<string, string[]> = Object.fromEntries(
   SKILL_GROUPS.map((g) => [g.phase, g.skills]),
 );
 
+// Code-producing implementation skills that mutate source directly in their own run. An aiwf run of
+// one is isolated in its own git worktree + branch — like any other Hangar run — so parallel
+// implementation runs (and the user's own working tree) can't clobber each other. Every other aiwf
+// skill runs in place: planning/design/doc/review skills (plus spec/new-project) so their docs land
+// in the real repo, and the self-delivering skills (commit, pr, and the autopilot/factory
+// orchestrators, which spawn their own worktree subagents and open their own PRs) so their git work
+// operates on the real repo, not a throwaway branch. See `skillNeedsWorktree`.
+export const WORKTREE_SKILLS = new Set(["feature", "fix"]);
+
+/** Whether an aiwf card run of `skill` should be isolated in its own git worktree. */
+export function skillNeedsWorktree(skill: string): boolean {
+  return WORKTREE_SKILLS.has(skill);
+}
+
 // The roadmap skill is also asked to seed the board so the kanban fills in from the roadmap tasks.
 // The board lives in Hangar's data dir (not the repo), so the skill is given the absolute path.
 const roadmapSeedNote = (boardPath: string): string =>
