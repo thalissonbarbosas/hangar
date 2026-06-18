@@ -60,6 +60,7 @@ export interface Skill {
   source?: "user" | "repo"; // default "user"
   repo?: string; // repo basename, for repo skills (the "(eyeconic)" flag)
   repoPath?: string; // expanded repo root, so a run can target it
+  model?: string; // optional model from frontmatter, e.g. "opus" | "sonnet" | "haiku"
 }
 
 export interface Agent {

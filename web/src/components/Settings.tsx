@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Plug,
   Columns3,
@@ -327,11 +327,12 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
     }
   }
 
-  const row = (key: string, name: string, label: string, icon: JSX.Element) => (
+  const row = (key: string, name: string, label: string, icon: JSX.Element, model?: string) => (
     <label className="exclusive-item" key={key}>
       <input type="checkbox" checked={exclusive.includes(name)} onChange={() => toggle(name)} />
       {icon}
       <span className="mono">{label}</span>
+      {model && <span className="model-chip">{model}</span>}
     </label>
   );
 
@@ -350,7 +351,7 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
         <Bot size={12} /> Agents
       </div>
       <div className="exclusive-list">
-        {agents.map((a) => row(`agent:${a.name}`, a.name, a.name, <Bot size={12} />))}
+        {agents.map((a) => row(`agent:${a.name}`, a.name, a.name, <Bot size={12} />, a.model))}
         {agents.length === 0 && <span className="hint">No agents found.</span>}
       </div>
 
@@ -358,7 +359,7 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
         <Sparkles size={12} /> Skills
       </div>
       <div className="exclusive-list">
-        {userSkills.map((s) => row(`skill:${s.name}`, s.name, s.name, <Sparkles size={12} />))}
+        {userSkills.map((s) => row(`skill:${s.name}`, s.name, s.name, <Sparkles size={12} />, s.model))}
         {userSkills.length === 0 && <span className="hint">No user skills found.</span>}
       </div>
 
@@ -372,6 +373,7 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
             s.name,
             s.repo ? `${s.name} (${s.repo})` : s.name,
             <Columns3 size={12} />,
+            s.model,
           ),
         )}
         {repoSkills.length === 0 && (
@@ -899,6 +901,7 @@ function AgentAccessSection({ onSaved }: { onSaved: () => void }) {
               <input type="checkbox" checked={enabled(a.name)} onChange={() => toggle(a.name)} />
               <Bot size={12} />
               <span className="mono">{a.name}</span>
+              {a.model && <span className="model-chip">{a.model}</span>}
             </label>
           ))}
           {agents.length === 0 && <span className="hint">No agents found.</span>}
@@ -1046,6 +1049,8 @@ function StepsEditor({
   onChange: (s: WorkflowStep[]) => void;
 }) {
   const [pick, setPick] = useState("");
+  const agentByName = useMemo(() => new Map(agents.map((a) => [a.name, a])), [agents]);
+  const skillByName = useMemo(() => new Map(skills.map((sk) => [sk.name, sk])), [skills]);
 
   function move(i: number, dir: -1 | 1) {
     const j = i + dir;
@@ -1066,34 +1071,39 @@ function StepsEditor({
   return (
     <div className="steps-editor">
       <ol className="steps-list">
-        {steps.map((s, i) => (
-          <li className="step-row" key={`${s.kind}:${s.name}:${i}`}>
-            <span className="step-num">{i + 1}</span>
-            {s.kind === "skill" ? <Sparkles size={12} /> : <Bot size={12} />}
-            <span className="mono step-name">{s.name}</span>
-            <input
-              className="step-note"
-              placeholder="optional instruction for this step…"
-              value={s.note ?? ""}
-              onChange={(e) =>
-                onChange(steps.map((x, idx) => (idx === i ? { ...x, note: e.target.value } : x)))
-              }
-            />
-            <button className="chip-btn" onClick={() => move(i, -1)} title="Move up">
-              <ChevronUp size={13} />
-            </button>
-            <button className="chip-btn" onClick={() => move(i, 1)} title="Move down">
-              <ChevronDown size={13} />
-            </button>
-            <button
-              className="chip-btn remove"
-              onClick={() => onChange(steps.filter((_, idx) => idx !== i))}
-              title="Remove step"
-            >
-              <X size={13} />
-            </button>
-          </li>
-        ))}
+        {steps.map((s, i) => {
+          const stepModel =
+            s.kind === "skill" ? skillByName.get(s.name)?.model : agentByName.get(s.name)?.model;
+          return (
+            <li className="step-row" key={`${s.kind}:${s.name}:${i}`}>
+              <span className="step-num">{i + 1}</span>
+              {s.kind === "skill" ? <Sparkles size={12} /> : <Bot size={12} />}
+              <span className="mono step-name">{s.name}</span>
+              {stepModel && <span className="model-chip">{stepModel}</span>}
+              <input
+                className="step-note"
+                placeholder="optional instruction for this step…"
+                value={s.note ?? ""}
+                onChange={(e) =>
+                  onChange(steps.map((x, idx) => (idx === i ? { ...x, note: e.target.value } : x)))
+                }
+              />
+              <button className="chip-btn" onClick={() => move(i, -1)} title="Move up">
+                <ChevronUp size={13} />
+              </button>
+              <button className="chip-btn" onClick={() => move(i, 1)} title="Move down">
+                <ChevronDown size={13} />
+              </button>
+              <button
+                className="chip-btn remove"
+                onClick={() => onChange(steps.filter((_, idx) => idx !== i))}
+                title="Remove step"
+              >
+                <X size={13} />
+              </button>
+            </li>
+          );
+        })}
         {steps.length === 0 && <span className="hint">No steps yet — add one below.</span>}
       </ol>
       <div className="row">
@@ -1103,6 +1113,7 @@ function StepsEditor({
             {agents.map((a) => (
               <option key={`agent:${a.name}`} value={`agent:${a.name}`}>
                 {a.name}
+                {a.model ? ` · ${a.model}` : ""}
               </option>
             ))}
           </optgroup>
@@ -1110,6 +1121,7 @@ function StepsEditor({
             {skills.map((s) => (
               <option key={`skill:${s.name}:${s.repo ?? ""}`} value={`skill:${s.name}`}>
                 {label(s)}
+                {s.model ? ` · ${s.model}` : ""}
               </option>
             ))}
           </optgroup>

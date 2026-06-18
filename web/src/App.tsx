@@ -321,11 +321,14 @@ export function App() {
       })
       .catch(() => {});
   }
-  function clearRuns(scope: "finished" | "all") {
+  function clearRuns(scope: "finished" | "all", runIds?: string[]) {
     api
-      .clearRuns(scope)
+      .clearRuns(scope, runIds)
       .then(() => {
-        if (scope === "all") setActiveRun(null);
+        // Clear the active run if it was in the cleared set (or if clearing all with no filter).
+        if (scope === "all") {
+          if (!runIds || (activeRun && runIds.includes(activeRun.runId))) setActiveRun(null);
+        }
         refreshRuns();
       })
       .catch(() => {});

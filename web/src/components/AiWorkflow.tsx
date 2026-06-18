@@ -851,6 +851,9 @@ function NewItemModal({
                     onClick={() => setSkill(s)}
                   >
                     /{s}
+                    {skillsByName.get(s)?.model && (
+                      <span className="model-chip">{skillsByName.get(s)!.model}</span>
+                    )}
                     {!skillsByName.has(s) && " (not installed)"}
                   </button>
                 ))}
@@ -927,6 +930,9 @@ function PhaseSkillModal({
                 title={skillsByName.has(s) ? undefined : `/${s} (not installed)`}
               >
                 /{s}
+                {skillsByName.get(s)?.model && (
+                  <span className="model-chip">{skillsByName.get(s)!.model}</span>
+                )}
               </button>
             ))}
           </div>
