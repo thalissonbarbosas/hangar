@@ -22,7 +22,8 @@ _Nothing yet._
 
 - Move detailed documentation into `docs/`: add `docs/ai-workflow.md` (full AI Workflow guide), trim
   the README's connection section to a pointer, and drop `AI-WORKFLOW-CONNECTION-PLAN.md`. `CLAUDE.md`
-  now requires keeping `docs/ai-workflow.md` current when the connection changes.
+  now requires keeping `docs/ai-workflow.md` current when the connection changes
+  ([#12](https://github.com/thalissonbarbosas/hangar/pull/12)).
 
 ## [0.2.0] - 2026-06-17
 
