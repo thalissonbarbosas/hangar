@@ -113,6 +113,32 @@ streams each session over SSE into the run panel.
 
 Run records persist as JSON under `.hangar/` so transcripts and results survive a restart.
 
+### Connections: Jira and AI Workflow
+
+The topbar has a **connection switcher**. **Jira** shows your project boards + filters (the default).
+**AI Workflow** is a self-hosted source for projects that use
+[ai-workflow](https://github.com/0xrafasec/ai-workflow) (by [0xrafasec](https://github.com/0xrafasec))
+instead of a tracker. Each connection gets its own sub-menu row below the switcher.
+
+The AI Workflow connection:
+
+- **detects + one-click-installs** ai-workflow into `~/.claude` (its skills then appear automatically,
+  since Hangar already reads `~/.claude/skills`); an options menu offers the repo link, reinstall, and an
+  **uninstall** that removes the toolkit only — your projects and their cards are kept;
+- **sets up a project** — "new" scaffolds the repo via the `new-project` skill; "adopt" registers an
+  existing repo;
+- shows a board whose **columns are the aiwf lifecycle phases** —
+  `Planning → Design → Implementation → Review → Delivery → Complete`. A **card is a work thread** that
+  flows through the phases; cards are markdown files committed in the repo at `<repoPath>/.aiwf/board/*.md`.
+- each phase column offers its phase's skills: create a **session** (run a skill) or a **task**, and
+  **moving a card into a phase pops up that phase's skill picker** to start a session. The terminal
+  **Complete** column just marks work done.
+- **every session result is logged to the card's history** (per phase), and the aiwf skill also writes
+  its artifact into the repo (`docs/ARCHITECTURE.md`, etc.) — so board + repo together are the project history.
+
+Runs are executed by Claude (Hangar's existing engine) — the connection is the methodology + board, not a
+separate model.
+
 ### Configuration
 
 `hangar.config.json` (see [`hangar.config.example.json`](hangar.config.example.json)):
@@ -121,6 +147,7 @@ Run records persist as JSON under `.hangar/` so transcripts and results survive 
 | --------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `agentsDir`                 | where to read agents (default `~/.claude/agents`)                                                     |
 | `boards[]`                  | `key` (Jira project), `name`, `statuses` (column order), `repoPaths`, optional `agents` / `workflows` |
+| `aiWorkflow.projects[]`     | self-hosted AI Workflow projects: `id`, `name`, `repoPath`, optional `columns`, `createdAt`           |
 | `bypassPermissions`         | `true` = unrestricted; `false` = gated (approve risky shell)                                          |
 | `isolateRuns`               | run each session in its own git worktree + branch (default on)                                        |
 | `exclusiveAgents`           | agent/skill names that need shared ports/tunnels — run one at a time                                  |
