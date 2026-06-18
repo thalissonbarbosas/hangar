@@ -579,9 +579,11 @@ app.post("/api/runs/:id/stop", async (req, res) => {
 });
 
 // Clear runs: ?scope=finished (default, keeps active) or ?scope=all.
+// Body may include { ids: string[] } to restrict to a specific set (project-scoped clear).
 app.delete("/api/runs", async (req, res) => {
   const scope = req.query.scope === "all" ? "all" : "finished";
-  const cleared = await clearRuns(scope);
+  const ids = Array.isArray(req.body?.ids) ? new Set<string>(req.body.ids as string[]) : undefined;
+  const cleared = await clearRuns(scope, ids);
   res.json({ ok: true, cleared });
 });
 

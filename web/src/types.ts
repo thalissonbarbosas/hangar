@@ -17,6 +17,7 @@ export interface BoardConfig {
   repoPath?: string;
   repoPaths?: string[];
   agents?: string[]; // enabled agent names; undefined/empty = all
+  skills?: string[]; // enabled skill names; undefined/empty = all
   workflows?: WorkflowConfig[];
   resolvedPaths?: string[]; // server-expanded repoPaths (no ~), for skill filtering
 }
@@ -109,6 +110,8 @@ export interface Skill {
   source?: "user" | "repo";
   repo?: string; // repo basename flag, for repo skills
   repoPath?: string;
+  model?: string; // optional model from frontmatter, e.g. "opus" | "sonnet" | "haiku"
+  aiwf?: boolean; // true when the skill is from the AI Workflow toolkit (client-side enriched)
 }
 
 // Drag-and-drop: a ticket card carries this payload when dragged onto a column or workflow.

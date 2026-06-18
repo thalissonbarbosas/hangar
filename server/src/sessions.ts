@@ -391,10 +391,12 @@ export async function deleteRun(id: string): Promise<boolean> {
   return true;
 }
 
-/** Remove runs. scope 'finished' keeps active ones; 'all' stops and removes everything. */
-export async function clearRuns(scope: "finished" | "all"): Promise<number> {
+/** Remove runs. scope 'finished' keeps active ones; 'all' stops and removes everything.
+ *  ids: optional set of run IDs to restrict the operation to (project-scoped clear). */
+export async function clearRuns(scope: "finished" | "all", ids?: Set<string>): Promise<number> {
   let n = 0;
   for (const run of [...runs.values()]) {
+    if (ids && !ids.has(run.id)) continue;
     const active = ACTIVE.includes(run.state);
     if (scope === "finished" && active) continue;
     if (active) await stopRun(run);

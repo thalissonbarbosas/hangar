@@ -64,6 +64,7 @@ export function HandoffModal({
             {options.map((o) => (
               <option key={o.name} value={o.name}>
                 {o.name}
+                {o.model ? ` · ${o.model}` : ""}
               </option>
             ))}
           </select>

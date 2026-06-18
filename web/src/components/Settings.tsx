@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Plug,
   Columns3,
@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { api } from "../api";
 import { Agent, BoardConfig, FullConfig, Skill, WorkflowConfig, WorkflowStep } from "../types";
+import { projectColor, skillProject } from "../utils";
 
 type Saved = "idle" | "saving" | "saved" | "error";
 
@@ -34,6 +35,7 @@ type SectionKey =
   | "jira"
   | "boards"
   | "agents"
+  | "board-skills"
   | "workflows"
   | "permissions"
   | "isolation"
@@ -45,6 +47,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof Plug }[] = [
   { key: "jira", label: "Jira connection", icon: Plug },
   { key: "boards", label: "Boards & columns", icon: Columns3 },
   { key: "agents", label: "Board agents", icon: Users },
+  { key: "board-skills", label: "Board skills", icon: Sparkles },
   { key: "workflows", label: "Workflows", icon: WorkflowIcon },
   { key: "permissions", label: "Agent permissions", icon: ShieldAlert },
   { key: "isolation", label: "Run isolation", icon: GitBranch },
@@ -78,6 +81,7 @@ export function Settings({ onSaved }: { onSaved: () => void }) {
         {section === "jira" && <JiraSection />}
         {section === "boards" && <BoardsSection onSaved={onSaved} />}
         {section === "agents" && <AgentAccessSection onSaved={onSaved} />}
+        {section === "board-skills" && <BoardSkillsSection onSaved={onSaved} />}
         {section === "workflows" && <WorkflowsSection onSaved={onSaved} />}
         {section === "permissions" && <PermissionsSection onSaved={onSaved} />}
         {section === "isolation" && <IsolationSection onSaved={onSaved} />}
@@ -301,15 +305,20 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api.config(), api.agents(), api.skills()]).then(([c, a, s]) => {
+    Promise.all([api.config(), api.agents(), api.skills(), api.aiwfStatus()]).then(([c, a, s, ast]) => {
       setExclusive(c.exclusiveAgents ?? []);
       setAgents(a.agents);
-      setSkills(s.skills);
+      const found = new Set(ast.skillGroups?.flatMap((g: { skills: string[] }) => g.skills) ?? []);
+      const enriched = s.skills.map((sk) => (found.has(sk.name) ? { ...sk, aiwf: true } : sk));
+      enriched.sort((a, b) => {
+        const pa = skillProject(a) ?? "￿";
+        const pb = skillProject(b) ?? "￿";
+        if (pa !== pb) return pa.localeCompare(pb);
+        return a.name.localeCompare(b.name);
+      });
+      setSkills(enriched);
     });
   }, []);
-
-  const userSkills = skills.filter((s) => s.source !== "repo");
-  const repoSkills = skills.filter((s) => s.source === "repo");
 
   async function toggle(name: string) {
     const next = exclusive.includes(name) ? exclusive.filter((n) => n !== name) : [...exclusive, name];
@@ -327,14 +336,6 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
     }
   }
 
-  const row = (key: string, name: string, label: string, icon: JSX.Element) => (
-    <label className="exclusive-item" key={key}>
-      <input type="checkbox" checked={exclusive.includes(name)} onChange={() => toggle(name)} />
-      {icon}
-      <span className="mono">{label}</span>
-    </label>
-  );
-
   return (
     <section className="card-panel">
       <h2>
@@ -350,7 +351,14 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
         <Bot size={12} /> Agents
       </div>
       <div className="exclusive-list">
-        {agents.map((a) => row(`agent:${a.name}`, a.name, a.name, <Bot size={12} />))}
+        {agents.map((a) => (
+          <label className="exclusive-item" key={`agent:${a.name}`}>
+            <input type="checkbox" checked={exclusive.includes(a.name)} onChange={() => toggle(a.name)} />
+            <Bot size={12} />
+            <span className="mono">{a.name}</span>
+            {a.model && <span className="model-chip">{a.model}</span>}
+          </label>
+        ))}
         {agents.length === 0 && <span className="hint">No agents found.</span>}
       </div>
 
@@ -358,27 +366,24 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
         <Sparkles size={12} /> Skills
       </div>
       <div className="exclusive-list">
-        {userSkills.map((s) => row(`skill:${s.name}`, s.name, s.name, <Sparkles size={12} />))}
-        {userSkills.length === 0 && <span className="hint">No user skills found.</span>}
-      </div>
-
-      <div className="exclusive-group-label">
-        <Columns3 size={12} /> Project skills
-      </div>
-      <div className="exclusive-list">
-        {repoSkills.map((s) =>
-          row(
-            `repo:${s.name}:${s.repo ?? ""}`,
-            s.name,
-            s.repo ? `${s.name} (${s.repo})` : s.name,
-            <Columns3 size={12} />,
-          ),
-        )}
-        {repoSkills.length === 0 && (
-          <span className="hint">
-            No project skills — set a board's codebase paths to surface its <code>.claude/skills</code>.
-          </span>
-        )}
+        {skills.map((s) => {
+          const proj = skillProject(s);
+          const pc = proj ? projectColor(proj) : undefined;
+          return (
+            <label className="exclusive-item" key={`skill:${s.name}:${s.repo ?? ""}`}>
+              <input type="checkbox" checked={exclusive.includes(s.name)} onChange={() => toggle(s.name)} />
+              <Sparkles size={12} />
+              <span className="mono">{s.name}</span>
+              {proj && pc && (
+                <span className="proj-chip" style={{ color: pc, background: `${pc}20` }}>
+                  ({proj})
+                </span>
+              )}
+              {s.model && <span className="model-chip">{s.model}</span>}
+            </label>
+          );
+        })}
+        {skills.length === 0 && <span className="hint">No skills found.</span>}
       </div>
       <div className="row" style={{ marginTop: 10 }}>
         {saved === "saving" && <span className="hint">Saving…</span>}
@@ -899,9 +904,102 @@ function AgentAccessSection({ onSaved }: { onSaved: () => void }) {
               <input type="checkbox" checked={enabled(a.name)} onChange={() => toggle(a.name)} />
               <Bot size={12} />
               <span className="mono">{a.name}</span>
+              {a.model && <span className="model-chip">{a.model}</span>}
             </label>
           ))}
           {agents.length === 0 && <span className="hint">No agents found.</span>}
+        </div>
+      )}
+      <SaveStatus saved={saved} msg={msg} />
+    </section>
+  );
+}
+
+/* ---------------- Board skills (which skills are available per board) ---------------- */
+
+function BoardSkillsSection({ onSaved }: { onSaved: () => void }) {
+  const [boards, setBoards] = useState<BoardConfig[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [sel, setSel] = useState(0);
+  const [saved, setSaved] = useState<Saved>("idle");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([api.config(), api.skills(), api.aiwfStatus()]).then(([c, s, ast]) => {
+      setBoards(c.boards);
+      const found = new Set(ast.skillGroups?.flatMap((g: { skills: string[] }) => g.skills) ?? []);
+      const enriched = s.skills.map((sk) => (found.has(sk.name) ? { ...sk, aiwf: true } : sk));
+      enriched.sort((a, b) => {
+        const pa = skillProject(a) ?? "￿";
+        const pb = skillProject(b) ?? "￿";
+        if (pa !== pb) return pa.localeCompare(pb);
+        return a.name.localeCompare(b.name);
+      });
+      setSkills(enriched);
+    });
+  }, []);
+
+  const board = boards[sel];
+  const enabled = (name: string) => !board?.skills?.length || board.skills.includes(name);
+
+  async function setSkillsFor(list: string[]) {
+    const next = list.length === skills.length ? [] : list;
+    const nextBoards = boards.map((b, i) => (i === sel ? { ...b, skills: next } : b));
+    setBoards(nextBoards);
+    setSaved("saving");
+    setMsg(null);
+    try {
+      const latest = await api.config();
+      const merged = latest.boards.map((b) => {
+        const edited = nextBoards.find((x) => x.key === b.key);
+        return edited ? { ...b, skills: edited.skills } : b;
+      });
+      const out = await api.saveConfig({ ...latest, boards: merged });
+      setBoards(out.boards);
+      setSaved("saved");
+      onSaved();
+    } catch (e) {
+      setSaved("error");
+      setMsg(String((e as Error).message ?? e));
+    }
+  }
+
+  function toggle(name: string) {
+    const cur = board?.skills?.length ? board.skills : skills.map((s) => s.name);
+    const next = cur.includes(name) ? cur.filter((n) => n !== name) : [...cur, name];
+    setSkillsFor(next);
+  }
+
+  return (
+    <section className="card-panel">
+      <h2>
+        <Sparkles size={17} /> Board skills
+      </h2>
+      <p className="hint">
+        Choose which skills appear in this board's <b>Assign</b> menu. With none checked, <b>all</b> skills
+        are available (the default).
+      </p>
+      <BoardPicker boards={boards} sel={sel} onSelect={setSel} />
+      {board && (
+        <div className="exclusive-list">
+          {skills.map((s) => {
+            const proj = skillProject(s);
+            const pc = proj ? projectColor(proj) : undefined;
+            return (
+              <label className="exclusive-item" key={`${s.name}:${s.repo ?? ""}`} title={s.description}>
+                <input type="checkbox" checked={enabled(s.name)} onChange={() => toggle(s.name)} />
+                <Sparkles size={12} />
+                <span className="mono">{s.name}</span>
+                {proj && pc && (
+                  <span className="proj-chip" style={{ color: pc, background: `${pc}20` }}>
+                    ({proj})
+                  </span>
+                )}
+                {s.model && <span className="model-chip">{s.model}</span>}
+              </label>
+            );
+          })}
+          {skills.length === 0 && <span className="hint">No skills found.</span>}
         </div>
       )}
       <SaveStatus saved={saved} msg={msg} />
@@ -1046,6 +1144,8 @@ function StepsEditor({
   onChange: (s: WorkflowStep[]) => void;
 }) {
   const [pick, setPick] = useState("");
+  const agentByName = useMemo(() => new Map(agents.map((a) => [a.name, a])), [agents]);
+  const skillByName = useMemo(() => new Map(skills.map((sk) => [sk.name, sk])), [skills]);
 
   function move(i: number, dir: -1 | 1) {
     const j = i + dir;
@@ -1066,34 +1166,39 @@ function StepsEditor({
   return (
     <div className="steps-editor">
       <ol className="steps-list">
-        {steps.map((s, i) => (
-          <li className="step-row" key={`${s.kind}:${s.name}:${i}`}>
-            <span className="step-num">{i + 1}</span>
-            {s.kind === "skill" ? <Sparkles size={12} /> : <Bot size={12} />}
-            <span className="mono step-name">{s.name}</span>
-            <input
-              className="step-note"
-              placeholder="optional instruction for this step…"
-              value={s.note ?? ""}
-              onChange={(e) =>
-                onChange(steps.map((x, idx) => (idx === i ? { ...x, note: e.target.value } : x)))
-              }
-            />
-            <button className="chip-btn" onClick={() => move(i, -1)} title="Move up">
-              <ChevronUp size={13} />
-            </button>
-            <button className="chip-btn" onClick={() => move(i, 1)} title="Move down">
-              <ChevronDown size={13} />
-            </button>
-            <button
-              className="chip-btn remove"
-              onClick={() => onChange(steps.filter((_, idx) => idx !== i))}
-              title="Remove step"
-            >
-              <X size={13} />
-            </button>
-          </li>
-        ))}
+        {steps.map((s, i) => {
+          const stepModel =
+            s.kind === "skill" ? skillByName.get(s.name)?.model : agentByName.get(s.name)?.model;
+          return (
+            <li className="step-row" key={`${s.kind}:${s.name}:${i}`}>
+              <span className="step-num">{i + 1}</span>
+              {s.kind === "skill" ? <Sparkles size={12} /> : <Bot size={12} />}
+              <span className="mono step-name">{s.name}</span>
+              {stepModel && <span className="model-chip">{stepModel}</span>}
+              <input
+                className="step-note"
+                placeholder="optional instruction for this step…"
+                value={s.note ?? ""}
+                onChange={(e) =>
+                  onChange(steps.map((x, idx) => (idx === i ? { ...x, note: e.target.value } : x)))
+                }
+              />
+              <button className="chip-btn" onClick={() => move(i, -1)} title="Move up">
+                <ChevronUp size={13} />
+              </button>
+              <button className="chip-btn" onClick={() => move(i, 1)} title="Move down">
+                <ChevronDown size={13} />
+              </button>
+              <button
+                className="chip-btn remove"
+                onClick={() => onChange(steps.filter((_, idx) => idx !== i))}
+                title="Remove step"
+              >
+                <X size={13} />
+              </button>
+            </li>
+          );
+        })}
         {steps.length === 0 && <span className="hint">No steps yet — add one below.</span>}
       </ol>
       <div className="row">
@@ -1103,6 +1208,7 @@ function StepsEditor({
             {agents.map((a) => (
               <option key={`agent:${a.name}`} value={`agent:${a.name}`}>
                 {a.name}
+                {a.model ? ` · ${a.model}` : ""}
               </option>
             ))}
           </optgroup>
@@ -1110,6 +1216,7 @@ function StepsEditor({
             {skills.map((s) => (
               <option key={`skill:${s.name}:${s.repo ?? ""}`} value={`skill:${s.name}`}>
                 {label(s)}
+                {s.model ? ` · ${s.model}` : ""}
               </option>
             ))}
           </optgroup>

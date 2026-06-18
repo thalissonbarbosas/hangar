@@ -120,6 +120,15 @@ export function App() {
       .catch((e) => setError(String(e.message ?? e)));
   }, []);
 
+  // Mark skills from the aiwf toolkit so downstream components can group/tag them.
+  // Use skillGroups (the authoritative phase→skills spec) rather than skillsFound
+  // (detection-based, incomplete if the server hasn't reloaded since install).
+  const enrichedSkills = useMemo(() => {
+    const found = new Set(aiwf?.skillGroups?.flatMap((g) => g.skills) ?? []);
+    if (!found.size) return skills;
+    return skills.map((s) => (found.has(s.name) ? { ...s, aiwf: true as const } : s));
+  }, [skills, aiwf]);
+
   const refreshRuns = useCallback(() => {
     api
       .runs()
@@ -321,11 +330,14 @@ export function App() {
       })
       .catch(() => {});
   }
-  function clearRuns(scope: "finished" | "all") {
+  function clearRuns(scope: "finished" | "all", runIds?: string[]) {
     api
-      .clearRuns(scope)
+      .clearRuns(scope, runIds)
       .then(() => {
-        if (scope === "all") setActiveRun(null);
+        // Clear the active run if it was in the cleared set (or if clearing all with no filter).
+        if (scope === "all") {
+          if (!runIds || (activeRun && runIds.includes(activeRun.runId))) setActiveRun(null);
+        }
         refreshRuns();
       })
       .catch(() => {});
@@ -531,13 +543,18 @@ export function App() {
         </div>
       ) : overlay === "run" ? (
         <div className="settings-area">
-          <SkillRunner agents={agents} skills={skills} codebasePaths={codebasePaths} onRun={runStandalone} />
+          <SkillRunner
+            agents={agents}
+            skills={enrichedSkills}
+            codebasePaths={codebasePaths}
+            onRun={runStandalone}
+          />
         </div>
       ) : connection === "aiworkflow" ? (
         <AiWorkflowView
           project={aiwfProjects.find((p) => p.id === aiwfSelected) ?? null}
           status={aiwf}
-          skills={skills}
+          skills={enrichedSkills}
           runs={runs}
           onOpenRun={openRun}
           onOpenSession={openSession}
@@ -568,7 +585,7 @@ export function App() {
                 board={b}
                 tickets={tickets.filter((t) => t.boardKey === b.key && visible(t))}
                 agents={agents}
-                skills={skills}
+                skills={enrichedSkills}
                 runByTicket={runByTicket}
                 onAssign={assign}
                 onStartWorkflow={startWorkflow}
@@ -587,7 +604,7 @@ export function App() {
           agentName={activeRun.agentName}
           ticketUrl={activeRun.ticketUrl}
           agents={agents}
-          skills={skills}
+          skills={enrichedSkills}
           onHandoff={handoff}
           onClose={() => setActiveRun(null)}
         />

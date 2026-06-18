@@ -17,6 +17,7 @@ export interface BoardConfig {
   repoPath?: string; // legacy single path (still honored)
   repoPaths?: string[]; // codebase paths: first is cwd, the rest are additionalDirectories
   agents?: string[]; // agent names enabled for this board; undefined/empty = all agents
+  skills?: string[]; // skill names enabled for this board; undefined/empty = all skills
   workflows?: WorkflowConfig[]; // board pipelines
 }
 
@@ -60,6 +61,8 @@ export interface Skill {
   source?: "user" | "repo"; // default "user"
   repo?: string; // repo basename, for repo skills (the "(eyeconic)" flag)
   repoPath?: string; // expanded repo root, so a run can target it
+  model?: string; // optional model from frontmatter, e.g. "opus" | "sonnet" | "haiku"
+  aiwf?: boolean; // client-side: true when skill is from the AI Workflow toolkit
 }
 
 export interface Agent {

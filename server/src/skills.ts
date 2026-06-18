@@ -28,6 +28,7 @@ export function loadSkills(skillsDir: string): Skill[] {
     out.push({
       name: fm.name || entry.name,
       description: fm.description || "",
+      model: fm.model || undefined,
       sourcePath,
     });
   }
