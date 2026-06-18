@@ -338,6 +338,35 @@ app.post("/api/aiwf/projects", (req, res) => {
   res.json({ project: { ...project, columns: columnsFor(project) }, runId });
 });
 
+// Change a project's location (repoPath) and/or display name. The id is kept stable so the
+// synthetic boardKey and any in-flight references survive; the board lives in Hangar's data dir
+// keyed by id, so cards carry over unchanged — only future runs use the new path.
+app.patch("/api/aiwf/projects/:id", (req, res) => {
+  const existing = getAiwfProjects().find((p) => p.id === req.params.id);
+  if (!existing) return res.status(404).json({ error: "No such AI Workflow project" });
+
+  const hasName = req.body?.name !== undefined;
+  const hasRepoPath = req.body?.repoPath !== undefined;
+  const name = hasName ? String(req.body.name).trim() : existing.name;
+  const repoPathRaw = hasRepoPath ? String(req.body.repoPath).trim() : existing.repoPath;
+  if (!hasName && !hasRepoPath) {
+    return res.status(400).json({ error: "name or repoPath is required" });
+  }
+  if (!name || !repoPathRaw) return res.status(400).json({ error: "name and repoPath cannot be empty" });
+
+  const updated: AiwfProject = { ...existing, name, repoPath: repoPathRaw };
+  if (isDemo()) return res.json({ project: { ...updated, columns: columnsFor(updated) } });
+
+  // Validate the (possibly new) location before persisting anything.
+  if (hasRepoPath && repoPathRaw !== existing.repoPath) {
+    const repoPath = expandHome(repoPathRaw);
+    if (!existsSync(repoPath)) return res.status(400).json({ error: `Path does not exist: ${repoPath}` });
+  }
+  mkdirSync(boardDir(updated), { recursive: true }); // board dir is keyed by id; ensure it exists
+  saveAiwfProjects(getAiwfProjects().map((p) => (p.id === updated.id ? updated : p)));
+  res.json({ project: { ...updated, columns: columnsFor(updated) } });
+});
+
 app.delete("/api/aiwf/projects/:id", (req, res) => {
   if (!getAiwfProjects().some((p) => p.id === req.params.id)) {
     return res.status(404).json({ error: "No such AI Workflow project" });
