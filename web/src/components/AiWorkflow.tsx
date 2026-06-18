@@ -16,6 +16,11 @@ import {
   Activity,
   Bot,
   X,
+  Archive,
+  ArchiveRestore,
+  Eye,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "../api";
 import {
@@ -283,6 +288,8 @@ export function AiWorkflowView({
   const [cards, setCards] = useState<Ticket[]>([]);
   const [newItem, setNewItem] = useState<string | null>(null); // phase for the New-item modal
   const [picker, setPicker] = useState<{ key: string; phase: string } | null>(null); // phase skill picker
+  const [dataCard, setDataCard] = useState<Ticket | null>(null); // card shown in the See Data modal
+  const [archivedOpen, setArchivedOpen] = useState(false); // archived section collapsed state
 
   const loadCards = useCallback(
     (id: string) => {
@@ -330,7 +337,10 @@ export function AiWorkflowView({
 
   const phaseSkills = status?.columnSkills ?? {};
   const columns = project.columns?.length ? project.columns : (status?.defaultColumns ?? []);
-  const extra = [...new Set(cards.map((c) => c.status))].filter((s) => !columns.includes(s));
+  // Only non-archived cards determine visible columns and fill the board.
+  const activeCards = cards.filter((c) => !c.archived);
+  const archivedCards = cards.filter((c) => c.archived);
+  const extra = [...new Set(activeCards.map((c) => c.status))].filter((s) => !columns.includes(s));
   const allColumns = [...columns, ...extra];
 
   function runCard(key: string, skill: string, note?: string) {
@@ -372,6 +382,18 @@ export function AiWorkflowView({
         onError(String(e.message ?? e));
       });
   }
+  function archiveCard(key: string, archived: boolean) {
+    api
+      .archiveAiwfCard(project!.id, key, archived)
+      .then(() => loadCards(project!.id))
+      .catch((e) => onError(String(e.message ?? e)));
+  }
+  function removeCard(key: string) {
+    api
+      .deleteAiwfCard(project!.id, key)
+      .then(() => loadCards(project!.id))
+      .catch((e) => onError(String(e.message ?? e)));
+  }
 
   return (
     <div className="aiwf-board-area">
@@ -382,16 +404,57 @@ export function AiWorkflowView({
             phase={phase}
             color={COLUMN_COLORS[i % COLUMN_COLORS.length]}
             projectId={project.id}
-            cards={cards.filter((c) => c.status === phase)}
+            cards={activeCards.filter((c) => c.status === phase)}
             hasSkills={(phaseSkills[phase]?.length ?? 0) > 0}
             runByTicket={runByTicket}
             onNew={() => setNewItem(phase)}
             onMove={moveCard}
             onRunPhase={(key) => setPicker({ key, phase })}
             onOpenRun={onOpenRun}
+            onSeeData={setDataCard}
+            onArchive={(key) => archiveCard(key, true)}
+            onDelete={removeCard}
           />
         ))}
       </div>
+
+      {archivedCards.length > 0 && (
+        <div className="aiwf-archived-section">
+          <button className="aiwf-archived-toggle" onClick={() => setArchivedOpen((v) => !v)}>
+            {archivedOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <Archive size={13} />
+            Archived ({archivedCards.length})
+          </button>
+          {archivedOpen && (
+            <div className="aiwf-archived-list">
+              {archivedCards.map((c) => (
+                <div key={c.key} className="aiwf-archived-row">
+                  <span className="card-key aiwf-archived-key">{c.key}</span>
+                  <span className="aiwf-archived-title">{c.summary}</span>
+                  <div className="aiwf-archived-actions">
+                    <button className="aiwf-opt" title="See data" onClick={() => setDataCard(c)}>
+                      <Eye size={13} /> See data
+                    </button>
+                    <button className="aiwf-opt" title="Unarchive" onClick={() => archiveCard(c.key, false)}>
+                      <ArchiveRestore size={13} /> Unarchive
+                    </button>
+                    <button
+                      className="aiwf-opt danger"
+                      title="Delete"
+                      onClick={() => {
+                        if (window.confirm(`Delete card ${c.key} "${c.summary}"? This cannot be undone.`))
+                          removeCard(c.key);
+                      }}
+                    >
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {newItem && (
         <NewItemModal
@@ -418,6 +481,8 @@ export function AiWorkflowView({
           }}
         />
       )}
+
+      {dataCard && <CardDataModal card={dataCard} onClose={() => setDataCard(null)} />}
     </div>
   );
 }
@@ -433,6 +498,9 @@ function AiwfColumn({
   onMove,
   onRunPhase,
   onOpenRun,
+  onSeeData,
+  onArchive,
+  onDelete,
 }: {
   phase: string;
   color: string;
@@ -444,6 +512,9 @@ function AiwfColumn({
   onMove: (key: string, target: string) => void;
   onRunPhase: (key: string) => void;
   onOpenRun: (run: RunSummary) => void;
+  onSeeData: (card: Ticket) => void;
+  onArchive: (key: string) => void;
+  onDelete: (key: string) => void;
 }) {
   const [over, setOver] = useState(false);
   function onDrop(e: React.DragEvent) {
@@ -491,6 +562,9 @@ function AiwfColumn({
             run={runByTicket.get(c.key)}
             onRunPhase={() => onRunPhase(c.key)}
             onOpenRun={onOpenRun}
+            onSeeData={() => onSeeData(c)}
+            onArchive={() => onArchive(c.key)}
+            onDelete={() => onDelete(c.key)}
           />
         ))}
       </div>
@@ -504,16 +578,35 @@ function AiwfCard({
   run,
   onRunPhase,
   onOpenRun,
+  onSeeData,
+  onArchive,
+  onDelete,
 }: {
   card: Ticket;
   hasSkills: boolean;
   run?: RunSummary;
   onRunPhase: () => void;
   onOpenRun: (run: RunSummary) => void;
+  onSeeData: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
 }) {
   const [dragging, setDragging] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const active = run ? isActive(run.state) : false;
   const history = card.history ?? [];
+
+  // Close the menu on outside click.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
+
   return (
     <div
       className={`card aiwf-card${active ? " active" : ""}${dragging ? " dragging" : ""}`}
@@ -528,7 +621,62 @@ function AiwfCard({
     >
       <div className="card-key-row">
         <span className="card-key">{card.key}</span>
-        <span className={`aiwf-kind ${card.kind ?? "thread"}`}>{card.kind === "task" ? "task" : "work"}</span>
+        <div className="aiwf-card-right">
+          <span className={`aiwf-kind ${card.kind ?? "thread"}`}>
+            {card.kind === "task" ? "task" : "work"}
+          </span>
+          {/* Per-card options menu — must not trigger drag */}
+          <div
+            className="aiwf-card-menu"
+            ref={menuRef}
+            onMouseDown={(e) => e.stopPropagation()}
+            onDragStart={(e) => e.stopPropagation()}
+          >
+            <button
+              className="icon-btn aiwf-card-menu-btn has-tip"
+              data-tip="Card options"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen((v) => !v);
+              }}
+            >
+              <MoreVertical size={13} />
+            </button>
+            {menuOpen && (
+              <div className="aiwf-options-pop aiwf-card-pop">
+                <button
+                  className="aiwf-opt"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onSeeData();
+                  }}
+                >
+                  <Eye size={13} /> See data
+                </button>
+                <button
+                  className="aiwf-opt"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onArchive();
+                  }}
+                >
+                  <Archive size={13} /> Archive
+                </button>
+                <div className="aiwf-opt-sep" />
+                <button
+                  className="aiwf-opt danger"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    if (window.confirm(`Delete card ${card.key} "${card.summary}"? This cannot be undone.`))
+                      onDelete();
+                  }}
+                >
+                  <Trash2 size={13} /> Delete
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       <div className="card-summary">{card.summary}</div>
 
@@ -560,6 +708,83 @@ function AiwfCard({
             </button>
           )
         )}
+      </div>
+    </div>
+  );
+}
+
+// Read-only modal showing a card's full data — key, title, status, kind, skill, PR, description, history.
+function CardDataModal({ card, onClose }: { card: Ticket; onClose: () => void }) {
+  const history = card.history ?? [];
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal aiwf-modal aiwf-data-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <span className="modal-title">
+            <span className="card-key">{card.key}</span> {card.summary}
+          </span>
+          <button className="icon-btn" onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="aiwf-data-meta">
+          <span>
+            <strong>Status</strong> {card.status}
+          </span>
+          <span>
+            <strong>Kind</strong> {card.kind ?? "thread"}
+          </span>
+          {card.skill && (
+            <span>
+              <strong>Skill</strong> /{card.skill}
+            </span>
+          )}
+          {card.archived && (
+            <span className="aiwf-data-archived">
+              <Archive size={12} /> Archived
+            </span>
+          )}
+          {card.prUrl && (
+            <a href={card.prUrl} target="_blank" rel="noreferrer" className="aiwf-opt aiwf-data-pr">
+              <ExternalLink size={12} /> PR
+            </a>
+          )}
+        </div>
+
+        <div className="aiwf-data-section">
+          <strong>Description</strong>
+          {card.description ? (
+            <pre className="aiwf-data-body">{card.description}</pre>
+          ) : (
+            <span className="aiwf-data-muted">No description</span>
+          )}
+        </div>
+
+        <div className="aiwf-data-section">
+          <strong>History</strong>
+          {history.length === 0 ? (
+            <span className="aiwf-data-muted">No runs yet</span>
+          ) : (
+            <div className="aiwf-data-history">
+              {history.map((h, idx) => (
+                <div key={idx} className="aiwf-data-hist-row">
+                  <span className="aiwf-data-hist-trail">
+                    {h.phase} · /{h.skill}
+                  </span>
+                  <span className="aiwf-data-hist-time">{new Date(h.at).toLocaleString()}</span>
+                  {h.summary && <span className="aiwf-data-hist-summary">{h.summary}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn" onClick={onClose}>
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -98,6 +98,12 @@ export const api = {
       `/api/aiwf/projects/${id}/cards/${encodeURIComponent(key)}/transition`,
       { status },
     ),
+  archiveAiwfCard: (id: string, key: string, archived: boolean) =>
+    sendJson<{ ok: boolean }>("POST", `/api/aiwf/projects/${id}/cards/${encodeURIComponent(key)}/archive`, {
+      archived,
+    }),
+  deleteAiwfCard: (id: string, key: string) =>
+    sendJson<{ ok: boolean }>("DELETE", `/api/aiwf/projects/${id}/cards/${encodeURIComponent(key)}`, {}),
   aiwfRunCard: (id: string, key: string, skill: string, note?: string) =>
     sendJson<{ runId: string }>("POST", `/api/aiwf/projects/${id}/cards/${encodeURIComponent(key)}/run`, {
       skill,
