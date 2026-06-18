@@ -2587,12 +2587,13 @@ a.session-ticket {
   align-items: center;
   gap: 6px;
 }
-/* A project chip: the selectable pill + an edit button that reveals on hover. */
+/* A project chip: the selectable pill + edit/remove buttons that reveal on hover. */
 .aiwf-proj {
   display: inline-flex;
   align-items: center;
 }
-.aiwf-proj-edit {
+.aiwf-proj-edit,
+.aiwf-proj-remove {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2612,7 +2613,8 @@ a.session-ticket {
     margin var(--t),
     color var(--t);
 }
-.aiwf-proj:hover .aiwf-proj-edit {
+.aiwf-proj:hover .aiwf-proj-edit,
+.aiwf-proj:hover .aiwf-proj-remove {
   width: 18px;
   margin-left: 2px;
   opacity: 1;
@@ -2620,7 +2622,11 @@ a.session-ticket {
 .aiwf-proj-edit:hover {
   color: var(--accent);
 }
-.aiwf-proj-edit:disabled {
+.aiwf-proj-remove:hover {
+  color: #ef4444;
+}
+.aiwf-proj-edit:disabled,
+.aiwf-proj-remove:disabled {
   cursor: default;
   opacity: 0.4;
 }
