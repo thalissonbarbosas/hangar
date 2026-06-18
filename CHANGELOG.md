@@ -40,6 +40,10 @@ There are no GitHub Releases or git tags; this file is the record, and the root 
 
 ### Changed
 
+- **AI Workflow new-item skill picker replaced with buttons** — the `{phase} skill` `<select>` dropdown
+  in the "New item" modal is now a group of buttons (matching the existing Type picker), with
+  `flex-wrap` support for longer skill names. Not-installed skills remain disabled. No data-flow
+  change; pure presentational swap. (HAN-9)
 - **AI Workflow board lives in Hangar's data dir** — board cards moved from each project repo's
   `.aiwf/board/` to `<HANGAR_DATA_DIR>/aiwf/<projectId>/board/` (gitignored runtime state, like
   `.hangar/`). Target repos now stay completely pristine — nothing writes `.aiwf/` into them. The

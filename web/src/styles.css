@@ -2536,6 +2536,13 @@ a.session-ticket {
   opacity: 0.4;
   cursor: not-allowed;
 }
+/* allow wrapping when there are many / long skill names */
+.seg.wrap {
+  flex-wrap: wrap;
+}
+.seg.wrap button {
+  flex: 0 1 auto;
+}
 .field-warn {
   font-size: 11px;
   color: #ef4444;
