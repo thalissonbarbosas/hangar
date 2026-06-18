@@ -688,17 +688,24 @@ function PhaseSkillModal({
         <p className="aiwf-skill-desc">
           {skillsByName.get(skill)?.description ?? `Run a ${phase} skill on this card.`}
         </p>
-        <label className="field">
+        <div className="field">
           <span>Skill</span>
-          <select value={skill} onChange={(e) => setSkill(e.target.value)}>
+          {/* buttons instead of <select> so the picker is consistent with the Type row */}
+          <div className="seg wrap">
             {phaseSkills.map((s) => (
-              <option key={s} value={s} disabled={!skillsByName.has(s)}>
+              <button
+                key={s}
+                type="button"
+                className={skill === s ? "on" : ""}
+                disabled={!skillsByName.has(s)}
+                onClick={() => setSkill(s)}
+                title={skillsByName.has(s) ? undefined : `/${s} (not installed)`}
+              >
                 /{s}
-                {skillsByName.has(s) ? "" : " (not installed)"}
-              </option>
+              </button>
             ))}
-          </select>
-        </label>
+          </div>
+        </div>
         <label className="field">
           <span>Note (optional)</span>
           <textarea
