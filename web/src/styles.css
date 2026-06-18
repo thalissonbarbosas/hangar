@@ -2587,6 +2587,43 @@ a.session-ticket {
   align-items: center;
   gap: 6px;
 }
+/* A project chip: the selectable pill + an edit button that reveals on hover. */
+.aiwf-proj {
+  display: inline-flex;
+  align-items: center;
+}
+.aiwf-proj-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0;
+  overflow: hidden;
+  padding: 0;
+  margin-left: 0;
+  border: none;
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    width var(--t),
+    opacity var(--t),
+    margin var(--t),
+    color var(--t);
+}
+.aiwf-proj:hover .aiwf-proj-edit {
+  width: 18px;
+  margin-left: 2px;
+  opacity: 1;
+}
+.aiwf-proj-edit:hover {
+  color: var(--accent);
+}
+.aiwf-proj-edit:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
 .aiwf-health {
   display: flex;
   align-items: center;

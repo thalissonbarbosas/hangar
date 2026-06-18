@@ -153,6 +153,33 @@ describe("AI Workflow routes", () => {
     expect([200, 500]).toContain(uninstall.status);
   });
 
+  it("changes a project's location and name", async () => {
+    // 404 for an unknown project.
+    expect((await request(app).patch("/api/aiwf/projects/nope").send({ name: "X" })).status).toBe(404);
+    // 400 when neither name nor repoPath is supplied.
+    expect((await request(app).patch("/api/aiwf/projects/p1").send({})).status).toBe(400);
+    // 400 (and no mutation) when the new repoPath does not exist.
+    const bad = await request(app).patch("/api/aiwf/projects/p1").send({ repoPath: "/no/such/path-xyz" });
+    expect(bad.status).toBe(400);
+    expect((await request(app).get("/api/aiwf/projects")).body.projects[0].repoPath).toBe(REPO);
+
+    // Editing only the name leaves repoPath unchanged.
+    const renamed = await request(app).patch("/api/aiwf/projects/p1").send({ name: "Renamed" });
+    expect(renamed.status).toBe(200);
+    expect(renamed.body.project.name).toBe("Renamed");
+    expect(renamed.body.project.repoPath).toBe(REPO);
+
+    // Editing the location re-points the project and persists.
+    const moved = await request(app).patch("/api/aiwf/projects/p1").send({ repoPath: REPO2 });
+    expect(moved.status).toBe(200);
+    expect(moved.body.project.repoPath).toBe(REPO2);
+    expect(moved.body.project.name).toBe("Renamed"); // name preserved
+    expect(fs.existsSync(path.join(DATA, "aiwf", "p1", "board"))).toBe(true); // board dir ensured (data dir, keyed by id)
+    const after = (await request(app).get("/api/aiwf/projects")).body.projects[0];
+    expect(after.repoPath).toBe(REPO2);
+    expect(after.name).toBe("Renamed");
+  });
+
   it("deletes a project", async () => {
     expect((await request(app).delete("/api/aiwf/projects/p1")).status).toBe(200);
     expect((await request(app).delete("/api/aiwf/projects/p1")).status).toBe(404);

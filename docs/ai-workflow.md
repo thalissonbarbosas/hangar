@@ -53,6 +53,12 @@ An AI Workflow **project** is a registered local repo. Create one from the sub-b
 - **New** — scaffolds the repo by running the `new-project` skill in place, then registers it.
 - **Adopt** — registers an existing repo as-is.
 
+Each project chip has an **Edit** (pencil) button that opens a modal to change the project's display
+name and **location** (`repoPath`) in place — useful when the repo moves on disk or was registered
+with the wrong path. The project keeps its id, and since the board lives in Hangar's data dir keyed
+by that id, the cards carry over unchanged — re-pointing the location just runs future work against
+the new path.
+
 Projects are stored in `hangar.config.json` under `aiWorkflow.projects` (see
 [Configuration](#configuration)). Cards are **runtime board state** — their `status:` and history
 are rewritten on every move and run — so they live in **Hangar's own data dir** at
@@ -153,6 +159,7 @@ All under `/api/aiwf/*` (defined in `server/src/index.ts`):
 | `POST /api/aiwf/uninstall`                           | run `aiwf uninstall-all` (toolkit only)              |
 | `GET /api/aiwf/projects`                             | list registered projects                            |
 | `POST /api/aiwf/projects`                            | register `{ name, repoPath, mode: "new"\|"adopt" }`  |
+| `PATCH /api/aiwf/projects/:id`                       | change a project's `{ name?, repoPath? }` (location) |
 | `DELETE /api/aiwf/projects/:id`                      | unregister a project (repo files untouched)          |
 | `GET /api/aiwf/projects/:id/cards`                   | list the project's cards                             |
 | `POST /api/aiwf/projects/:id/cards`                  | create a card `{ title, status?, kind?, skill? }`    |
