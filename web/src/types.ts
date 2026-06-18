@@ -38,6 +38,7 @@ export interface FullConfig {
   exclusiveAgents?: string[];
   maxTurns?: number;
   maxBudgetUsd?: number;
+  terminal?: string; // "Open in terminal" command template ({{dir}} + {{command}} placeholders)
 }
 
 export interface AiwfSkillGroup {

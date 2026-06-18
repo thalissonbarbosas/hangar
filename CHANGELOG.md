@@ -20,6 +20,12 @@ There are no GitHub Releases or git tags; this file is the record, and the root 
   session id picks the session up where it left off (sends a default "Continue.") with no modal. It
   appears both in the Sessions list and in the run panel header, to the left of **Hand off**. In the
   Sessions list the existing message-resume is still available as **Resume…**.
+- **Open in terminal** — the Sessions view has an _Open in terminal_ action on each session (with a
+  Claude session id) that resumes it in your own terminal (`claude --resume <id>` in the run's
+  working directory). Configure your terminal under **Settings → Terminal** as a command template
+  with `{{dir}}` and `{{command}}` placeholders (presets for macOS Terminal, iTerm2, and Ghostty);
+  when no terminal is set, clicking the action warns and points you to Settings. New `terminal`
+  config field and `POST /api/runs/:id/terminal` route.
 
 ### Fixed
 

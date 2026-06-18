@@ -115,6 +115,8 @@ export const api = {
     sendJson<{ ok: boolean }>("POST", `/api/runs/${runId}/permissions/${requestId}`, { decision }),
   sendMessage: (runId: string, text: string) =>
     sendJson<{ ok: boolean; mode: string }>("POST", `/api/runs/${runId}/message`, { text }),
+  openInTerminal: (runId: string) =>
+    sendJson<{ ok: boolean; command: string }>("POST", `/api/runs/${runId}/terminal`, {}),
   stopRun: (runId: string) => sendJson<{ ok: boolean }>("POST", `/api/runs/${runId}/stop`, {}),
   deleteRun: (runId: string) => sendJson<{ ok: boolean }>("DELETE", `/api/runs/${runId}`, {}),
   clearRuns: (scope: "finished" | "all" = "finished") =>

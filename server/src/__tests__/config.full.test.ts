@@ -110,6 +110,7 @@ describe("saveConfig", () => {
       exclusiveAgents: ["  docker-agent  ", ""],
       maxTurns: 42.7,
       maxBudgetUsd: 5,
+      terminal: "  open {{dir}} && {{command}}  ",
       boards: [
         {
           key: " PP ",
@@ -141,6 +142,7 @@ describe("saveConfig", () => {
     expect(saved.exclusiveAgents).toEqual(["docker-agent"]);
     expect(saved.maxTurns).toBe(42); // floored
     expect(saved.maxBudgetUsd).toBe(5);
+    expect(saved.terminal).toBe("open {{dir}} && {{command}}"); // trimmed
     expect(saved.skillsDir).toBe("~/.claude/skills");
     // workflow cleaning: empty-name workflow dropped, empty step dropped, note trimmed
     const wf = saved.boards[0].workflows!;
@@ -165,6 +167,7 @@ describe("saveConfig", () => {
       exclusiveAgents: ["e1"],
       maxTurns: 100,
       maxBudgetUsd: 10,
+      terminal: "open {{dir}}",
     });
     // Now save again without those fields — they should be preserved (skillsDir, bypass, etc.)
     const second = cfg.saveConfig({ ...validConfig, maxTurns: 0, maxBudgetUsd: 0 });
@@ -174,6 +177,10 @@ describe("saveConfig", () => {
     expect(second.exclusiveAgents).toEqual(["e1"]);
     expect(second.maxTurns).toBeUndefined(); // 0 clears
     expect(second.maxBudgetUsd).toBeUndefined();
+    expect(second.terminal).toBe("open {{dir}}"); // preserved when omitted
+    // An empty-string terminal clears it.
+    const third = cfg.saveConfig({ ...validConfig, terminal: "  " });
+    expect(third.terminal).toBeUndefined();
   });
 
   it("rejects an invalid config", () => {
