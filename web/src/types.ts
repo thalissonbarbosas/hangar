@@ -152,6 +152,7 @@ export interface RunSummary {
   endedAt?: number;
   pendingCount: number;
   eventCount: number;
+  aiwfProjectId?: string; // set for AI Workflow runs; used to group by project
 }
 
 export const ACTIVE_STATES: RunState[] = ["queued", "starting", "running", "awaiting_input"];

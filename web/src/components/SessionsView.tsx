@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Bot,
@@ -17,7 +17,32 @@ import {
   Terminal,
   X,
 } from "lucide-react";
-import { RunState, RunSummary, isActive } from "../types";
+import { AiwfProject, BoardConfig, RunState, RunSummary, isActive } from "../types";
+
+// Stable key for runs without a ticketKey (standalone / ad-hoc skill runs).
+const ADHOC_KEY = "__adhoc__";
+const ADHOC_LABEL = "Ad-hoc";
+
+/** Resolve which project a run belongs to: AI Workflow > Jira board > ad-hoc. */
+export function projectOf(
+  run: RunSummary,
+  boards: BoardConfig[],
+  aiwfProjects: AiwfProject[],
+): { key: string; label: string } {
+  // 1. AI Workflow run — look up by id; fall back to the raw id string if not found.
+  if (run.aiwfProjectId) {
+    const proj = aiwfProjects.find((p) => p.id === run.aiwfProjectId);
+    return proj ? { key: proj.id, label: proj.name } : { key: run.aiwfProjectId, label: run.aiwfProjectId };
+  }
+  // 2. Jira-board run — strip trailing `-<number>` to get the board key prefix.
+  if (run.ticketKey) {
+    const prefix = run.ticketKey.replace(/-\d+$/, "");
+    const board = boards.find((b) => b.key === prefix);
+    return board ? { key: prefix, label: board.name } : { key: prefix, label: prefix };
+  }
+  // 3. No ticketKey — ad-hoc bucket.
+  return { key: ADHOC_KEY, label: ADHOC_LABEL };
+}
 
 function StateChip({ state }: { state: RunState }) {
   const map: Record<RunState, { label: string; cls: string; icon: JSX.Element }> = {
@@ -48,6 +73,8 @@ function ago(ts: number): string {
 
 export function SessionsView({
   runs,
+  boards,
+  aiwfProjects,
   onOpenRun,
   onStop,
   onDelete,
@@ -57,6 +84,8 @@ export function SessionsView({
   terminalConfigured,
 }: {
   runs: RunSummary[];
+  boards: BoardConfig[];
+  aiwfProjects: AiwfProject[];
   onOpenRun: (run: RunSummary) => void;
   onStop: (runId: string) => void;
   onDelete: (runId: string) => void;
@@ -69,8 +98,48 @@ export function SessionsView({
   const [resumeText, setResumeText] = useState("");
   // Set when the operator clicks "Open in terminal" without a terminal configured (warn once).
   const [terminalWarning, setTerminalWarning] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("All");
+
+  // Header counts always reflect all runs, not the filtered subset.
   const active = runs.filter((r) => isActive(r.state));
   const finished = runs.length - active.length;
+
+  // Build ordered tab list: All first, then projects by descending count, ad-hoc last.
+  // Memoised so the fallback useEffect only fires when the tab list actually changes.
+  const tabs = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    for (const run of runs) {
+      const { key, label } = projectOf(run, boards, aiwfProjects);
+      const entry = counts.get(key);
+      if (entry) {
+        entry.count++;
+      } else {
+        counts.set(key, { label, count: 1 });
+      }
+    }
+    const projects = [...counts.entries()]
+      .map(([key, { label, count }]) => ({ key, label, count }))
+      .sort((a, b) => {
+        // Ad-hoc always last.
+        if (a.key === ADHOC_KEY) return 1;
+        if (b.key === ADHOC_KEY) return -1;
+        // Descending count, then alphabetical by label.
+        if (b.count !== a.count) return b.count - a.count;
+        return a.label.localeCompare(b.label);
+      });
+    return [{ key: "All", label: "All", count: runs.length }, ...projects];
+  }, [runs, boards, aiwfProjects]);
+
+  // If the active project tab disappears (e.g. its last session was cleared), fall back to All.
+  useEffect(() => {
+    if (activeTab !== "All" && !tabs.some((t) => t.key === activeTab)) {
+      setActiveTab("All");
+    }
+  }, [tabs, activeTab]);
+
+  // Filter the list for the active tab; preserve the incoming active-first / newest-first order.
+  const visibleRuns =
+    activeTab === "All" ? runs : runs.filter((r) => projectOf(r, boards, aiwfProjects).key === activeTab);
 
   function openInTerminal(runId: string) {
     if (!terminalConfigured) {
@@ -79,6 +148,8 @@ export function SessionsView({
     }
     onOpenInTerminal(runId);
   }
+
+  const activeTabLabel = tabs.find((t) => t.key === activeTab)?.label ?? "this project";
 
   return (
     <div className="sessions-view">
@@ -99,10 +170,26 @@ export function SessionsView({
         </span>
       </div>
 
+      {/* Project tab bar — always shown so the operator knows which project they're in. */}
+      <div className="sessions-tabs" role="tablist">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            role="tab"
+            aria-selected={activeTab === tab.key}
+            className={`sessions-tab${activeTab === tab.key ? " active" : ""}`}
+            onClick={() => setActiveTab(tab.key)}
+          >
+            {tab.label}
+            <span className="sessions-tab-count">{tab.count}</span>
+          </button>
+        ))}
+      </div>
+
       {terminalWarning && (
         <div className="banner warn">
           <AlertCircle size={14} /> No terminal configured. Set your default terminal in{" "}
-          <b>Settings → Terminal</b> to use “Open in terminal”.
+          <b>Settings → Terminal</b> to use "Open in terminal".
         </div>
       )}
 
@@ -110,8 +197,12 @@ export function SessionsView({
         <div className="empty">No sessions yet. Assign an agent to a ticket to start one.</div>
       )}
 
+      {runs.length > 0 && visibleRuns.length === 0 && (
+        <div className="empty">No sessions for {activeTabLabel}.</div>
+      )}
+
       <div className="sessions-list">
-        {runs.map((r) => (
+        {visibleRuns.map((r) => (
           <div className={`session-row${isActive(r.state) ? " active" : ""}`} key={r.id}>
             <StateChip state={r.state} />
             {r.ticketUrl ? (
