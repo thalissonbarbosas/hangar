@@ -78,14 +78,14 @@ export const AIWF_REPO_URL = "https://github.com/0xrafasec/ai-workflow";
 export const AIWF_AUTHOR = "0xrafasec";
 export const AIWF_AUTHOR_URL = "https://github.com/0xrafasec";
 
-// Core skill folders aiwf installs — their presence in ~/.claude/skills means aiwf is set up.
-const CORE_AIWF_SKILLS = ["prd", "spec", "roadmap", "feature", "review"];
+// All skills shipped by aiwf — derived from SKILL_GROUPS so it's always in sync.
+const ALL_AIWF_SKILLS = SKILL_GROUPS.flatMap((g) => g.skills);
 
 export interface AiwfStatus {
   installed: boolean;
   aiwfBin: string | null; // path to the launcher, if found
   version: string | null;
-  skillsFound: string[]; // which core aiwf skills are present in ~/.claude/skills
+  skillsFound: string[]; // which aiwf skills are present in ~/.claude/skills
 }
 
 function skillsRoot(): string {
@@ -96,13 +96,13 @@ function skillsRoot(): string {
 export function detectAiwf(): AiwfStatus {
   // Demo mode: report a fully-installed toolkit so the connection shows its full UI, no real aiwf.
   if (isDemo())
-    return { installed: true, aiwfBin: "(demo)", version: "demo", skillsFound: [...CORE_AIWF_SKILLS] };
+    return { installed: true, aiwfBin: "(demo)", version: "demo", skillsFound: [...ALL_AIWF_SKILLS] };
   const binPath = path.join(os.homedir(), ".local", "bin", "aiwf");
   const aiwfBin = fs.existsSync(binPath) ? binPath : null;
 
   const root = skillsRoot();
   const skillsFound = fs.existsSync(root)
-    ? CORE_AIWF_SKILLS.filter((s) => fs.existsSync(path.join(root, s, "SKILL.md")))
+    ? ALL_AIWF_SKILLS.filter((s) => fs.existsSync(path.join(root, s, "SKILL.md")))
     : [];
 
   let version: string | null = null;
