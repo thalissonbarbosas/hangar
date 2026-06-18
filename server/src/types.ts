@@ -62,6 +62,7 @@ export interface Skill {
   repo?: string; // repo basename, for repo skills (the "(eyeconic)" flag)
   repoPath?: string; // expanded repo root, so a run can target it
   model?: string; // optional model from frontmatter, e.g. "opus" | "sonnet" | "haiku"
+  aiwf?: boolean; // client-side: true when skill is from the AI Workflow toolkit
 }
 
 export interface Agent {

@@ -1220,8 +1220,17 @@ html[data-theme="light"] .model-haiku {
   display: inline-flex;
   align-items: center;
   font-size: 10px;
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.12);
+  color: #14b8a6;
+  background: rgba(20, 184, 166, 0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  margin-left: 2px;
+}
+.proj-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
   border-radius: 4px;
   padding: 1px 5px;
   white-space: nowrap;
@@ -1590,6 +1599,35 @@ html[data-theme="light"] .model-haiku {
   font-size: 11px;
   color: var(--text-faint);
   padding: 6px 8px;
+}
+.assign-skill-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 4px 0 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.assign-skill-tab {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.1s,
+    background 0.1s,
+    border-color 0.1s;
+}
+.assign-skill-tab:hover {
+  background: var(--surface-2);
+}
+.assign-skill-tab.active {
+  color: var(--tab-color, var(--accent));
+  background: color-mix(in srgb, var(--tab-color, var(--accent)) 12%, transparent);
+  border-color: color-mix(in srgb, var(--tab-color, var(--accent)) 40%, var(--border));
 }
 
 /* ---- note modal ---- */

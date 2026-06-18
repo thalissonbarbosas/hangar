@@ -111,6 +111,7 @@ export interface Skill {
   repo?: string; // repo basename flag, for repo skills
   repoPath?: string;
   model?: string; // optional model from frontmatter, e.g. "opus" | "sonnet" | "haiku"
+  aiwf?: boolean; // true when the skill is from the AI Workflow toolkit (client-side enriched)
 }
 
 // Drag-and-drop: a ticket card carries this payload when dragged onto a column or workflow.

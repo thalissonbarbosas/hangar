@@ -5,3 +5,10 @@ export function projectColor(key: string): string {
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) & 0x7fffffff;
   return PROJ_COLORS[h % PROJ_COLORS.length];
 }
+
+/** Return the display project key for a skill: "aiwf", a repo name, or null for ungrouped user skills. */
+export function skillProject(s: { aiwf?: boolean; repo?: string }): string | null {
+  if (s.aiwf) return "aiwf";
+  if (s.repo) return s.repo;
+  return null;
+}
