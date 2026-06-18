@@ -28,6 +28,10 @@ placeholders the server substitutes:
 - `{{dir}}` → the run's working directory
 - `{{command}}` → the resume command (`claude --resume <sessionId>`)
 
+The substituted values are inserted verbatim, so a custom template must quote `{{dir}}` itself
+(e.g. `… "{{dir}}" …`) to survive working directories that contain spaces — the shipped presets
+already do. The session id is validated against `^[A-Za-z0-9_-]+$` before interpolation.
+
 The rendered command is run through the operator's shell (`$SHELL -c`, falling back to `/bin/sh`),
 detached. A template is flexible enough to support any terminal (Terminal.app, iTerm2, Ghostty,
 Warp, …); the Settings UI offers one-click presets for the common macOS terminals plus a free-form
@@ -76,5 +80,3 @@ host); the only interpolated values are the server-generated `dir` and a validat
 6. UI: the Sessions row shows **Open in terminal** for runs with a session; clicking with no
    terminal configured shows the warning and makes no API call.
 7. `npm run typecheck` and `npm test` pass.
-</content>
-</invoke>
