@@ -18,6 +18,10 @@ import {
 } from "lucide-react";
 import { RunState, RunSummary, isActive } from "../types";
 
+// Default prompt sent by the one-click "Resume" — picks the session back up without a custom
+// steer. "Resume…" still opens the modal for an explicit message.
+const RESUME_MESSAGE = "Continue.";
+
 function StateChip({ state }: { state: RunState }) {
   const map: Record<RunState, { label: string; cls: string; icon: JSX.Element }> = {
     queued: { label: "Queued", cls: "await", icon: <Loader2 size={12} /> },
@@ -129,6 +133,15 @@ export function SessionsView({
                   <Square size={13} /> Stop
                 </button>
               )}
+              {!isActive(r.state) && r.sessionId && (
+                <button
+                  className="btn-ghost sm"
+                  onClick={() => onResume(r.id, RESUME_MESSAGE)}
+                  title="Resume from where it left off"
+                >
+                  <RotateCcw size={13} /> Resume
+                </button>
+              )}
               {!isActive(r.state) && (
                 <button
                   className="btn-ghost sm"
@@ -136,9 +149,9 @@ export function SessionsView({
                     setResumeText("");
                     setPendingResume(r);
                   }}
-                  title="Resume session"
+                  title="Resume with a custom message"
                 >
-                  <RotateCcw size={13} /> Resume
+                  <RotateCcw size={13} /> Resume…
                 </button>
               )}
               <button className="btn-ghost sm" onClick={() => onOpenRun(r)} title="Open session">

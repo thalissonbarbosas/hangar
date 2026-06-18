@@ -593,6 +593,16 @@ export { app };
 
 // Only listen when run directly as the entrypoint — not when imported (e.g. by tests).
 if (require.main === module) {
+  // Last-resort safety net: a stray rejection or async error outside the guarded run loops
+  // would otherwise crash the process and silently kill every live session (see sessions.ts).
+  // Log it loudly and keep serving instead of exiting.
+  process.on("unhandledRejection", (reason) => {
+    console.error("[hangar] unhandledRejection:", reason);
+  });
+  process.on("uncaughtException", (err) => {
+    console.error("[hangar] uncaughtException:", err);
+  });
+
   app.listen(PORT, () => {
     const jira = loadJiraEnv();
     console.log(`Hangar server on http://localhost:${PORT}`);
