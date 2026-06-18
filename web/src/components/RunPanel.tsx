@@ -18,11 +18,15 @@ import {
   Send,
   MessageCircleQuestion,
   User,
+  RotateCcw,
 } from "lucide-react";
 import { api } from "../api";
 import { Agent, RunEvent, RunKind, RunState, Skill, isActive } from "../types";
 import { HandoffModal } from "./HandoffModal";
 import { Markdown } from "./Markdown";
+
+// Default prompt sent by the one-click "Resume" — picks the session back up without a custom steer.
+const RESUME_MESSAGE = "Continue.";
 
 function s(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);
@@ -171,6 +175,16 @@ export function RunPanel({
             </span>
           </div>
           <div className="run-head-actions">
+            {!isActive(state) && sessionId && (
+              <button
+                className="btn-ghost sm"
+                onClick={() => sendFollowup(RESUME_MESSAGE)}
+                disabled={sending}
+                title="Resume from where it left off"
+              >
+                <RotateCcw size={13} /> Resume
+              </button>
+            )}
             <button
               className="btn-ghost sm"
               onClick={() => setHandoff(true)}

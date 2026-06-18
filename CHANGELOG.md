@@ -14,7 +14,18 @@ There are no GitHub Releases or git tags; this file is the record, and the root 
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **One-click Resume** — a quick **Resume** button on any stopped/finished run that has a Claude
+  session id picks the session up where it left off (sends a default "Continue.") with no modal. It
+  appears both in the Sessions list and in the run panel header, to the left of **Hand off**. In the
+  Sessions list the existing message-resume is still available as **Resume…**.
+
+### Fixed
+
+- **Server resilience** — install top-level `unhandledRejection`/`uncaughtException` handlers
+  (entrypoint only) that log loudly and keep serving, so a stray async error no longer crashes the
+  process and silently kills every live session.
 
 ## [0.3.0] - 2026-06-17
 
