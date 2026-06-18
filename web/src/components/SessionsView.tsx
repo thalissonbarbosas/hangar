@@ -14,6 +14,7 @@ import {
   Sparkles,
   RotateCcw,
   Play,
+  Terminal,
   X,
 } from "lucide-react";
 import { RunState, RunSummary, isActive } from "../types";
@@ -56,6 +57,8 @@ export function SessionsView({
   onDelete,
   onResume,
   onClear,
+  onOpenInTerminal,
+  terminalConfigured,
 }: {
   runs: RunSummary[];
   onOpenRun: (run: RunSummary) => void;
@@ -63,11 +66,23 @@ export function SessionsView({
   onDelete: (runId: string) => void;
   onResume: (runId: string, text: string) => void;
   onClear: (scope: "finished" | "all") => void;
+  onOpenInTerminal: (runId: string) => void;
+  terminalConfigured: boolean;
 }) {
   const [pendingResume, setPendingResume] = useState<RunSummary | null>(null);
   const [resumeText, setResumeText] = useState("");
+  // Set when the operator clicks "Open in terminal" without a terminal configured (warn once).
+  const [terminalWarning, setTerminalWarning] = useState(false);
   const active = runs.filter((r) => isActive(r.state));
   const finished = runs.length - active.length;
+
+  function openInTerminal(runId: string) {
+    if (!terminalConfigured) {
+      setTerminalWarning(true);
+      return;
+    }
+    onOpenInTerminal(runId);
+  }
 
   return (
     <div className="sessions-view">
@@ -87,6 +102,13 @@ export function SessionsView({
           </button>
         </span>
       </div>
+
+      {terminalWarning && (
+        <div className="banner warn">
+          <AlertCircle size={14} /> No terminal configured. Set your default terminal in{" "}
+          <b>Settings → Terminal</b> to use “Open in terminal”.
+        </div>
+      )}
 
       {runs.length === 0 && (
         <div className="empty">No sessions yet. Assign an agent to a ticket to start one.</div>
@@ -152,6 +174,15 @@ export function SessionsView({
                   title="Resume with a custom message"
                 >
                   <RotateCcw size={13} /> Resume…
+                </button>
+              )}
+              {!isActive(r.state) && r.sessionId && (
+                <button
+                  className="btn-ghost sm"
+                  onClick={() => openInTerminal(r.id)}
+                  title="Resume this session in your terminal"
+                >
+                  <Terminal size={13} /> Terminal
                 </button>
               )}
               <button className="btn-ghost sm" onClick={() => onOpenRun(r)} title="Open session">

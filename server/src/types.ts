@@ -45,6 +45,12 @@ export interface HangarConfig {
   maxTurns?: number;
   /** Optional spend ceiling per run, USD. Unset/0 = no cap. */
   maxBudgetUsd?: number;
+  /**
+   * Command template for "Open in terminal" — launches the operator's terminal at a run's
+   * working dir, resuming its Claude session. Placeholders: `{{dir}}` (the run's cwd) and
+   * `{{command}}` (the resume command). Unset = the action warns instead of launching.
+   */
+  terminal?: string;
 }
 
 export interface Skill {

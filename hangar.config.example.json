@@ -21,5 +21,6 @@
     ]
   },
   "bypassPermissions": true,
-  "isolateRuns": true
+  "isolateRuns": true,
+  "terminal": "osascript -e 'tell application \"Terminal\" to do script \"cd \\\"{{dir}}\\\" && {{command}}\"' -e 'tell application \"Terminal\" to activate'"
 }

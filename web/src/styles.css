@@ -253,6 +253,13 @@ body {
   color: var(--danger);
   border-bottom: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border));
 }
+.banner.warn {
+  margin: 0 0 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  color: var(--warning);
+  border: 1px solid color-mix(in srgb, var(--warning) 32%, var(--border));
+}
 
 .main {
   display: flex;

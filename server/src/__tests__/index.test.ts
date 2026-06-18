@@ -250,6 +250,19 @@ describe("runs lifecycle", () => {
     expect(ok.body.mode).toBe("resume");
   });
 
+  it("terminal route 404s an unknown run and opens a resumable session for a valid run", async () => {
+    expect((await request(app).post("/api/runs/ghost/terminal")).status).toBe(404);
+    const start = await request(app).post("/api/runs").send({ kind: "agent", name: "debugger", note: "x" });
+    const runId = start.body.runId;
+    await new Promise((r) => setTimeout(r, 20));
+    // Demo config ships a `terminal` template, so a run with a session id resolves the resume
+    // command (the actual spawn is guarded off in demo mode — see terminal.ts).
+    const res = await request(app).post(`/api/runs/${runId}/terminal`);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.command).toMatch(/claude --resume/);
+  });
+
   it("permission route validates decision and unknown run/request", async () => {
     const start = await request(app).post("/api/runs").send({ kind: "agent", name: "debugger", note: "x" });
     const runId = start.body.runId;

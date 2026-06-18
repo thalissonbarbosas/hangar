@@ -180,6 +180,14 @@ export function saveConfig(raw: HangarConfig): HangarConfig {
       : typeof currentConfig?.maxBudgetUsd === "number"
         ? { maxBudgetUsd: currentConfig.maxBudgetUsd }
         : {}),
+    // Terminal command template: a trimmed string sets it, "" clears it, undefined preserves.
+    ...(typeof raw.terminal === "string"
+      ? raw.terminal.trim()
+        ? { terminal: raw.terminal.trim() }
+        : {}
+      : currentConfig?.terminal
+        ? { terminal: currentConfig.terminal }
+        : {}),
   };
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(clean, null, 2) + "\n");
   currentConfig = clean;
