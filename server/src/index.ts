@@ -355,7 +355,7 @@ function requireAiwfProject(res: express.Response, id: string): AiwfProject | nu
   return p;
 }
 
-// The project's board cards (markdown files in <repoPath>/.aiwf/board).
+// The project's board cards (markdown files in <DATA_DIR>/aiwf/<projectId>/board).
 app.get("/api/aiwf/projects/:id/cards", (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
@@ -412,10 +412,10 @@ app.post("/api/aiwf/projects/:id/cards/:key/run", (req, res) => {
   const run = startRun({
     kind: "skill",
     name: skill,
-    note: projectRunNote(skill, userNote),
+    note: projectRunNote(skill, p, userNote),
     ticket: card,
     cwdOverride: expandHome(p.repoPath),
-    skipWorktree: true, // aiwf manages its own git; docs + seeded cards land in the real repo
+    skipWorktree: true, // aiwf manages its own git; docs land in the real repo (cards in the data dir)
     skillSource: findSkill(cfg, skill)?.source,
     aiwfProjectId: p.id,
     aiwfPhase: card.status,

@@ -5,6 +5,7 @@ import { execSync } from "child_process";
 import { expandHome, getConfig, getAiwfProjects } from "./config";
 import { AiwfProject, AiwfHistoryEntry, Ticket } from "./types";
 import { isDemo, demoAiwfCards } from "./demo";
+import { DATA_DIR } from "./store";
 
 // ---------------------------------------------------------------------------
 // AI Workflow (aiwf) connection: https://github.com/0xrafasec/ai-workflow
@@ -12,7 +13,9 @@ import { isDemo, demoAiwfCards } from "./demo";
 // aiwf is a Claude-native spec-driven-development toolkit installed into ~/.claude.
 // Hangar already reads ~/.claude/skills, so once installed its skills appear in the
 // fleet for free. This module adds (1) install detection/bootstrap and (2) a tiny
-// markdown-card board stored inside each project repo at <repoPath>/.aiwf/board/.
+// markdown-card board. The board is runtime state (its status/history churn on every move and
+// run), so cards live in Hangar's own data dir at <DATA_DIR>/aiwf/<projectId>/board/ — NOT in the
+// project repo, which stays pristine. A task's durable criteria belong in a tracked docs/specs file.
 // ---------------------------------------------------------------------------
 
 // The aiwf lifecycle phases, each with the skills the ai-workflow repo organizes under it.
@@ -37,16 +40,18 @@ export const COLUMN_SKILLS: Record<string, string[]> = Object.fromEntries(
 );
 
 // The roadmap skill is also asked to seed the board so the kanban fills in from the roadmap tasks.
-const ROADMAP_SEED_NOTE =
+// The board lives in Hangar's data dir (not the repo), so the skill is given the absolute path.
+const roadmapSeedNote = (boardPath: string): string =>
   "When you produce the roadmap, ALSO write one Hangar board card per roadmap task as a markdown file " +
-  "under .aiwf/board/ in this repo. Each card file must have YAML frontmatter with: key (incrementing, " +
-  "e.g. DC-1), title, status: Planning, kind: thread — followed by the task details as the markdown body.";
+  `in ${boardPath} (create the directory if it doesn't exist). Each card file must have YAML frontmatter ` +
+  "with: key (incrementing, e.g. DC-1), title, status: Planning, kind: thread — followed by the task " +
+  "details as the markdown body.";
 
 /** Compose the note for a project-level skill run: the user's note plus any skill-specific addendum. */
-export function projectRunNote(skill: string, userNote?: string): string | undefined {
+export function projectRunNote(skill: string, project: AiwfProject, userNote?: string): string | undefined {
   const parts: string[] = [];
   if (userNote?.trim()) parts.push(userNote.trim());
-  if (skill === "roadmap") parts.push(ROADMAP_SEED_NOTE);
+  if (skill === "roadmap") parts.push(roadmapSeedNote(boardDir(project)));
   return parts.length ? parts.join("\n\n") : undefined;
 }
 
@@ -133,11 +138,11 @@ export function uninstallAiwf(): { status: AiwfStatus; output: string } {
   }
 }
 
-// ---- Card board (markdown files inside the project repo) ----
+// ---- Card board (markdown files in Hangar's data dir, keyed by project) ----
 
-/** The board directory for a project: <repoPath>/.aiwf/board */
+/** The board directory for a project: <DATA_DIR>/aiwf/<projectId>/board (runtime, gitignored). */
 export function boardDir(project: AiwfProject): string {
-  return path.join(expandHome(project.repoPath), ".aiwf", "board");
+  return path.join(DATA_DIR, "aiwf", project.id, "board");
 }
 
 export function columnsFor(project: AiwfProject): string[] {

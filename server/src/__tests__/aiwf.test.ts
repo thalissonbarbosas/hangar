@@ -13,6 +13,10 @@ const REPO = fs.mkdtempSync(path.join(os.tmpdir(), "aiwf-repo-"));
 const SKILLS = fs.mkdtempSync(path.join(os.tmpdir(), "aiwf-skills-"));
 const CFG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "aiwf-cfg-"));
 const CONFIG_PATH = path.join(CFG_DIR, "hangar.config.json");
+// Board cards live in the data dir (store.ts reads HANGAR_DATA_DIR at module-eval) — isolate it to
+// a temp dir so tests don't write into the real repo's .hangar. Must be set before aiwf is imported.
+const DATA = fs.mkdtempSync(path.join(os.tmpdir(), "aiwf-data-"));
+process.env.HANGAR_DATA_DIR = DATA;
 fs.writeFileSync(
   CONFIG_PATH,
   JSON.stringify({
@@ -67,16 +71,16 @@ describe("constants", () => {
 
 describe("projectRunNote", () => {
   it("returns undefined with no note and a non-roadmap skill", () => {
-    expect(aiwf.projectRunNote("feature")).toBeUndefined();
+    expect(aiwf.projectRunNote("feature", project)).toBeUndefined();
   });
   it("passes through the user note", () => {
-    expect(aiwf.projectRunNote("feature", "  do the thing  ")).toBe("do the thing");
+    expect(aiwf.projectRunNote("feature", project, "  do the thing  ")).toBe("do the thing");
   });
-  it("appends the board-seed instruction for the roadmap skill", () => {
-    const note = aiwf.projectRunNote("roadmap", "scope it");
+  it("appends the board-seed instruction (with the data-dir board path) for the roadmap skill", () => {
+    const note = aiwf.projectRunNote("roadmap", project, "scope it");
     expect(note).toContain("scope it");
-    expect(note).toContain(".aiwf/board/");
-    expect(aiwf.projectRunNote("roadmap")).toContain(".aiwf/board/");
+    expect(note).toContain(aiwf.boardDir(project));
+    expect(aiwf.projectRunNote("roadmap", project)).toContain(aiwf.boardDir(project));
   });
 });
 
@@ -85,8 +89,8 @@ describe("columnsFor / boardDir", () => {
     expect(aiwf.columnsFor(project)).toEqual(aiwf.DEFAULT_COLUMNS);
     expect(aiwf.columnsFor({ ...project, columns: ["A", "B"] })).toEqual(["A", "B"]);
   });
-  it("points at <repo>/.aiwf/board", () => {
-    expect(aiwf.boardDir(project)).toBe(path.join(REPO, ".aiwf", "board"));
+  it("points at <DATA_DIR>/aiwf/<projectId>/board", () => {
+    expect(aiwf.boardDir(project)).toBe(path.join(DATA, "aiwf", "p1", "board"));
   });
 });
 

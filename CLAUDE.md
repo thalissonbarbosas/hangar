@@ -14,7 +14,7 @@ hangar/
   hangar.config.json          # boards (Jira keys, columns), agentsDir, run settings — hot-reloaded
   hangar.config.example.json  # committed template; copy to hangar.config.json (the real one is gitignored)
   .env                        # Jira creds + PORT (copy from .env.example; never commit)
-  .hangar/                    # runtime data dir (gitignored): runs/ and workflows/ JSON records
+  .hangar/                    # runtime data dir (gitignored): runs/, workflows/, and aiwf/ board cards
   server/                     # Node + TypeScript + Express: Jira adapter, agent/skill registry, SDK runner
   web/                        # React + Vite + TypeScript: the board UI
 ```

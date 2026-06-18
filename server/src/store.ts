@@ -9,7 +9,9 @@ import type { WorkflowRun } from "./workflows";
 // attached to its ticket after a restart.
 
 const ROOT = path.resolve(__dirname, "..", "..");
-const DATA_DIR = process.env.HANGAR_DATA_DIR
+// The runtime data dir (gitignored). Also the home for aiwf board cards (see aiwf.ts), so it's
+// exported. Overridable via HANGAR_DATA_DIR — point dev + stable at one path to share boards.
+export const DATA_DIR = process.env.HANGAR_DATA_DIR
   ? expandHome(process.env.HANGAR_DATA_DIR)
   : path.join(ROOT, ".hangar");
 const RUNS_DIR = path.join(DATA_DIR, "runs");
