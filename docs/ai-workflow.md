@@ -90,6 +90,14 @@ A **card is a work thread** that flows through the phases:
 - **History** — every finished session is appended to the card's history, tagged with the phase it ran
   in. The card shows a compact `phase·/skill ✓` trail; the repo also accumulates the skill's own
   artifacts (`docs/ARCHITECTURE.md`, specs, etc.). Board + repo together are the project history.
+- **Per-card options (⋯)** — each card has a `⋯` menu with:
+  - **See data** — opens a read-only modal showing the card's key, title, status, kind, skill, PR link,
+    description, and the full history list with timestamps and summaries.
+  - **Archive** — soft-hides the card from its phase column (reversible). Archived cards are grouped in
+    a collapsible **Archived (N)** section below the columns where they can be **Unarchived**, inspected,
+    or deleted.
+  - **Delete** — permanently removes the card file (with a confirm). Run records under
+    `<DATA_DIR>/runs/` are unaffected.
 
 Per-phase skills come from `COLUMN_SKILLS` (derived from `SKILL_GROUPS`; the `Complete` column has
 none). The `roadmap` skill is additionally instructed to **seed the board** — it writes one card per
@@ -135,8 +143,9 @@ Acceptance criteria / context — fed into the agent prompt.
 HANGAR_HISTORY-->
 ```
 
-`status` is the card's current phase column; `kind` is `thread` (runs skills) or `task` (manual). A
-card maps onto Hangar's `Ticket` shape (`summary`=title, `boardKey`=project id, `source: "aiwf"`,
+`status` is the card's current phase column; `kind` is `thread` (runs skills) or `task` (manual).
+`archived: true` marks a card as soft-hidden from the active columns (omitted on active cards).
+A card maps onto Hangar's `Ticket` shape (`summary`=title, `boardKey`=project id, `source: "aiwf"`,
 `description`=body) so runs / the run panel work unchanged.
 
 ## Configuration
@@ -178,6 +187,8 @@ All under `/api/aiwf/*` (defined in `server/src/index.ts`):
 | `GET /api/aiwf/projects/:id/cards`                   | list the project's cards                             |
 | `POST /api/aiwf/projects/:id/cards`                  | create a card `{ title, status?, kind?, skill? }`    |
 | `POST /api/aiwf/projects/:id/cards/:key/transition`  | move a card `{ status }`                             |
+| `POST /api/aiwf/projects/:id/cards/:key/archive`     | archive or unarchive a card `{ archived: boolean }`  |
+| `DELETE /api/aiwf/projects/:id/cards/:key`           | permanently delete a card file                       |
 | `POST /api/aiwf/projects/:id/cards/:key/run`         | run a skill on a card `{ skill, note? }`             |
 
 ## Where it lives
