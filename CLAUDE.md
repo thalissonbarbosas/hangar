@@ -105,9 +105,11 @@ does not manage its own key.
   `config.ts`, the Settings UI, and `README.md`.
 - Adding an API route: define it in `index.ts`, add a typed wrapper in `web/src/api.ts`, and keep
   `web/src/types.ts` in sync with `server/src/types.ts`.
-- Never commit `.env`, `hangar.config.json`, or anything under `.hangar/` — all gitignored
-  (secrets / personal board config / runtime data). Ship changes to the committed templates
-  (`.env.example`, `hangar.config.example.json`) instead.
+- Never commit `.env`, `hangar.config.json`, or anything under `.hangar/` or `.aiwf/board/` — all
+  gitignored (secrets / personal board config / runtime data). `.aiwf/board/*.md` are aiwf board
+  cards whose `status:`/history churn on every move and run, so they're runtime state, not tracked;
+  a task's durable criteria belong in a tracked `docs/specs/NNN_*.md`. Ship changes to the committed
+  templates (`.env.example`, `hangar.config.example.json`) instead.
 - **PR titles**: plain sentence case, no type prefix. Write `Fix open-PR preference in dev-status`,
   not `bugfix: Fix open-PR preference` or `feat/my-branch: Fix open-PR preference`.
 - **Changelog (required)**: always add the current change to `CHANGELOG.md`. Put it under

@@ -55,7 +55,11 @@ An AI Workflow **project** is a registered local repo. Create one from the sub-b
 
 Projects are stored in `hangar.config.json` under `aiWorkflow.projects` (see
 [Configuration](#configuration)). Cards for each project live **inside that project's repo** at
-`<repoPath>/.aiwf/board/*.md`, committed alongside the aiwf docs the skills produce.
+`<repoPath>/.aiwf/board/*.md`. These card files are **runtime board state** — their `status:` and
+embedded history are rewritten on every move and run — so `.aiwf/board/` is gitignored, like
+`.hangar/`. Keep a task's durable description and acceptance criteria in a tracked
+`docs/specs/NNN_*.md` (via the `spec` skill) and reference it from the card; the lasting record of
+what was built lives in `docs/` and the PR, not the board.
 
 ## The phase board
 
