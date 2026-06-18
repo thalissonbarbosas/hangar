@@ -82,9 +82,10 @@ When a ticket is assigned an agent/skill, `sessions.ts` spawns a `query()`:
   shared tunnel run one at a time (others queue); code-only agents stay parallel.
 - **Limits** (config `maxTurns` default 300, optional `maxBudgetUsd`).
 
-Runs are streamed token-by-token (`includePartialMessages`) over SSE and also persisted via
-`store.ts`. **Auth uses the host's existing Claude Code login / `ANTHROPIC_API_KEY`** — Hangar
-does not manage its own key.
+Runs emit each completed assistant message as a single `assistant_text` SSE event (whole message,
+not token-by-token); `includePartialMessages` is not used. Events are also persisted via `store.ts`.
+**Auth uses the host's existing Claude Code login / `ANTHROPIC_API_KEY`** — Hangar does not manage
+its own key.
 
 ## Web (`web/src/`)
 

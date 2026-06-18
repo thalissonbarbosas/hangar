@@ -123,11 +123,11 @@ function waitForState(run: sessions.Run, ...states: sessions.RunState[]): Promis
 
 const successScript = [
   { type: "system", subtype: "init", session_id: "sess-1", model: "claude-opus-4-8" },
-  { type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "hi" } } },
   {
     type: "assistant",
     message: {
       content: [
+        { type: "text", text: "hi" },
         {
           type: "tool_use",
           name: "TodoWrite",
@@ -195,10 +195,14 @@ describe("startRun — ticket-based, bypass mode, success", () => {
     expect(run.model).toBe("claude-opus-4-8");
     // phase derived from TodoWrite
     expect(run.events.some((e) => e.kind === "phase" && e.label === "Plan")).toBe(true);
-    // assistant delta streamed
-    expect(run.events.some((e) => e.kind === "assistant_delta" && e.text === "hi")).toBe(true);
+    // complete assistant text emitted (not token-by-token)
+    expect(run.events.some((e) => e.kind === "assistant_text" && e.text === "hi")).toBe(true);
+    // no partial-token streaming
+    expect(run.events.some((e) => e.kind === "assistant_delta")).toBe(false);
     // tool_use emitted
     expect(run.events.some((e) => e.kind === "tool_use" && e.tool === "TodoWrite")).toBe(true);
+    // includePartialMessages is not set
+    expect((lastQueryOptions as Record<string, unknown>).includePartialMessages).toBeUndefined();
     // system prompt built from agent body
     expect(String(lastQueryOptions!.systemPrompt)).toContain("Investigate carefully.");
     expect(lastQueryOptions!.permissionMode).toBe("bypassPermissions");

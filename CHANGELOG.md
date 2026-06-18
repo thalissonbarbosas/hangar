@@ -14,6 +14,14 @@ There are no GitHub Releases or git tags; this file is the record, and the root 
 
 ## [Unreleased]
 
+### Changed
+
+- **Session modal shows whole assistant messages, not token-by-token** — the server no longer passes
+  `includePartialMessages` and stops emitting `assistant_delta` events. Instead it emits a single
+  `assistant_text` event (full text) for each text block of every completed `assistant` message, in
+  content order alongside `tool_use` events. The session modal renders each as one complete Markdown
+  block; tool-use / permission / question events remain interleaved.
+
 ### Added
 
 - **Change an AI Workflow project's location** — each project chip now has an **Edit** (pencil)
