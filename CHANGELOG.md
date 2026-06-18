@@ -20,7 +20,7 @@ _Nothing yet._
 
 ### Added
 
-- `CHANGELOG.md` and a per-PR versioning scheme; `CLAUDE.md` now requires every change to update the changelog.
+- `CHANGELOG.md` and a per-PR versioning scheme; `CLAUDE.md` now requires every change to update the changelog ([#10](https://github.com/thalissonbarbosas/hangar/pull/10)).
 
 ## [0.1.0] - 2026-06-17
 
