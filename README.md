@@ -127,7 +127,8 @@ The topbar has a **connection switcher**. **Jira** (the default) shows your proj
 instead of a tracker: Hangar detects/installs the toolkit, sets up a project, and gives it a
 phase-lifecycle board (`Planning → Design → Implementation → Review → Delivery → Complete`) whose cards
 are work threads stored in the repo. Runs are executed by Claude (the existing engine). Each project
-chip can be edited to change its name or location (the repo path) in place.
+chip can be edited to change its name or location (the repo path) in place. Cards support per-card
+**archive**, **delete**, and **see data** actions via a `⋯` menu.
 
 **→ Full guide: [`docs/ai-workflow.md`](docs/ai-workflow.md).**
 
