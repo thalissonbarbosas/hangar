@@ -1116,9 +1116,8 @@ html[data-theme="light"] .model-haiku {
 
 /* ---- exclusive runtime checklist ---- */
 .exclusive-list {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px 16px;
+  columns: 2;
+  column-gap: 16px;
   margin-top: 4px;
 }
 .exclusive-item {
@@ -1128,6 +1127,8 @@ html[data-theme="light"] .model-haiku {
   font-size: 12px;
   cursor: pointer;
   color: var(--text);
+  break-inside: avoid;
+  margin-bottom: 6px;
 }
 .exclusive-item input {
   accent-color: var(--accent);
@@ -1209,6 +1210,22 @@ html[data-theme="light"] .model-haiku {
   border-radius: 4px;
   padding: 1px 5px;
   white-space: nowrap;
+}
+.ami-repo {
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.aiwf-skill-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  margin-left: 2px;
 }
 
 /* ---- sessions view ---- */
@@ -1326,6 +1343,15 @@ html[data-theme="light"] .model-haiku {
 .sessions-tab.active .sessions-tab-count {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent);
+}
+.sessions-tab.active.proj-tab {
+  color: var(--proj-color);
+  background: color-mix(in srgb, var(--proj-color) 12%, transparent);
+  border-color: color-mix(in srgb, var(--proj-color) 40%, var(--border));
+}
+.sessions-tab.active.proj-tab .sessions-tab-count {
+  background: color-mix(in srgb, var(--proj-color) 18%, transparent);
+  color: var(--proj-color);
 }
 
 /* ---- agent permissions toggle + flag ---- */

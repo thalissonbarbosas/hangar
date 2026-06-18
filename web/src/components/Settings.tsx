@@ -34,6 +34,7 @@ type SectionKey =
   | "jira"
   | "boards"
   | "agents"
+  | "board-skills"
   | "workflows"
   | "permissions"
   | "isolation"
@@ -45,6 +46,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof Plug }[] = [
   { key: "jira", label: "Jira connection", icon: Plug },
   { key: "boards", label: "Boards & columns", icon: Columns3 },
   { key: "agents", label: "Board agents", icon: Users },
+  { key: "board-skills", label: "Board skills", icon: Sparkles },
   { key: "workflows", label: "Workflows", icon: WorkflowIcon },
   { key: "permissions", label: "Agent permissions", icon: ShieldAlert },
   { key: "isolation", label: "Run isolation", icon: GitBranch },
@@ -78,6 +80,7 @@ export function Settings({ onSaved }: { onSaved: () => void }) {
         {section === "jira" && <JiraSection />}
         {section === "boards" && <BoardsSection onSaved={onSaved} />}
         {section === "agents" && <AgentAccessSection onSaved={onSaved} />}
+        {section === "board-skills" && <BoardSkillsSection onSaved={onSaved} />}
         {section === "workflows" && <WorkflowsSection onSaved={onSaved} />}
         {section === "permissions" && <PermissionsSection onSaved={onSaved} />}
         {section === "isolation" && <IsolationSection onSaved={onSaved} />}
@@ -905,6 +908,81 @@ function AgentAccessSection({ onSaved }: { onSaved: () => void }) {
             </label>
           ))}
           {agents.length === 0 && <span className="hint">No agents found.</span>}
+        </div>
+      )}
+      <SaveStatus saved={saved} msg={msg} />
+    </section>
+  );
+}
+
+/* ---------------- Board skills (which skills are available per board) ---------------- */
+
+function BoardSkillsSection({ onSaved }: { onSaved: () => void }) {
+  const [boards, setBoards] = useState<BoardConfig[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [sel, setSel] = useState(0);
+  const [saved, setSaved] = useState<Saved>("idle");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([api.config(), api.skills()]).then(([c, s]) => {
+      setBoards(c.boards);
+      setSkills(s.skills);
+    });
+  }, []);
+
+  const board = boards[sel];
+  const enabled = (name: string) => !board?.skills?.length || board.skills.includes(name);
+
+  async function setSkillsFor(list: string[]) {
+    const next = list.length === skills.length ? [] : list;
+    const nextBoards = boards.map((b, i) => (i === sel ? { ...b, skills: next } : b));
+    setBoards(nextBoards);
+    setSaved("saving");
+    setMsg(null);
+    try {
+      const latest = await api.config();
+      const merged = latest.boards.map((b) => {
+        const edited = nextBoards.find((x) => x.key === b.key);
+        return edited ? { ...b, skills: edited.skills } : b;
+      });
+      const out = await api.saveConfig({ ...latest, boards: merged });
+      setBoards(out.boards);
+      setSaved("saved");
+      onSaved();
+    } catch (e) {
+      setSaved("error");
+      setMsg(String((e as Error).message ?? e));
+    }
+  }
+
+  function toggle(name: string) {
+    const cur = board?.skills?.length ? board.skills : skills.map((s) => s.name);
+    const next = cur.includes(name) ? cur.filter((n) => n !== name) : [...cur, name];
+    setSkillsFor(next);
+  }
+
+  return (
+    <section className="card-panel">
+      <h2>
+        <Sparkles size={17} /> Board skills
+      </h2>
+      <p className="hint">
+        Choose which skills appear in this board's <b>Assign</b> menu. With none checked, <b>all</b> skills
+        are available (the default).
+      </p>
+      <BoardPicker boards={boards} sel={sel} onSelect={setSel} />
+      {board && (
+        <div className="exclusive-list">
+          {skills.map((s) => (
+            <label className="exclusive-item" key={s.name} title={s.description}>
+              <input type="checkbox" checked={enabled(s.name)} onChange={() => toggle(s.name)} />
+              <Sparkles size={12} />
+              <span className="mono">{s.repo ? `${s.name} (${s.repo})` : s.name}</span>
+              {s.model && <span className="model-chip">{s.model}</span>}
+            </label>
+          ))}
+          {skills.length === 0 && <span className="hint">No skills found.</span>}
         </div>
       )}
       <SaveStatus saved={saved} msg={msg} />
