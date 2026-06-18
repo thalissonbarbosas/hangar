@@ -175,12 +175,12 @@ export function demoRunSeeds(): DemoRunSeed[] {
         { kind: "system", message: "session started", sessionId: "demo-sess-106" },
         { kind: "info", message: "Runtime: COMPOSE_PROJECT_NAME=hangar-9f3a1c2, HANGAR_PORT_OFFSET=300" },
         { kind: "worktree", repo: "acme-web", branch: "hangar/code-reviewer-9f3a1c2" },
-        { kind: "assistant_delta", text: "Reading the failing test and the checkout flow it exercises.\n\n" },
+        { kind: "assistant_text", text: "Reading the failing test and the checkout flow it exercises.\n\n" },
         { kind: "tool_use", tool: "Read", input: "tests/checkout.spec.ts" },
         { kind: "tool_use", tool: "Read", input: "src/checkout/poll.ts" },
         { kind: "phase", label: "Reviewing", done: 1, total: 2 },
         {
-          kind: "assistant_delta",
+          kind: "assistant_text",
           text:
             "The test waits a fixed **2s** for the confirmation banner, but on a throttled network the " +
             "request can take longer — so it fails intermittently. The fix is to wait on the banner " +
@@ -220,7 +220,7 @@ export function demoRunSeeds(): DemoRunSeed[] {
         { kind: "info", message: "Runtime: COMPOSE_PROJECT_NAME=hangar-1b77e40, HANGAR_PORT_OFFSET=100" },
         { kind: "worktree", repo: "acme-web", branch: "hangar/debugger-1b77e40" },
         {
-          kind: "assistant_delta",
+          kind: "assistant_text",
           text:
             "Starting from the report: a 500 when the email has a trailing space. Let me find the " +
             "login handler and the validation it runs.\n\n",
@@ -229,7 +229,7 @@ export function demoRunSeeds(): DemoRunSeed[] {
         { kind: "tool_use", tool: "Read", input: "src/auth/login.ts" },
         { kind: "phase", label: "Reproducing the failure", done: 1, total: 3 },
         {
-          kind: "assistant_delta",
+          kind: "assistant_text",
           text:
             'Found it — `findUserByEmail` is called with the raw input, so `"a@b.com "` misses the ' +
             "index and a downstream `.id` read throws. Writing a failing test before the fix.",
@@ -257,7 +257,7 @@ export function demoRunSeeds(): DemoRunSeed[] {
         { kind: "tool_use", tool: "Read", input: ".github/workflows/ci.yml" },
         { kind: "tool_use", tool: "Edit", input: ".github/workflows/ci.yml" },
         {
-          kind: "assistant_delta",
+          kind: "assistant_text",
           text: "CI now targets Node 22. Two engines fields in package.json also reference Node 18.",
         },
         {

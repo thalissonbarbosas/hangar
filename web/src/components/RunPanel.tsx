@@ -127,9 +127,9 @@ export function RunPanel({
     const r = [...events].reverse().find((e) => e.kind === "result" && e.subtype === "success");
     if (r?.result) return String(r.result);
     return events
-      .filter((e) => e.kind === "assistant_delta")
+      .filter((e) => e.kind === "assistant_text")
       .map((e) => s(e.text))
-      .join("");
+      .join("\n\n");
   }, [events]);
 
   async function decide(requestId: string, decision: "allow" | "deny") {
@@ -331,7 +331,7 @@ function deriveState(
   return "starting";
 }
 
-// Coalesce assistant_delta chunks into Markdown blocks, interleaved with other events.
+// Render each assistant_text event as a complete Markdown block, interleaved with other events.
 function renderEvents(
   events: RunEvent[],
   resolved: Map<string, string>,
@@ -341,28 +341,19 @@ function renderEvents(
   answer: (text: string) => void,
 ) {
   const out: JSX.Element[] = [];
-  let buf = "";
-  let bufKey = 0;
-  const flush = (live = false) => {
-    if (!buf) return;
-    out.push(
-      <div className={`run-line text${live ? " live" : ""}`} key={`t-${bufKey++}`}>
-        <Markdown>{buf}</Markdown>
-      </div>,
-    );
-    buf = "";
-  };
 
   for (const e of events) {
-    if (e.kind === "assistant_delta") {
-      buf += s(e.text);
+    if (e.kind === "assistant_text") {
+      out.push(
+        <div className="run-line text" key={e.seq}>
+          <Markdown>{s(e.text)}</Markdown>
+        </div>,
+      );
       continue;
     }
-    flush();
     const el = renderOther(e, resolved, resolvedQuestions, submitting, decide, answer);
     if (el) out.push(el);
   }
-  flush(true);
   return out;
 }
 

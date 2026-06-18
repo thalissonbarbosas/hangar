@@ -683,7 +683,6 @@ function buildOptions(run: Run, opts: OptionOpts): Record<string, unknown> {
       HANGAR_RUN_ID: run.id,
       HANGAR_PORT_OFFSET: String(portOffset),
     },
-    includePartialMessages: true,
     maxTurns: getConfig().maxTurns ?? 300,
     ...(typeof getConfig().maxBudgetUsd === "number" && getConfig().maxBudgetUsd! > 0
       ? { maxBudgetUsd: getConfig().maxBudgetUsd }
@@ -743,18 +742,15 @@ async function streamTurn(run: Run, options: Record<string, unknown>, seedText: 
 
   try {
     for await (const msg of q as AsyncIterable<any>) {
-      if (msg.type !== "stream_event") detectPr(run, JSON.stringify(msg)); // capture a PR URL if one appears
+      detectPr(run, JSON.stringify(msg)); // capture a PR URL if one appears
       if (msg.type === "system" && msg.subtype === "init") {
         run.sessionId = msg.session_id;
         emit(run, "system", { message: "Session initialized", sessionId: msg.session_id, model: msg.model });
-      } else if (msg.type === "stream_event") {
-        const ev = msg.event;
-        if (ev?.type === "content_block_delta" && ev.delta?.type === "text_delta" && ev.delta.text) {
-          emit(run, "assistant_delta", { text: ev.delta.text });
-        }
       } else if (msg.type === "assistant") {
         for (const block of msg.message?.content ?? []) {
-          if (block.type === "tool_use") {
+          if (block.type === "text" && block.text) {
+            emit(run, "assistant_text", { text: block.text });
+          } else if (block.type === "tool_use") {
             emit(run, "tool_use", { tool: block.name, input: previewInput(block.name, block.input) });
             if (block.name === "TodoWrite") updatePhase(run, block.input);
           }
