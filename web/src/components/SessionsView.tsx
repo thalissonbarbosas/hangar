@@ -90,7 +90,7 @@ export function SessionsView({
   onStop: (runId: string) => void;
   onDelete: (runId: string) => void;
   onResume: (runId: string, text: string) => void;
-  onClear: (scope: "finished" | "all") => void;
+  onClear: (scope: "finished" | "all", runIds?: string[]) => void;
   onOpenInTerminal: (runId: string) => void;
   terminalConfigured: boolean;
 }) {
@@ -151,6 +151,13 @@ export function SessionsView({
 
   const activeTabLabel = tabs.find((t) => t.key === activeTab)?.label ?? "this project";
 
+  // When a project tab is active, scope clear buttons to only that project's runs.
+  const scopedRunIds = activeTab === "All" ? undefined : visibleRuns.map((r) => r.id);
+  const scopedFinished =
+    activeTab === "All" ? finished : visibleRuns.filter((r) => !isActive(r.state)).length;
+  const scopedTotal = activeTab === "All" ? runs.length : visibleRuns.length;
+  const scopeSuffix = activeTab === "All" ? "" : ` in ${activeTabLabel}`;
+
   return (
     <div className="sessions-view">
       <div className="sessions-head">
@@ -161,11 +168,19 @@ export function SessionsView({
           {active.length} active · {runs.length} total
         </span>
         <span className="sessions-head-actions">
-          <button className="btn-ghost sm" disabled={finished === 0} onClick={() => onClear("finished")}>
-            <Trash2 size={13} /> Clear finished
+          <button
+            className="btn-ghost sm"
+            disabled={scopedFinished === 0}
+            onClick={() => onClear("finished", scopedRunIds)}
+          >
+            <Trash2 size={13} /> Clear finished{scopeSuffix}
           </button>
-          <button className="btn-ghost danger sm" disabled={runs.length === 0} onClick={() => onClear("all")}>
-            <Trash2 size={13} /> Clear all
+          <button
+            className="btn-ghost danger sm"
+            disabled={scopedTotal === 0}
+            onClick={() => onClear("all", scopedRunIds)}
+          >
+            <Trash2 size={13} /> Clear all{scopeSuffix}
           </button>
         </span>
       </div>

@@ -1200,6 +1200,16 @@ html[data-theme="light"] .model-haiku {
   font-size: 10px;
   color: var(--text-faint);
 }
+.model-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  color: var(--text-faint);
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
 
 /* ---- sessions view ---- */
 .sessions-view {

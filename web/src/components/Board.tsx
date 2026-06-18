@@ -89,6 +89,7 @@ function ItemRow({
   name,
   label,
   kind,
+  model,
   sub,
   onRun,
   onNote,
@@ -96,6 +97,7 @@ function ItemRow({
   name: string;
   label?: string;
   kind: RunKind;
+  model?: string;
   sub: string;
   onRun: () => void;
   onNote: () => void;
@@ -105,6 +107,7 @@ function ItemRow({
       <button className="assign-item-main" onClick={onRun} title={sub}>
         {kind === "skill" ? <Sparkles size={12} /> : <Bot size={12} />}
         <span className="ami-name">{label ?? name}</span>
+        {model && <span className="ami-model">{model}</span>}
       </button>
       <button className="assign-item-note" onClick={onNote} title="Run with a note…">
         <StickyNote size={12} />
@@ -204,6 +207,7 @@ function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCt
                   key={a.name}
                   name={a.name}
                   kind="agent"
+                  model={a.model}
                   sub={a.description}
                   onRun={() => run(a.name, "agent")}
                   onNote={() => askNote(a.name, "agent")}
@@ -221,6 +225,7 @@ function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCt
                   name={s.name}
                   label={s.repo ? `${s.name} (${s.repo})` : s.name}
                   kind="skill"
+                  model={s.model}
                   sub={s.description}
                   onRun={() => run(s.name, "skill")}
                   onNote={() => askNote(s.name, "skill")}
