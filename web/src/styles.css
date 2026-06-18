@@ -986,18 +986,7 @@ html[data-theme="light"] .model-haiku {
   color: var(--text-muted);
 }
 
-/* ---- live token cursor + resolved permission lines ---- */
-.run-line.text.live::after {
-  content: "▍";
-  color: var(--accent);
-  animation: blink 1s steps(2, start) infinite;
-  margin-left: 1px;
-}
-@keyframes blink {
-  to {
-    visibility: hidden;
-  }
-}
+/* ---- resolved permission lines ---- */
 .run-line.resolved {
   display: flex;
   align-items: center;
