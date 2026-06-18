@@ -851,6 +851,7 @@ function NewItemModal({
                     onClick={() => setSkill(s)}
                   >
                     /{s}
+                    <span className="aiwf-skill-tag">(aiwf)</span>
                     {skillsByName.get(s)?.model && (
                       <span className="model-chip">{skillsByName.get(s)!.model}</span>
                     )}
@@ -930,6 +931,7 @@ function PhaseSkillModal({
                 title={skillsByName.has(s) ? undefined : `/${s} (not installed)`}
               >
                 /{s}
+                <span className="aiwf-skill-tag">(aiwf)</span>
                 {skillsByName.get(s)?.model && (
                   <span className="model-chip">{skillsByName.get(s)!.model}</span>
                 )}

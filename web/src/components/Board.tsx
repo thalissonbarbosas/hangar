@@ -29,6 +29,7 @@ import {
 import { api } from "../api";
 import { Avatar } from "./Avatar";
 import { NoteModal } from "./NoteModal";
+import { projectColor } from "../utils";
 
 const COLUMN_COLORS = [
   "#4f7cff",
@@ -87,7 +88,7 @@ interface CardCtx {
 
 function ItemRow({
   name,
-  label,
+  repo,
   kind,
   model,
   sub,
@@ -95,18 +96,24 @@ function ItemRow({
   onNote,
 }: {
   name: string;
-  label?: string;
+  repo?: string;
   kind: RunKind;
   model?: string;
   sub: string;
   onRun: () => void;
   onNote: () => void;
 }) {
+  const repoColor = repo ? projectColor(repo) : undefined;
   return (
     <div className="assign-item">
       <button className="assign-item-main" onClick={onRun} title={sub}>
         {kind === "skill" ? <Sparkles size={12} /> : <Bot size={12} />}
-        <span className="ami-name">{label ?? name}</span>
+        <span className="ami-name">{name}</span>
+        {repo && (
+          <span className="ami-repo" style={{ color: repoColor }}>
+            ({repo})
+          </span>
+        )}
         {model && <span className="ami-model">{model}</span>}
       </button>
       <button className="assign-item-note" onClick={onNote} title="Run with a note…">
@@ -223,7 +230,7 @@ function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCt
                 <ItemRow
                   key={`${s.name}:${s.repo ?? ""}`}
                   name={s.name}
-                  label={s.repo ? `${s.name} (${s.repo})` : s.name}
+                  repo={s.repo}
                   kind="skill"
                   model={s.model}
                   sub={s.description}
@@ -462,9 +469,13 @@ export function Board({
   // Restrict the Assign menu to the board's enabled agents (empty/undefined = all).
   const boardAgents = board.agents?.length ? agents.filter((a) => board.agents!.includes(a.name)) : agents;
   // Show user-scoped skills always; repo skills only if their repoPath belongs to this board.
-  const boardSkills = board.resolvedPaths?.length
+  const pathFiltered = board.resolvedPaths?.length
     ? skills.filter((s) => s.source !== "repo" || board.resolvedPaths!.includes(s.repoPath ?? ""))
     : skills;
+  // Further restrict to the board's skill allow-list (empty/undefined = all path-filtered skills).
+  const boardSkills = board.skills?.length
+    ? pathFiltered.filter((s) => board.skills!.includes(s.name))
+    : pathFiltered;
   const ctx: CardCtx = {
     boardKey: board.key,
     agents: boardAgents,

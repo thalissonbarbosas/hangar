@@ -17,6 +17,7 @@ export interface BoardConfig {
   repoPath?: string; // legacy single path (still honored)
   repoPaths?: string[]; // codebase paths: first is cwd, the rest are additionalDirectories
   agents?: string[]; // agent names enabled for this board; undefined/empty = all agents
+  skills?: string[]; // skill names enabled for this board; undefined/empty = all skills
   workflows?: WorkflowConfig[]; // board pipelines
 }
 

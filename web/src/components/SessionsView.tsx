@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { AiwfProject, BoardConfig, RunState, RunSummary, isActive } from "../types";
+import { projectColor } from "../utils";
 
 // Stable key for runs without a ticketKey (standalone / ad-hoc skill runs).
 const ADHOC_KEY = "__adhoc__";
@@ -187,18 +188,22 @@ export function SessionsView({
 
       {/* Project tab bar — always shown so the operator knows which project they're in. */}
       <div className="sessions-tabs" role="tablist">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            role="tab"
-            aria-selected={activeTab === tab.key}
-            className={`sessions-tab${activeTab === tab.key ? " active" : ""}`}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.label}
-            <span className="sessions-tab-count">{tab.count}</span>
-          </button>
-        ))}
+        {tabs.map((tab) => {
+          const color = tab.key !== "All" ? projectColor(tab.key) : undefined;
+          return (
+            <button
+              key={tab.key}
+              role="tab"
+              aria-selected={activeTab === tab.key}
+              className={`sessions-tab${activeTab === tab.key ? " active" : ""}${color ? " proj-tab" : ""}`}
+              style={color ? ({ "--proj-color": color } as React.CSSProperties) : undefined}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              {tab.label}
+              <span className="sessions-tab-count">{tab.count}</span>
+            </button>
+          );
+        })}
       </div>
 
       {terminalWarning && (
