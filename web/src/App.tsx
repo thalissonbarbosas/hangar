@@ -77,6 +77,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
   const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
   const [bypass, setBypass] = useState(false);
+  const [terminalConfigured, setTerminalConfigured] = useState(false);
   const [assignee, setAssignee] = useState<string>(() => localStorage.getItem(ASSIGNEE_KEY) ?? "");
   const [ticketFilter, setTicketFilter] = useState("");
   // AI Workflow connection state (shared between the sub-menu bar and the content view).
@@ -103,6 +104,7 @@ export function App() {
       .then(([cfg, ag, sk]) => {
         setBoards(cfg.boards);
         setBypass(cfg.bypassPermissions ?? true);
+        setTerminalConfigured(!!cfg.terminal);
         setSelected((prev) => {
           const keys = cfg.boards.map((b) => b.key);
           const kept = prev.filter((k) => keys.includes(k));
@@ -301,6 +303,10 @@ export function App() {
         refreshRuns();
       })
       .catch((e) => setError(String(e.message ?? e)));
+  }
+  function openInTerminal(runId: string) {
+    setError(null);
+    api.openInTerminal(runId).catch((e) => setError(String(e.message ?? e)));
   }
   function deleteRun(runId: string) {
     api
@@ -513,6 +519,8 @@ export function App() {
             onDelete={deleteRun}
             onResume={resumeRun}
             onClear={clearRuns}
+            onOpenInTerminal={openInTerminal}
+            terminalConfigured={terminalConfigured}
           />
         </div>
       ) : overlay === "run" ? (

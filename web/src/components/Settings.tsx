@@ -22,6 +22,7 @@ import {
   Sparkles,
   Gauge,
   Users,
+  TerminalSquare,
   Workflow as WorkflowIcon,
 } from "lucide-react";
 import { api } from "../api";
@@ -37,7 +38,8 @@ type SectionKey =
   | "permissions"
   | "isolation"
   | "runtime"
-  | "limits";
+  | "limits"
+  | "terminal";
 
 const SECTIONS: { key: SectionKey; label: string; icon: typeof Plug }[] = [
   { key: "jira", label: "Jira connection", icon: Plug },
@@ -48,6 +50,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof Plug }[] = [
   { key: "isolation", label: "Run isolation", icon: GitBranch },
   { key: "runtime", label: "Exclusive runtime", icon: Boxes },
   { key: "limits", label: "Run limits", icon: Gauge },
+  { key: "terminal", label: "Terminal", icon: TerminalSquare },
 ];
 
 export function Settings({ onSaved }: { onSaved: () => void }) {
@@ -80,6 +83,7 @@ export function Settings({ onSaved }: { onSaved: () => void }) {
         {section === "isolation" && <IsolationSection onSaved={onSaved} />}
         {section === "runtime" && <RuntimeSection onSaved={onSaved} />}
         {section === "limits" && <LimitsSection onSaved={onSaved} />}
+        {section === "terminal" && <TerminalSection onSaved={onSaved} />}
       </div>
     </div>
   );
@@ -151,6 +155,111 @@ function LimitsSection({ onSaved }: { onSaved: () => void }) {
         safety net for unrestricted (bypass) mode: a run stops if it crosses it. Leave blank for defaults (300
         turns, no cap).
       </p>
+      <div className="row">
+        {saved === "saving" && <span className="hint">Saving…</span>}
+        {saved === "saved" && (
+          <span className="ok">
+            <Check size={14} /> Saved
+          </span>
+        )}
+        {msg && (
+          <span className="bad">
+            <AlertCircle size={14} /> {msg}
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/* ---------------- Terminal ("Open in terminal") ---------------- */
+
+// Ready-made templates for the common macOS terminals. The server substitutes {{dir}} (the run's
+// working directory) and {{command}} (the resume command) before running the result via the shell.
+const TERMINAL_PRESETS: { label: string; template: string }[] = [
+  {
+    label: "macOS Terminal",
+    template:
+      `osascript -e 'tell application "Terminal" to do script "cd \\"{{dir}}\\" && {{command}}"' ` +
+      `-e 'tell application "Terminal" to activate'`,
+  },
+  {
+    label: "iTerm2",
+    template:
+      `osascript -e 'tell application "iTerm" to create window with default profile ` +
+      `command "/bin/zsh -lc \\"cd \\\\\\"{{dir}}\\\\\\" && {{command}}; exec /bin/zsh\\""'`,
+  },
+  {
+    label: "Ghostty",
+    template: `open -na Ghostty --args --working-directory="{{dir}}" -e {{command}}`,
+  },
+];
+
+function TerminalSection({ onSaved }: { onSaved: () => void }) {
+  const [template, setTemplate] = useState("");
+  const [saved, setSaved] = useState<Saved>("idle");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.config().then((c) => setTemplate(c.terminal ?? ""));
+  }, []);
+
+  async function save(next: string) {
+    setSaved("saving");
+    setMsg(null);
+    try {
+      const latest = await api.config(); // merge so we don't clobber other settings
+      await api.saveConfig({ ...latest, terminal: next.trim() });
+      setSaved("saved");
+      onSaved();
+    } catch (e) {
+      setSaved("error");
+      setMsg(String((e as Error).message ?? e));
+    }
+  }
+
+  return (
+    <section className="card-panel">
+      <h2>
+        <TerminalSquare size={17} /> Terminal
+      </h2>
+      <p className="hint">
+        Set the command that <b>Open in terminal</b> (in the Sessions view) runs to resume a session in your
+        terminal. Pick a preset, then tweak if needed. Two placeholders are substituted:{" "}
+        <code>{"{{dir}}"}</code> (the session's working directory) and <code>{"{{command}}"}</code> (e.g.{" "}
+        <code>claude --resume &lt;id&gt;</code>). The result runs via your shell.
+      </p>
+      <div className="field">
+        <label>Preset</label>
+        <select
+          value=""
+          onChange={(e) => {
+            const preset = TERMINAL_PRESETS.find((p) => p.label === e.target.value);
+            if (preset) {
+              setTemplate(preset.template);
+              save(preset.template);
+            }
+          }}
+        >
+          <option value="">Choose a terminal…</option>
+          {TERMINAL_PRESETS.map((p) => (
+            <option key={p.label} value={p.label}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label>Command template</label>
+        <textarea
+          className="note-input"
+          rows={3}
+          placeholder="leave blank to disable Open in terminal"
+          value={template}
+          onChange={(e) => setTemplate(e.target.value)}
+          onBlur={(e) => save(e.target.value)}
+        />
+      </div>
       <div className="row">
         {saved === "saving" && <span className="hint">Saving…</span>}
         {saved === "saved" && (

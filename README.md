@@ -91,7 +91,9 @@ silently disappears. The board still loads (columns + agents) before Jira is con
 
 <img src="docs/done.png" alt="A finished agent session" width="880" />
 
-**Sessions view** — every run, active first, with state, model, age, cost, and a PR link when one was opened:
+**Sessions view** — every run, active first, with state, model, age, cost, a PR link when one was
+opened, and **Open in terminal** to resume a session in your own terminal (set it up in **Settings →
+Terminal**):
 
 <img src="docs/sessions.png" alt="The sessions view" width="880" />
 
@@ -141,6 +143,7 @@ are work threads stored in the repo. Runs are executed by Claude (the existing e
 | `isolateRuns`               | run each session in its own git worktree + branch (default on)                                        |
 | `exclusiveAgents`           | agent/skill names that need shared ports/tunnels — run one at a time                                  |
 | `maxTurns` / `maxBudgetUsd` | per-run limits (default 300 turns, no spend cap)                                                      |
+| `terminal`                  | "Open in terminal" command template (`{{dir}}` + `{{command}}` placeholders); unset = action warns    |
 
 Environment (`.env`, see [`.env.example`](.env.example)): `JIRA_BASE_URL`, `JIRA_EMAIL`,
 `JIRA_API_TOKEN`, optional `JIRA_MY_TICKETS_ONLY`, `PORT`, and `HANGAR_DEMO`.

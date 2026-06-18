@@ -33,6 +33,11 @@ export function demoConfig(): HangarConfig {
     },
     bypassPermissions: true,
     isolateRuns: true,
+    // A terminal template so the demo's "Open in terminal" is live (the actual spawn is guarded
+    // off in demo mode — see terminal.ts — so it's a harmless no-op).
+    terminal:
+      `osascript -e 'tell application "Terminal" to do script "cd \\"{{dir}}\\" && {{command}}"' ` +
+      `-e 'tell application "Terminal" to activate'`,
   };
 }
 
