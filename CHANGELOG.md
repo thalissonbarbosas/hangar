@@ -18,6 +18,8 @@ _Nothing yet._
 
 ## [0.2.0] - 2026-06-17
 
+Added in [#11](https://github.com/thalissonbarbosas/hangar/pull/11).
+
 ### Added
 
 - **AI Workflow connection** — a second board source (alongside Jira) for self-hosted projects driven
