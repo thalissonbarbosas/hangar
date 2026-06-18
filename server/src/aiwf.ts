@@ -4,6 +4,7 @@ import path from "path";
 import { execSync } from "child_process";
 import { expandHome, getConfig, getAiwfProjects } from "./config";
 import { AiwfProject, AiwfHistoryEntry, Ticket } from "./types";
+import { isDemo, demoAiwfCards } from "./demo";
 
 // ---------------------------------------------------------------------------
 // AI Workflow (aiwf) connection: https://github.com/0xrafasec/ai-workflow
@@ -74,6 +75,9 @@ function skillsRoot(): string {
 
 /** Detect whether aiwf is installed: the launcher and/or its core skills in ~/.claude/skills. */
 export function detectAiwf(): AiwfStatus {
+  // Demo mode: report a fully-installed toolkit so the connection shows its full UI, no real aiwf.
+  if (isDemo())
+    return { installed: true, aiwfBin: "(demo)", version: "demo", skillsFound: [...CORE_AIWF_SKILLS] };
   const binPath = path.join(os.homedir(), ".local", "bin", "aiwf");
   const aiwfBin = fs.existsSync(binPath) ? binPath : null;
 
@@ -98,6 +102,7 @@ export function detectAiwf(): AiwfStatus {
 
 /** Run the aiwf bootstrap installer (blocking). Returns the refreshed status + captured output. */
 export function installAiwf(): { status: AiwfStatus; output: string } {
+  if (isDemo()) return { status: detectAiwf(), output: "Demo mode — install is simulated." };
   try {
     const output = execSync(BOOTSTRAP_CMD, { encoding: "utf8", timeout: 300_000, shell: "/bin/bash" });
     return { status: detectAiwf(), output };
@@ -113,6 +118,7 @@ export function installAiwf(): { status: AiwfStatus; output: string } {
  * This removes the toolkit only — it never touches a project repo or its .aiwf/board cards.
  */
 export function uninstallAiwf(): { status: AiwfStatus; output: string } {
+  if (isDemo()) return { status: detectAiwf(), output: "Demo mode — uninstall is simulated." };
   const { aiwfBin } = detectAiwf();
   if (!aiwfBin) {
     throw new Error("aiwf launcher not found (~/.local/bin/aiwf) — nothing to uninstall.");
@@ -220,6 +226,7 @@ function cardToTicket(
 
 /** Read every card in a project's board dir (returns [] if the dir doesn't exist yet). */
 export function listCards(project: AiwfProject): Ticket[] {
+  if (isDemo()) return demoAiwfCards();
   const dir = boardDir(project);
   if (!fs.existsSync(dir)) return [];
   return fs
@@ -268,6 +275,22 @@ export interface NewCardInput {
 
 /** Create a new card file, returning the resulting Ticket. */
 export function createCard(project: AiwfProject, input: NewCardInput): Ticket {
+  if (isDemo()) {
+    return {
+      key: "AUR-demo",
+      summary: input.title.trim(),
+      status: input.status?.trim() || columnsFor(project)[0],
+      assignee: null,
+      assigneeAvatar: null,
+      issuetype: null,
+      priority: null,
+      boardKey: project.id,
+      source: "aiwf",
+      kind: input.kind === "task" ? "task" : "thread",
+      description: input.description,
+      history: [],
+    };
+  }
   const dir = boardDir(project);
   fs.mkdirSync(dir, { recursive: true });
   const next = listCards(project).reduce((max, t) => Math.max(max, keyNum(t.key)), 0) + 1;
@@ -285,6 +308,7 @@ export function createCard(project: AiwfProject, input: NewCardInput): Ticket {
 
 /** Move a card to a new phase column (rewrites its `status:` frontmatter). */
 export function transitionCard(project: AiwfProject, key: string, status: string): void {
+  if (isDemo()) return; // demo board is read-only; nothing is persisted
   const file = findCardFile(project, key);
   if (!file) throw new Error(`Card not found: ${key}`);
   const { fm, description, history } = parseCardFile(fs.readFileSync(file, "utf8"));

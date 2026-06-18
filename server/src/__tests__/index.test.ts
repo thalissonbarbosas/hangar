@@ -314,3 +314,44 @@ describe("workflow run routes", () => {
     expect(clear.body.ok).toBe(true);
   });
 });
+
+describe("AI Workflow connection (demo)", () => {
+  it("reports the toolkit as installed and seeds a project + cards", async () => {
+    const status = await request(app).get("/api/aiwf/status");
+    expect(status.status).toBe(200);
+    expect(status.body.installed).toBe(true);
+    expect(status.body.version).toBe("demo");
+
+    const projects = await request(app).get("/api/aiwf/projects");
+    expect(projects.body.projects.map((p: { id: string }) => p.id)).toContain("demo-aiwf");
+
+    const cards = await request(app).get("/api/aiwf/projects/demo-aiwf/cards");
+    expect(cards.body.tickets.length).toBeGreaterThan(0);
+    expect(cards.body.tickets[0].key).toMatch(/^AUR-/);
+  });
+
+  it("simulates mutations without touching the filesystem or starting real runs", async () => {
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Tryout", repoPath: "/anything", mode: "new" });
+    expect(proj.status).toBe(200);
+    expect(proj.body.runId).toBeUndefined();
+
+    const card = await request(app).post("/api/aiwf/projects/demo-aiwf/cards").send({ title: "Sketch" });
+    expect(card.body.ticket.summary).toBe("Sketch");
+
+    const moved = await request(app)
+      .post("/api/aiwf/projects/demo-aiwf/cards/AUR-1/transition")
+      .send({ status: "Review" });
+    expect(moved.body.ok).toBe(true);
+
+    const run = await request(app)
+      .post("/api/aiwf/projects/demo-aiwf/cards/AUR-1/run")
+      .send({ skill: "feature" });
+    expect(run.body.runId).toBe("demo");
+
+    expect((await request(app).post("/api/aiwf/install")).body.output).toMatch(/[Dd]emo/);
+    expect((await request(app).post("/api/aiwf/uninstall")).body.output).toMatch(/[Dd]emo/);
+    expect((await request(app).delete("/api/aiwf/projects/demo-aiwf")).status).toBe(200);
+  });
+});
