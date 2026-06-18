@@ -81,11 +81,15 @@ silently disappears. The board still loads (columns + agents) before Jira is con
 
 **Live agent session** — streaming output, tool calls, the worktree branch, session id, and cost:
 
-<img src="docs/session-running.png" alt="A live agent session" width="880" />
+<img src="docs/running.png" alt="A live agent session" width="880" />
 
 **Human-in-the-loop** — the agent asks; you answer inline (gated mode pauses risky tools the same way):
 
-<img src="docs/session-awaiting-input.png" alt="An agent awaiting input" width="880" />
+<img src="docs/wait-input.png" alt="An agent awaiting input" width="880" />
+
+**A finished run** — the result, captured session id, cost, and the auto-detected PR link:
+
+<img src="docs/done.png" alt="A finished agent session" width="880" />
 
 **Sessions view** — every run, active first, with state, model, age, cost, and a PR link when one was opened:
 
@@ -115,29 +119,14 @@ Run records persist as JSON under `.hangar/` so transcripts and results survive 
 
 ### Connections: Jira and AI Workflow
 
-The topbar has a **connection switcher**. **Jira** shows your project boards + filters (the default).
-**AI Workflow** is a self-hosted source for projects that use
+The topbar has a **connection switcher**. **Jira** (the default) shows your project boards + filters.
+**AI Workflow** is a **self-hosted** source for projects that use
 [ai-workflow](https://github.com/0xrafasec/ai-workflow) (by [0xrafasec](https://github.com/0xrafasec))
-instead of a tracker. Each connection gets its own sub-menu row below the switcher.
+instead of a tracker: Hangar detects/installs the toolkit, sets up a project, and gives it a
+phase-lifecycle board (`Planning → Design → Implementation → Review → Delivery → Complete`) whose cards
+are work threads stored in the repo. Runs are executed by Claude (the existing engine).
 
-The AI Workflow connection:
-
-- **detects + one-click-installs** ai-workflow into `~/.claude` (its skills then appear automatically,
-  since Hangar already reads `~/.claude/skills`); an options menu offers the repo link, reinstall, and an
-  **uninstall** that removes the toolkit only — your projects and their cards are kept;
-- **sets up a project** — "new" scaffolds the repo via the `new-project` skill; "adopt" registers an
-  existing repo;
-- shows a board whose **columns are the aiwf lifecycle phases** —
-  `Planning → Design → Implementation → Review → Delivery → Complete`. A **card is a work thread** that
-  flows through the phases; cards are markdown files committed in the repo at `<repoPath>/.aiwf/board/*.md`.
-- each phase column offers its phase's skills: create a **session** (run a skill) or a **task**, and
-  **moving a card into a phase pops up that phase's skill picker** to start a session. The terminal
-  **Complete** column just marks work done.
-- **every session result is logged to the card's history** (per phase), and the aiwf skill also writes
-  its artifact into the repo (`docs/ARCHITECTURE.md`, etc.) — so board + repo together are the project history.
-
-Runs are executed by Claude (Hangar's existing engine) — the connection is the methodology + board, not a
-separate model.
+**→ Full guide: [`docs/ai-workflow.md`](docs/ai-workflow.md).**
 
 ### Configuration
 

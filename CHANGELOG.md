@@ -16,6 +16,22 @@ There are no GitHub Releases or git tags; this file is the record, and the root 
 
 _Nothing yet._
 
+## [0.3.0] - 2026-06-17
+
+### Added
+
+- **AI Workflow demo seeding** — `HANGAR_DEMO=1` now shows a populated AI Workflow connection (a
+  seeded "Aurora" project with cards across every phase, history, and a PR link); install/uninstall
+  and card mutations are simulated, so demo touches no filesystem and starts no real runs.
+
+### Changed
+
+- Move detailed docs into `docs/`: add `docs/ai-workflow.md` (full AI Workflow guide, with
+  screenshots), trim the README's connection section to a pointer, refresh the screenshots
+  (`board`, `running`, `wait-input`, `done`, `aiwf-board`, `aiwf-new-item`), and drop
+  `AI-WORKFLOW-CONNECTION-PLAN.md`. `CLAUDE.md` now keeps docs in `docs/` and requires updating
+  `docs/ai-workflow.md` whenever the connection changes.
+
 ## [0.2.0] - 2026-06-17
 
 Added in [#11](https://github.com/thalissonbarbosas/hangar/pull/11).

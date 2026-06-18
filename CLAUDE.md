@@ -4,7 +4,8 @@ A mouse-driven board that turns Jira tickets into Claude Code agent sessions. A 
 shows Jira tickets as Kanban columns; assigning an agent/skill to a card spawns a Claude Code
 session via `@anthropic-ai/claude-agent-sdk` and streams it back live.
 
-See `README.md` for the user-facing feature tour and `../Hangar-SPEC.md` for the full plan.
+See `README.md` for the user-facing feature tour, `docs/` for detailed guides (e.g.
+`docs/ai-workflow.md`), and `../Hangar-SPEC.md` for the full plan.
 
 ## Layout
 
@@ -115,5 +116,11 @@ does not manage its own key.
   root `package.json` `version` to match (MINOR for a notable feature, PATCH for a small change —
   see the versioning note at the top of `CHANGELOG.md`). There are no releases/tags; the changelog
   is the record.
+- **Docs live in `docs/`** — all documentation goes there, except this `CLAUDE.md` and the root
+  `README.md` / `CHANGELOG.md`. Keep `README.md` a lean overview that links into `docs/`; don't add
+  new standalone doc files to the repo root.
+- **AI Workflow doc (required)**: whenever you change the AI Workflow connection — its routes, board
+  model, phases/skills, config shape, install flow, or card format — update `docs/ai-workflow.md` in
+  the same change.
 - No automated tests exist yet — verify changes with `npm run typecheck` and, where it matters, by
   running `npm run dev` and exercising the flow in the UI.
