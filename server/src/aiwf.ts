@@ -240,6 +240,8 @@ function cardToTicket(
     kind: fm.kind === "task" ? "task" : "thread",
     skill: fm.skill || undefined,
     history,
+    // archived is omitted when false/absent so non-archived cards stay clean
+    ...(fm.archived === "true" ? { archived: true } : {}),
   };
 }
 
@@ -341,6 +343,35 @@ export function getCard(project: AiwfProject, key: string): Ticket | null {
   if (!file) return null;
   const { fm, description, history } = parseCardFile(fs.readFileSync(file, "utf8"));
   return cardToTicket(project, fm, description, history, path.basename(file));
+}
+
+/**
+ * Soft-archive or unarchive a card. Sets `archived: "true"` in frontmatter when archiving, or
+ * deletes the key entirely when unarchiving (so `serializeCard` emits no value for non-archived).
+ * Throws `Card not found: <key>` when the card is missing, mirroring `transitionCard`.
+ */
+export function setCardArchived(project: AiwfProject, key: string, archived: boolean): void {
+  if (isDemo()) return; // demo board is read-only
+  const file = findCardFile(project, key);
+  if (!file) throw new Error(`Card not found: ${key}`);
+  const { fm, description, history } = parseCardFile(fs.readFileSync(file, "utf8"));
+  if (archived) {
+    fm.archived = "true";
+  } else {
+    delete fm.archived; // omit the key so unarchived cards stay clean
+  }
+  fs.writeFileSync(file, serializeCard(fm, description, history));
+}
+
+/**
+ * Permanently remove a card file. Returns true if a file was removed, false if none was found.
+ * Demo mode is handled in the route — this function is not called in demo mode.
+ */
+export function deleteCard(project: AiwfProject, key: string): boolean {
+  const file = findCardFile(project, key);
+  if (!file) return false;
+  fs.unlinkSync(file);
+  return true;
 }
 
 /**

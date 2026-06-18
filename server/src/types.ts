@@ -95,4 +95,5 @@ export interface Ticket {
   kind?: "thread" | "task"; // aiwf: a work thread (runs skills) or a manual task
   skill?: string; // aiwf: the most recent skill run on this card
   history?: AiwfHistoryEntry[]; // aiwf: sessions/tasks recorded against this card
+  archived?: boolean; // aiwf: soft-hidden from the active board columns (reversible)
 }
