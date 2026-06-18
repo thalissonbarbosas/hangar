@@ -306,6 +306,11 @@ app.post("/api/aiwf/projects", (req, res) => {
   const repoPathRaw = String(req.body?.repoPath ?? "").trim();
   const mode = req.body?.mode === "adopt" ? "adopt" : "new";
   if (!name || !repoPathRaw) return res.status(400).json({ error: "name and repoPath are required" });
+  if (isDemo()) {
+    // Demo mode: don't touch the filesystem or start a scaffold run — just echo a project back.
+    const demo: AiwfProject = { id: randomUUID(), name, repoPath: repoPathRaw, createdAt: 0 };
+    return res.json({ project: { ...demo, columns: columnsFor(demo) } });
+  }
   const repoPath = expandHome(repoPathRaw);
   if (!existsSync(repoPath)) return res.status(400).json({ error: `Path does not exist: ${repoPath}` });
 
@@ -393,6 +398,7 @@ app.post("/api/aiwf/projects/:id/cards/:key/transition", (req, res) => {
 app.post("/api/aiwf/projects/:id/cards/:key/run", (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
+  if (isDemo()) return res.json({ runId: "demo" }); // no real sessions in demo
   const card = getCard(p, req.params.key);
   if (!card) return res.status(404).json({ error: "No such card" });
   const skill = String(req.body?.skill ?? "").trim();

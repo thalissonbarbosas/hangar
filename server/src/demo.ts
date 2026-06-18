@@ -20,14 +20,70 @@ export function demoBoard(): BoardConfig {
   };
 }
 
+/** The fictional AI Workflow project demo mode presents. */
+export const DEMO_AIWF_PROJECT_ID = "demo-aiwf";
+
 /** A complete, file-free config used in demo mode so the app boots without hangar.config.json. */
 export function demoConfig(): HangarConfig {
   return {
     agentsDir: "~/.claude/agents",
     boards: [demoBoard()],
+    aiWorkflow: {
+      projects: [{ id: DEMO_AIWF_PROJECT_ID, name: "Aurora", repoPath: "~/demo/aurora", createdAt: 0 }],
+    },
     bypassPermissions: true,
     isolateRuns: true,
   };
+}
+
+/**
+ * Fictional AI Workflow cards, spread across the phase columns, with a little history — so the
+ * AI Workflow connection shows a populated board in demo mode (no aiwf install or repo needed).
+ */
+export function demoAiwfCards(): Ticket[] {
+  const card = (
+    n: number,
+    title: string,
+    status: string,
+    kind: "thread" | "task",
+    extras: Partial<Ticket> = {},
+  ): Ticket => ({
+    key: `AUR-${n}`,
+    summary: title,
+    status,
+    assignee: null,
+    assigneeAvatar: null,
+    issuetype: null,
+    priority: null,
+    boardKey: DEMO_AIWF_PROJECT_ID,
+    source: "aiwf",
+    kind,
+    ...extras,
+  });
+
+  return [
+    card(1, "Define the product brief", "Planning", "thread", {
+      skill: "prd",
+      history: [{ phase: "Planning", skill: "prd", at: 0, summary: "Drafted personas + scope" }],
+    }),
+    card(2, "Threat model the auth flow", "Planning", "task"),
+    card(3, "Design the dashboard layout", "Design", "thread", { skill: "design" }),
+    card(4, "Build the login endpoint", "Implementation", "thread", {
+      skill: "feature",
+      prUrl: "https://github.com/demo/aurora/pull/12",
+      history: [
+        { phase: "Planning", skill: "architecture", at: 0, summary: "Chose JWT + refresh tokens" },
+        { phase: "Implementation", skill: "spec", at: 0 },
+        { phase: "Implementation", skill: "feature", at: 0, summary: "Implemented /login + tests" },
+      ],
+    }),
+    card(5, "Review the API error handling", "Review", "thread", { skill: "review" }),
+    card(6, "Cut the first preview build", "Delivery", "thread", { skill: "pr" }),
+    card(7, "Scaffold the project", "Complete", "thread", {
+      skill: "new-project",
+      history: [{ phase: "Implementation", skill: "new-project", at: 0, summary: "Bootstrapped the repo" }],
+    }),
+  ];
 }
 
 /** A fictional board's worth of tickets, spread across the example board's columns. */
