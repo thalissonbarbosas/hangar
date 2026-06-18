@@ -27,6 +27,7 @@ import {
   boardDir,
   columnsFor,
   projectRunNote,
+  skillNeedsWorktree,
   DEFAULT_COLUMNS,
   COLUMN_SKILLS,
   SKILL_GROUPS,
@@ -444,7 +445,10 @@ app.post("/api/aiwf/projects/:id/cards/:key/run", (req, res) => {
     note: projectRunNote(skill, p, userNote),
     ticket: card,
     cwdOverride: expandHome(p.repoPath),
-    skipWorktree: true, // aiwf manages its own git; docs land in the real repo (cards in the data dir)
+    // Code-producing skills (feature/fix) run in an isolated worktree so parallel implementation runs
+    // don't clobber the repo; planning/doc/review/delivery (and the self-delivering autopilot/factory
+    // orchestrators) run in place so their docs/git work operate on the real repo.
+    skipWorktree: !skillNeedsWorktree(skill),
     skillSource: findSkill(cfg, skill)?.source,
     aiwfProjectId: p.id,
     aiwfPhase: card.status,

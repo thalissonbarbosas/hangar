@@ -99,10 +99,16 @@ roadmap task into the project's board dir (Hangar passes it the absolute data-di
 
 ### Execution model
 
-AI Workflow sessions run **in place** in the project repo (`skipWorktree`), not in an isolated Hangar
-worktree, because aiwf manages its own git (it has `/commit` and `/pr`) and its planning/doc skills
-must write into the real repo. Each run is a normal `kind: "skill"` session streamed into the run
-panel; on success its result is logged to the card via `appendCardHistory`.
+Most AI Workflow sessions run **in place** in the project repo (`skipWorktree`), not in an isolated
+Hangar worktree, because aiwf manages its own git (it has `/commit` and `/pr`) and its planning/doc
+skills must write into the real repo. The exception is **code-producing implementation skills** —
+`feature` and `fix` (`WORKTREE_SKILLS` / `skillNeedsWorktree` in `server/src/aiwf.ts`) — which mutate
+source directly in their own run, so they run in their own git worktree + branch like any other Hangar
+run; parallel implementation runs (and your own working tree) can't clobber each other, and the
+worktree branch persists for inspection/PR until the run is deleted. The `autopilot`/`factory`
+orchestrators stay in place: they spawn their own worktree subagents and open their own PRs, so an
+extra outer worktree would only fragment their git work. Each run is a normal `kind: "skill"` session
+streamed into the run panel; on success its result is logged to the card via `appendCardHistory`.
 
 ### Card file format
 

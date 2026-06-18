@@ -49,6 +49,14 @@ There are no GitHub Releases or git tags; this file is the record, and the root 
 
 ### Fixed
 
+- **AI Workflow runs isolate code-producing tasks in a worktree** — the implementation skills that
+  edit source directly (`feature`, `fix`) launched from an AI Workflow card now run in their own git
+  worktree + branch like any other Hangar run, instead of always in the project repo. Parallel
+  implementation runs (and your own working tree) no longer clobber each other. Planning/design/doc/
+  review/delivery skills still run in place so their docs land in the real repo and aiwf's own
+  `/commit` and `/pr` operate there; the `autopilot`/`factory` orchestrators also stay in place since
+  they spawn their own worktree subagents and open their own PRs (`skillNeedsWorktree` in
+  `server/src/aiwf.ts`).
 - **Server resilience** — install top-level `unhandledRejection`/`uncaughtException` handlers
   (entrypoint only) that log loudly and keep serving, so a stray async error no longer crashes the
   process and silently kills every live session.

@@ -45,6 +45,13 @@ jest.mock("../agents", () => {
   return { ...actual, loadAgents: () => [], loadAgent: () => null };
 });
 
+// Spy on worktree creation so we can assert which aiwf runs ask for isolation. Returning null makes
+// every run fall back to in-place (the temp repo isn't a git tree anyway) — no stray worktrees.
+jest.mock("../worktree", () => ({
+  createWorktree: jest.fn(async () => null),
+  removeWorktree: jest.fn(async () => {}),
+}));
+
 // SDK mock: every session finishes immediately so card/setup runs complete (and the history hook fires).
 jest.mock("@anthropic-ai/claude-agent-sdk", () => ({
   query: () => {
@@ -58,7 +65,9 @@ jest.mock("@anthropic-ai/claude-agent-sdk", () => ({
 
 import request from "supertest";
 import { app } from "../index";
+import { createWorktree } from "../worktree";
 
+const createWorktreeMock = createWorktree as unknown as jest.Mock;
 const tick = () => new Promise((r) => setTimeout(r, 60));
 
 describe("AI Workflow routes", () => {
@@ -133,6 +142,29 @@ describe("AI Workflow routes", () => {
     expect(
       (await request(app).post(`/api/aiwf/projects/p1/cards/NOPE-1/run`).send({ skill: "review" })).status,
     ).toBe(404);
+  });
+
+  it("isolates code-producing skill runs in a worktree, but runs doc skills in place", async () => {
+    const created = await request(app).post("/api/aiwf/projects/p1/cards").send({ title: "Ship it" });
+    const key = created.body.ticket.key;
+
+    // A doc/review skill runs in place — no worktree requested.
+    createWorktreeMock.mockClear();
+    const docRun = await request(app)
+      .post(`/api/aiwf/projects/p1/cards/${key}/run`)
+      .send({ skill: "review" });
+    expect(docRun.status).toBe(200);
+    await tick();
+    expect(createWorktreeMock).not.toHaveBeenCalled();
+
+    // A code-producing skill is isolated — the run asks for a worktree off the project repo.
+    createWorktreeMock.mockClear();
+    const codeRun = await request(app)
+      .post(`/api/aiwf/projects/p1/cards/${key}/run`)
+      .send({ skill: "feature" });
+    expect(codeRun.status).toBe(200);
+    await tick();
+    expect(createWorktreeMock).toHaveBeenCalled();
   });
 
   it("404s on unknown projects", async () => {
