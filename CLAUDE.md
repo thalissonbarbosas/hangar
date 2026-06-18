@@ -111,14 +111,8 @@ its own key.
   (`.env.example`, `hangar.config.example.json`) instead.
 - **PR titles**: plain sentence case, no type prefix. Write `Fix open-PR preference in dev-status`,
   not `bugfix: Fix open-PR preference` or `feat/my-branch: Fix open-PR preference`.
-- **Changelog (required)**: always add the current change to `CHANGELOG.md`. Put it under
-  `[Unreleased]` while iterating, or directly under a new version heading when finishing the PR.
-  One entry per PR, in a Keep a Changelog category (Added / Changed / Fixed / Removed), and bump the
-  root `package.json` `version` to match (MINOR for a notable feature, PATCH for a small change —
-  see the versioning note at the top of `CHANGELOG.md`). There are no releases/tags; the changelog
-  is the record.
 - **Docs live in `docs/`** — all documentation goes there, except this `CLAUDE.md` and the root
-  `README.md` / `CHANGELOG.md`. Keep `README.md` a lean overview that links into `docs/`; don't add
+  `README.md`. Keep `README.md` a lean overview that links into `docs/`; don't add
   new standalone doc files to the repo root.
 - **AI Workflow doc (required)**: whenever you change the AI Workflow connection — its routes, board
   model, phases/skills, config shape, install flow, or card format — update `docs/ai-workflow.md` in
