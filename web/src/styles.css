@@ -1116,9 +1116,8 @@ html[data-theme="light"] .model-haiku {
 
 /* ---- exclusive runtime checklist ---- */
 .exclusive-list {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px 16px;
+  columns: 2;
+  column-gap: 16px;
   margin-top: 4px;
 }
 .exclusive-item {
@@ -1128,6 +1127,8 @@ html[data-theme="light"] .model-haiku {
   font-size: 12px;
   cursor: pointer;
   color: var(--text);
+  break-inside: avoid;
+  margin-bottom: 6px;
 }
 .exclusive-item input {
   accent-color: var(--accent);
@@ -1199,6 +1200,41 @@ html[data-theme="light"] .model-haiku {
 .ami-model {
   font-size: 10px;
   color: var(--text-faint);
+}
+.model-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  color: var(--text-faint);
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+.ami-repo {
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.aiwf-skill-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  color: #14b8a6;
+  background: rgba(20, 184, 166, 0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  margin-left: 2px;
+}
+.proj-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  margin-left: 2px;
 }
 
 /* ---- sessions view ---- */
@@ -1316,6 +1352,15 @@ html[data-theme="light"] .model-haiku {
 .sessions-tab.active .sessions-tab-count {
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent);
+}
+.sessions-tab.active.proj-tab {
+  color: var(--proj-color);
+  background: color-mix(in srgb, var(--proj-color) 12%, transparent);
+  border-color: color-mix(in srgb, var(--proj-color) 40%, var(--border));
+}
+.sessions-tab.active.proj-tab .sessions-tab-count {
+  background: color-mix(in srgb, var(--proj-color) 18%, transparent);
+  color: var(--proj-color);
 }
 
 /* ---- agent permissions toggle + flag ---- */
@@ -1554,6 +1599,35 @@ html[data-theme="light"] .model-haiku {
   font-size: 11px;
   color: var(--text-faint);
   padding: 6px 8px;
+}
+.assign-skill-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 4px 0 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.assign-skill-tab {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.1s,
+    background 0.1s,
+    border-color 0.1s;
+}
+.assign-skill-tab:hover {
+  background: var(--surface-2);
+}
+.assign-skill-tab.active {
+  color: var(--tab-color, var(--accent));
+  background: color-mix(in srgb, var(--tab-color, var(--accent)) 12%, transparent);
+  border-color: color-mix(in srgb, var(--tab-color, var(--accent)) 40%, var(--border));
 }
 
 /* ---- note modal ---- */

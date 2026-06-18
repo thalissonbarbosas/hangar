@@ -132,6 +132,7 @@ export function saveConfig(raw: HangarConfig): HangarConfig {
     boards: raw.boards.map((b) => {
       const paths = (b.repoPaths ?? (b.repoPath ? [b.repoPath] : [])).map((p) => p.trim()).filter(Boolean);
       const agents = Array.isArray(b.agents) ? b.agents.map((s) => String(s).trim()).filter(Boolean) : [];
+      const skills = Array.isArray(b.skills) ? b.skills.map((s) => String(s).trim()).filter(Boolean) : [];
       const workflows = cleanWorkflows(b.workflows);
       return {
         key: b.key.trim(),
@@ -139,6 +140,7 @@ export function saveConfig(raw: HangarConfig): HangarConfig {
         statuses: b.statuses.map((s) => s.trim()).filter(Boolean),
         ...(paths.length ? { repoPaths: paths } : {}),
         ...(agents.length ? { agents } : {}),
+        ...(skills.length ? { skills } : {}),
         ...(workflows.length ? { workflows } : {}),
       };
     }),

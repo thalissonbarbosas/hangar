@@ -127,8 +127,8 @@ export const api = {
     sendJson<{ ok: boolean; command: string }>("POST", `/api/runs/${runId}/terminal`, {}),
   stopRun: (runId: string) => sendJson<{ ok: boolean }>("POST", `/api/runs/${runId}/stop`, {}),
   deleteRun: (runId: string) => sendJson<{ ok: boolean }>("DELETE", `/api/runs/${runId}`, {}),
-  clearRuns: (scope: "finished" | "all" = "finished") =>
-    sendJson<{ ok: boolean; cleared: number }>("DELETE", `/api/runs?scope=${scope}`, {}),
+  clearRuns: (scope: "finished" | "all" = "finished", ids?: string[]) =>
+    sendJson<{ ok: boolean; cleared: number }>("DELETE", `/api/runs?scope=${scope}`, ids ? { ids } : {}),
   startWorkflow: (boardKey: string, workflowId: string, ticket: Ticket) =>
     sendJson<{ workflowRunId: string }>("POST", "/api/workflows/runs", { boardKey, workflowId, ticket }),
   workflowRuns: () => getJson<{ runs: WorkflowRunSummary[] }>("/api/workflows/runs"),
