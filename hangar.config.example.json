@@ -9,6 +9,17 @@
       "agents": ["code-reviewer", "debugger"]
     }
   ],
+  "aiWorkflow": {
+    "projects": [
+      {
+        "id": "example-project",
+        "name": "Dynamic Core",
+        "repoPath": "~/dev/dynamiccore",
+        "columns": ["Planning", "Design", "Implementation", "Review", "Delivery", "Complete"],
+        "createdAt": 0
+      }
+    ]
+  },
   "bypassPermissions": true,
   "isolateRuns": true
 }

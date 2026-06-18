@@ -21,14 +21,41 @@ export interface BoardConfig {
   resolvedPaths?: string[]; // server-expanded repoPaths (no ~), for skill filtering
 }
 
+export interface AiwfProject {
+  id: string;
+  name: string;
+  repoPath: string;
+  columns?: string[];
+  createdAt: number;
+}
+
 export interface FullConfig {
   agentsDir: string;
   boards: BoardConfig[];
+  aiWorkflow?: { projects: AiwfProject[] };
   bypassPermissions?: boolean;
   isolateRuns?: boolean;
   exclusiveAgents?: string[];
   maxTurns?: number;
   maxBudgetUsd?: number;
+}
+
+export interface AiwfSkillGroup {
+  phase: string;
+  skills: string[];
+}
+
+export interface AiwfStatus {
+  installed: boolean;
+  aiwfBin: string | null;
+  version: string | null;
+  skillsFound: string[];
+  defaultColumns: string[];
+  columnSkills: Record<string, string[]>;
+  skillGroups: AiwfSkillGroup[];
+  repoUrl: string;
+  author: string;
+  authorUrl: string;
 }
 
 export interface JiraSettings {
@@ -56,7 +83,21 @@ export interface Ticket {
   issuetype: string | null;
   priority: string | null;
   boardKey: string;
-  url: string;
+  url?: string; // Jira browse URL; absent for self-hosted aiwf cards
+  source?: "jira" | "aiwf";
+  description?: string;
+  prUrl?: string;
+  kind?: "thread" | "task";
+  skill?: string;
+  history?: AiwfHistoryEntry[];
+}
+
+export interface AiwfHistoryEntry {
+  phase: string;
+  skill: string;
+  at: number;
+  runId?: string;
+  summary?: string;
 }
 
 export interface Skill {

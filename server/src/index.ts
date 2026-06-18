@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
-import { existsSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
+import { randomUUID } from "crypto";
 import {
   loadConfig,
   getConfig,
@@ -10,9 +11,29 @@ import {
   saveJiraSettings,
   expandHome,
   boardPaths,
+  getAiwfProjects,
+  saveAiwfProjects,
   JiraEnv,
   PORT,
 } from "./config";
+import {
+  detectAiwf,
+  installAiwf,
+  listCards,
+  createCard,
+  transitionCard,
+  uninstallAiwf,
+  getCard,
+  boardDir,
+  columnsFor,
+  projectRunNote,
+  DEFAULT_COLUMNS,
+  COLUMN_SKILLS,
+  SKILL_GROUPS,
+  AIWF_REPO_URL,
+  AIWF_AUTHOR,
+  AIWF_AUTHOR_URL,
+} from "./aiwf";
 import { loadAgents, loadAgent } from "./agents";
 import { allSkills, skillExists, findSkill } from "./skills";
 import {
@@ -45,7 +66,7 @@ import {
   clearWorkflowRuns,
   loadPersistedWorkflowRuns,
 } from "./workflows";
-import { HangarConfig, Ticket } from "./types";
+import { HangarConfig, Ticket, AiwfProject } from "./types";
 
 const app = express();
 app.use(cors());
@@ -238,6 +259,161 @@ app.post("/api/tickets/:key/transition", async (req, res) => {
   } catch (err) {
     res.status(502).json({ error: String(err instanceof Error ? err.message : err) });
   }
+});
+
+// ---------------- AI Workflow connection (self-hosted, Claude-run) ----------------
+
+// Install detection + the column/skill presets the UI renders from.
+app.get("/api/aiwf/status", (_req, res) => {
+  res.json({
+    ...detectAiwf(),
+    defaultColumns: DEFAULT_COLUMNS,
+    columnSkills: COLUMN_SKILLS,
+    skillGroups: SKILL_GROUPS,
+    repoUrl: AIWF_REPO_URL,
+    author: AIWF_AUTHOR,
+    authorUrl: AIWF_AUTHOR_URL,
+  });
+});
+
+// One-click install (the client confirms first). Runs the aiwf bootstrap script.
+app.post("/api/aiwf/install", (_req, res) => {
+  try {
+    const { status, output } = installAiwf();
+    res.json({ ...status, output: output.slice(-2000) });
+  } catch (err) {
+    res.status(500).json({ error: String(err instanceof Error ? err.message : err) });
+  }
+});
+
+// Uninstall aiwf from ~/.claude (toolkit only — projects and their .aiwf/board cards are kept).
+app.post("/api/aiwf/uninstall", (_req, res) => {
+  try {
+    const { status, output } = uninstallAiwf();
+    res.json({ ...status, output: output.slice(-2000) });
+  } catch (err) {
+    res.status(500).json({ error: String(err instanceof Error ? err.message : err) });
+  }
+});
+
+app.get("/api/aiwf/projects", (_req, res) => {
+  res.json({ projects: getAiwfProjects().map((p) => ({ ...p, columns: columnsFor(p) })) });
+});
+
+// Register a project. mode "new" scaffolds it in place via the new-project skill.
+app.post("/api/aiwf/projects", (req, res) => {
+  const name = String(req.body?.name ?? "").trim();
+  const repoPathRaw = String(req.body?.repoPath ?? "").trim();
+  const mode = req.body?.mode === "adopt" ? "adopt" : "new";
+  if (!name || !repoPathRaw) return res.status(400).json({ error: "name and repoPath are required" });
+  const repoPath = expandHome(repoPathRaw);
+  if (!existsSync(repoPath)) return res.status(400).json({ error: `Path does not exist: ${repoPath}` });
+
+  const project: AiwfProject = { id: randomUUID(), name, repoPath: repoPathRaw, createdAt: Date.now() };
+  saveAiwfProjects([...getAiwfProjects(), project]);
+  mkdirSync(boardDir(project), { recursive: true }); // ensure the board dir exists
+
+  let runId: string | undefined;
+  if (mode === "new") {
+    const cfg = getConfig();
+    if (skillExists(cfg, "new-project")) {
+      const run = startRun({
+        kind: "skill",
+        name: "new-project",
+        note: `Scaffold a new project named "${name}" in this directory.`,
+        cwd: repoPath,
+        title: `${name}: scaffold`,
+        skillSource: findSkill(cfg, "new-project")?.source,
+        skipWorktree: true, // scaffold in the real repo, not a worktree
+      });
+      runId = run.id;
+    }
+  }
+  res.json({ project: { ...project, columns: columnsFor(project) }, runId });
+});
+
+app.delete("/api/aiwf/projects/:id", (req, res) => {
+  if (!getAiwfProjects().some((p) => p.id === req.params.id)) {
+    return res.status(404).json({ error: "No such AI Workflow project" });
+  }
+  saveAiwfProjects(getAiwfProjects().filter((p) => p.id !== req.params.id));
+  res.json({ ok: true });
+});
+
+function requireAiwfProject(res: express.Response, id: string): AiwfProject | null {
+  const p = getAiwfProjects().find((x) => x.id === id);
+  if (!p) {
+    res.status(404).json({ error: "No such AI Workflow project" });
+    return null;
+  }
+  return p;
+}
+
+// The project's board cards (markdown files in <repoPath>/.aiwf/board).
+app.get("/api/aiwf/projects/:id/cards", (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  res.json({ tickets: listCards(p) });
+});
+
+app.post("/api/aiwf/projects/:id/cards", (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  const title = String(req.body?.title ?? "").trim();
+  if (!title) return res.status(400).json({ error: "title is required" });
+  try {
+    const ticket = createCard(p, {
+      title,
+      status: req.body?.status,
+      kind: req.body?.kind === "task" ? "task" : "thread",
+      skill: typeof req.body?.skill === "string" ? req.body.skill : undefined,
+      description: req.body?.description,
+    });
+    res.json({ ticket });
+  } catch (err) {
+    res.status(500).json({ error: String(err instanceof Error ? err.message : err) });
+  }
+});
+
+app.post("/api/aiwf/projects/:id/cards/:key/transition", (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  const status = String(req.body?.status ?? "").trim();
+  if (!status) return res.status(400).json({ error: "status is required" });
+  try {
+    transitionCard(p, req.params.key, status);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: String(err instanceof Error ? err.message : err) });
+  }
+});
+
+// Start a phase skill as an in-place session against a card. The card's current phase is
+// recorded so the result lands in that phase of its history; the roadmap skill also seeds cards.
+app.post("/api/aiwf/projects/:id/cards/:key/run", (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  const card = getCard(p, req.params.key);
+  if (!card) return res.status(404).json({ error: "No such card" });
+  const skill = String(req.body?.skill ?? "").trim();
+  const userNote = typeof req.body?.note === "string" ? req.body.note : undefined;
+  if (!skill) return res.status(400).json({ error: "skill is required" });
+  const cfg = getConfig();
+  if (!skillExists(cfg, skill)) {
+    return res.status(400).json({ error: `Skill "${skill}" not found — install AI Workflow first.` });
+  }
+  const run = startRun({
+    kind: "skill",
+    name: skill,
+    note: projectRunNote(skill, userNote),
+    ticket: card,
+    cwdOverride: expandHome(p.repoPath),
+    skipWorktree: true, // aiwf manages its own git; docs + seeded cards land in the real repo
+    skillSource: findSkill(cfg, skill)?.source,
+    aiwfProjectId: p.id,
+    aiwfPhase: card.status,
+  });
+  res.json({ runId: run.id });
 });
 
 // ---------------- Phase 2: agent sessions ----------------

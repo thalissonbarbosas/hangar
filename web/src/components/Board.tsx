@@ -76,6 +76,7 @@ interface CardCtx {
   boardKey: string;
   agents: Agent[];
   skills: Skill[];
+  columnSkills?: Record<string, string[]>; // aiwf: stage-aware skill filter, keyed by column
   workflows: WorkflowConfig[];
   runByTicket: Map<string, RunSummary>;
   onAssign: (ticketKey: string, name: string, kind: RunKind, note?: string) => void;
@@ -112,7 +113,7 @@ function ItemRow({
   );
 }
 
-function AssignMenu({ ticketKey, ctx }: { ticketKey: string; ctx: CardCtx }) {
+function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCtx; skills: Skill[] }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [pendingNote, setPendingNote] = useState<{ name: string; kind: RunKind } | null>(null);
@@ -213,8 +214,8 @@ function AssignMenu({ ticketKey, ctx }: { ticketKey: string; ctx: CardCtx }) {
               <div className="assign-col-head">
                 <Sparkles size={12} /> Skills
               </div>
-              {ctx.skills.length === 0 && <div className="assign-empty">No skills found</div>}
-              {ctx.skills.map((s) => (
+              {skills.length === 0 && <div className="assign-empty">No skills found</div>}
+              {skills.map((s) => (
                 <ItemRow
                   key={`${s.name}:${s.repo ?? ""}`}
                   name={s.name}
@@ -253,20 +254,27 @@ function TicketCard({ ticket, ctx }: { ticket: Ticket; ctx: CardCtx }) {
   const run = ctx.runByTicket.get(ticket.key);
   const active = run ? isActive(run.state) : false;
   const [jiraPrUrl, setJiraPrUrl] = useState<string | null>(null);
-  const prUrl = run?.prUrl ?? jiraPrUrl;
+  const prUrl = run?.prUrl ?? ticket.prUrl ?? jiraPrUrl;
   const prNum = prUrl?.match(/\/pull\/(\d+)/)?.[1];
   const [dragging, setDragging] = useState(false);
+  const hasLink = !!ticket.url && /^https?:/i.test(ticket.url);
 
-  // When there is no run-detected PR URL, try to pull one from Jira (dev panel, remote links, comments).
+  // Stage-aware skills (aiwf): if a column→skills map is set, narrow the menu to this card's column.
+  const menuSkills =
+    ctx.columnSkills && ctx.columnSkills[ticket.status]
+      ? ctx.skills.filter((s) => ctx.columnSkills![ticket.status].includes(s.name))
+      : ctx.skills;
+
+  // Jira-only: pull a PR from the dev panel/remote links/comments. Skip for self-hosted aiwf cards.
   useEffect(() => {
-    if (run?.prUrl || !ticket.key) return;
+    if (run?.prUrl || !ticket.key || ticket.source === "aiwf") return;
     api
       .ticketPr(ticket.key)
       .then(({ prUrl: p }) => {
         if (p) setJiraPrUrl(p);
       })
       .catch(() => {});
-  }, [ticket.key, run?.prUrl]);
+  }, [ticket.key, ticket.source, run?.prUrl]);
 
   function onDragStart(e: React.DragEvent) {
     const data: TicketDragData = { key: ticket.key, boardKey: ticket.boardKey, status: ticket.status };
@@ -285,10 +293,14 @@ function TicketCard({ ticket, ctx }: { ticket: Ticket; ctx: CardCtx }) {
     >
       <div className="card-key-row">
         <span className="card-links">
-          <a className="card-key" href={ticket.url} target="_blank" rel="noreferrer" draggable={false}>
-            {ticket.key}
-            <ExternalLink size={11} />
-          </a>
+          {hasLink ? (
+            <a className="card-key" href={ticket.url} target="_blank" rel="noreferrer" draggable={false}>
+              {ticket.key}
+              <ExternalLink size={11} />
+            </a>
+          ) : (
+            <span className="card-key">{ticket.key}</span>
+          )}
           {prUrl && (
             <a
               className="card-pr"
@@ -348,7 +360,7 @@ function TicketCard({ ticket, ctx }: { ticket: Ticket; ctx: CardCtx }) {
             )}
           </>
         ) : (
-          <AssignMenu ticketKey={ticket.key} ctx={ctx} />
+          <AssignMenu ticketKey={ticket.key} ctx={ctx} skills={menuSkills} />
         )}
       </div>
     </div>
@@ -424,6 +436,7 @@ export function Board({
   tickets,
   agents,
   skills,
+  columnSkills,
   runByTicket,
   onAssign,
   onStartWorkflow,
@@ -434,6 +447,7 @@ export function Board({
   tickets: Ticket[];
   agents: Agent[];
   skills: Skill[];
+  columnSkills?: Record<string, string[]>; // aiwf: stage-aware skill filter per column
   runByTicket: Map<string, RunSummary>;
   onAssign: (ticketKey: string, name: string, kind: RunKind, note?: string) => void;
   onStartWorkflow: (ticketKey: string, workflowId: string) => void;
@@ -450,6 +464,7 @@ export function Board({
     boardKey: board.key,
     agents: boardAgents,
     skills: boardSkills,
+    columnSkills,
     workflows: (board.workflows ?? []).filter((w) => w.steps.length > 0),
     runByTicket,
     onAssign,

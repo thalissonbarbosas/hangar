@@ -12,10 +12,13 @@ import {
   Users,
   Sparkles,
   Search,
+  Workflow,
 } from "lucide-react";
 import { api } from "./api";
 import {
   Agent,
+  AiwfProject,
+  AiwfStatus,
   BoardConfig,
   RunKind,
   RunSummary,
@@ -30,12 +33,16 @@ import { RunPanel } from "./components/RunPanel";
 import { SessionsView } from "./components/SessionsView";
 import { SkillRunner } from "./components/SkillRunner";
 import { WorkflowsBar } from "./components/WorkflowsBar";
+import { AiWorkflowView, AiWorkflowBar } from "./components/AiWorkflow";
 import { useTheme } from "./useTheme";
 
-type View = "board" | "settings" | "sessions" | "run";
+// Two connections (sources) share the board surface; overlays take over the main area.
+type Connection = "jira" | "aiworkflow";
+type Overlay = "settings" | "sessions" | "run" | null;
 
 const SELECTED_BOARDS_KEY = "hangar.selectedBoards";
 const ASSIGNEE_KEY = "hangar.assignee";
+const CONNECTION_KEY = "hangar.connection";
 
 function loadSelectedBoards(): string[] | null {
   try {
@@ -55,7 +62,10 @@ interface ActiveRun {
 
 export function App() {
   const { theme, toggle } = useTheme();
-  const [view, setView] = useState<View>("board");
+  const [connection, setConnection] = useState<Connection>(
+    () => (localStorage.getItem(CONNECTION_KEY) as Connection) || "jira",
+  );
+  const [overlay, setOverlay] = useState<Overlay>(null);
   const [boards, setBoards] = useState<BoardConfig[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -69,6 +79,24 @@ export function App() {
   const [bypass, setBypass] = useState(false);
   const [assignee, setAssignee] = useState<string>(() => localStorage.getItem(ASSIGNEE_KEY) ?? "");
   const [ticketFilter, setTicketFilter] = useState("");
+  // AI Workflow connection state (shared between the sub-menu bar and the content view).
+  const [aiwf, setAiwf] = useState<AiwfStatus | null>(null);
+  const [aiwfProjects, setAiwfProjects] = useState<AiwfProject[]>([]);
+  const [aiwfSelected, setAiwfSelected] = useState<string | null>(null);
+
+  const loadAiwf = useCallback(() => {
+    api
+      .aiwfStatus()
+      .then(setAiwf)
+      .catch((e) => setError(String(e.message ?? e)));
+    api
+      .aiwfProjects()
+      .then((r) => {
+        setAiwfProjects(r.projects);
+        setAiwfSelected((cur) => cur ?? r.projects[0]?.id ?? null);
+      })
+      .catch((e) => setError(String(e.message ?? e)));
+  }, []);
 
   const loadMeta = useCallback(() => {
     return Promise.all([api.config(), api.agents(), api.skills()])
@@ -102,7 +130,16 @@ export function App() {
 
   useEffect(() => {
     loadMeta();
-  }, [loadMeta]);
+    loadAiwf();
+  }, [loadMeta, loadAiwf]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CONNECTION_KEY, connection);
+    } catch {
+      /* ignore */
+    }
+  }, [connection]);
 
   useEffect(() => {
     refreshRuns();
@@ -129,8 +166,8 @@ export function App() {
   }
 
   useEffect(() => {
-    if (view === "board") loadTickets(selected);
-  }, [selected, view]);
+    if (connection === "jira" && !overlay) loadTickets(selected);
+  }, [selected, connection, overlay]);
 
   // Persist board-show and assignee-filter preferences across reloads.
   useEffect(() => {
@@ -177,6 +214,12 @@ export function App() {
   function openRunById(runId: string) {
     const r = runs.find((x) => x.id === runId);
     if (r) openRun(r);
+  }
+
+  // Open a session just started elsewhere (e.g. the AI Workflow view), before polling sees it.
+  function openSession(a: { runId: string; ticketKey: string; agentName: string }) {
+    setActiveRun({ runId: a.runId, ticketKey: a.ticketKey, agentName: a.agentName });
+    refreshRuns();
   }
 
   function startWorkflow(ticketKey: string, workflowId: string) {
@@ -328,75 +371,50 @@ export function App() {
           Hangar
         </div>
 
+        {/* Connection switcher: the two work sources share the board surface below. */}
+        <div className="conn-switch">
+          <button
+            className={`conn-tab${connection === "jira" && !overlay ? " on" : ""}`}
+            onClick={() => {
+              setConnection("jira");
+              setOverlay(null);
+            }}
+          >
+            <LayoutGrid size={15} /> Jira
+          </button>
+          <button
+            className={`conn-tab${connection === "aiworkflow" && !overlay ? " on" : ""}`}
+            onClick={() => {
+              setConnection("aiworkflow");
+              setOverlay(null);
+            }}
+          >
+            <Workflow size={15} /> AI Workflow
+          </button>
+        </div>
+
         {bypass && (
           <button
             className="bypass-flag has-tip"
             data-tip="Agents run unrestricted — click to change"
-            onClick={() => setView("settings")}
+            onClick={() => setOverlay("settings")}
           >
             <ShieldAlert size={13} /> Unrestricted
           </button>
         )}
 
-        {view === "board" && boards.length > 0 && (
-          <>
-            <div className="board-toggles">
-              {boards.map((b) => (
-                <label key={b.key} className={selected.includes(b.key) ? "pill on" : "pill"}>
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(b.key)}
-                    onChange={() => toggleBoard(b.key)}
-                  />
-                  {b.name}
-                </label>
-              ))}
-            </div>
-            <div className="assignee-filter has-tip" data-tip="Filter by assignee">
-              <Users size={14} />
-              <select value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-                <option value="">All assignees</option>
-                {assignees.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="ticket-filter">
-              <Search size={14} />
-              <input
-                type="text"
-                placeholder="Filter tickets…"
-                value={ticketFilter}
-                onChange={(e) => setTicketFilter(e.target.value)}
-              />
-            </div>
-          </>
-        )}
-
         <div className="topbar-actions">
-          {view === "board" && (
-            <button
-              className="icon-btn has-tip"
-              data-tip="Refresh tickets"
-              onClick={() => loadTickets(selected)}
-              disabled={loading}
-            >
-              <RefreshCw size={17} className={loading ? "spin" : undefined} />
-            </button>
-          )}
           <button
-            className={`icon-btn has-tip${view === "run" ? " on" : ""}`}
+            className={`icon-btn has-tip${overlay === "run" ? " on" : ""}`}
             data-tip="Run a skill (no ticket)"
-            onClick={() => setView((v) => (v === "run" ? "board" : "run"))}
+            onClick={() => setOverlay((o) => (o === "run" ? null : "run"))}
           >
             <Sparkles size={17} />
           </button>
           <button
-            className={`icon-btn badge-host has-tip${view === "sessions" ? " on" : ""}`}
+            className={`icon-btn badge-host has-tip${overlay === "sessions" ? " on" : ""}`}
             data-tip="Sessions"
-            onClick={() => setView((v) => (v === "sessions" ? "board" : "sessions"))}
+            onClick={() => setOverlay((o) => (o === "sessions" ? null : "sessions"))}
           >
             <Activity size={17} />
             {activeCount > 0 && <span className="badge">{activeCount}</span>}
@@ -409,14 +427,72 @@ export function App() {
             {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
           </button>
           <button
-            className={`icon-btn has-tip${view === "settings" ? " on" : ""}`}
-            data-tip={view === "settings" ? "Back to board" : "Settings"}
-            onClick={() => setView((v) => (v === "settings" ? "board" : "settings"))}
+            className={`icon-btn has-tip${overlay === "settings" ? " on" : ""}`}
+            data-tip={overlay === "settings" ? "Back" : "Settings"}
+            onClick={() => setOverlay((o) => (o === "settings" ? null : "settings"))}
           >
-            {view === "settings" ? <ArrowLeft size={17} /> : <SettingsIcon size={17} />}
+            {overlay === "settings" ? <ArrowLeft size={17} /> : <SettingsIcon size={17} />}
           </button>
         </div>
       </header>
+
+      {/* Connection sub-menu: Jira shows projects + filters, AI Workflow shows its bar. */}
+      {!overlay && connection === "jira" && (
+        <div className="subbar">
+          <div className="board-toggles">
+            {boards.map((b) => (
+              <label key={b.key} className={selected.includes(b.key) ? "pill on" : "pill"}>
+                <input
+                  type="checkbox"
+                  checked={selected.includes(b.key)}
+                  onChange={() => toggleBoard(b.key)}
+                />
+                {b.name}
+              </label>
+            ))}
+          </div>
+          <div className="assignee-filter has-tip" data-tip="Filter by assignee">
+            <Users size={14} />
+            <select value={assignee} onChange={(e) => setAssignee(e.target.value)}>
+              <option value="">All assignees</option>
+              {assignees.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="ticket-filter">
+            <Search size={14} />
+            <input
+              type="text"
+              placeholder="Filter tickets…"
+              value={ticketFilter}
+              onChange={(e) => setTicketFilter(e.target.value)}
+            />
+          </div>
+          <div className="subbar-spacer" />
+          <button
+            className="icon-btn has-tip"
+            data-tip="Refresh tickets"
+            onClick={() => loadTickets(selected)}
+            disabled={loading}
+          >
+            <RefreshCw size={17} className={loading ? "spin" : undefined} />
+          </button>
+        </div>
+      )}
+      {!overlay && connection === "aiworkflow" && (
+        <AiWorkflowBar
+          status={aiwf}
+          projects={aiwfProjects}
+          selectedId={aiwfSelected}
+          onSelect={setAiwfSelected}
+          onReload={loadAiwf}
+          onError={setError}
+          onOpenSession={openSession}
+        />
+      )}
 
       {error && (
         <div className="banner error">
@@ -424,11 +500,11 @@ export function App() {
         </div>
       )}
 
-      {view === "settings" ? (
+      {overlay === "settings" ? (
         <div className="settings-area">
           <Settings onSaved={loadMeta} />
         </div>
-      ) : view === "sessions" ? (
+      ) : overlay === "sessions" ? (
         <div className="settings-area">
           <SessionsView
             runs={runs}
@@ -439,10 +515,20 @@ export function App() {
             onClear={clearRuns}
           />
         </div>
-      ) : view === "run" ? (
+      ) : overlay === "run" ? (
         <div className="settings-area">
           <SkillRunner agents={agents} skills={skills} codebasePaths={codebasePaths} onRun={runStandalone} />
         </div>
+      ) : connection === "aiworkflow" ? (
+        <AiWorkflowView
+          project={aiwfProjects.find((p) => p.id === aiwfSelected) ?? null}
+          status={aiwf}
+          skills={skills}
+          runs={runs}
+          onOpenRun={openRun}
+          onOpenSession={openSession}
+          onError={setError}
+        />
       ) : (
         <div className="main">
           {selectedBoards.length > 0 && (
