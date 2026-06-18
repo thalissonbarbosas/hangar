@@ -22,6 +22,11 @@ There are no GitHub Releases or git tags; this file is the record, and the root 
   its board cards (stored under `<HANGAR_DATA_DIR>/aiwf/<projectId>/board/`) carry over unchanged —
   re-pointing the location just runs future work against the new path. New
   `PATCH /api/aiwf/projects/:id` route + `updateAiwfProject` client wrapper.
+- **Remove an AI Workflow project** — each project chip in the AI Workflow sub-bar now has a remove
+  (✕) button that reveals on hover. It unregisters the project from Hangar (confirm first) via the
+  existing `DELETE /api/aiwf/projects/:id` route; your repo stays untouched and the project's board
+  state under `<HANGAR_DATA_DIR>/aiwf/<projectId>/board/` is left on disk. If the removed project was
+  selected, the view falls back to the first remaining project.
 - **One-click Resume** — a quick **Resume** button on any stopped/finished run that has a Claude
   session id picks the session up where it left off (sends a default "Continue.") with no modal. It
   appears both in the Sessions list and in the run panel header, to the left of **Hand off**. In the

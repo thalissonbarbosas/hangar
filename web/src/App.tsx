@@ -94,7 +94,11 @@ export function App() {
       .aiwfProjects()
       .then((r) => {
         setAiwfProjects(r.projects);
-        setAiwfSelected((cur) => cur ?? r.projects[0]?.id ?? null);
+        // Keep the current selection if it still exists; otherwise fall back to
+        // the first project (so removing the selected project doesn't strand the view).
+        setAiwfSelected((cur) =>
+          cur && r.projects.some((p) => p.id === cur) ? cur : (r.projects[0]?.id ?? null),
+        );
       })
       .catch((e) => setError(String(e.message ?? e)));
   }, []);
