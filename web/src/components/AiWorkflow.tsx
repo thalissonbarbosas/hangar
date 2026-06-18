@@ -613,17 +613,24 @@ function NewItemModal({
         </div>
         {type === "session" && phaseSkills.length > 0 && (
           <>
-            <label className="field">
+            <div className="field">
               <span>{phase} skill</span>
-              <select value={skill} onChange={(e) => setSkill(e.target.value)}>
+              {/* buttons instead of <select> so the picker is consistent with the Type row */}
+              <div className="seg wrap">
                 {phaseSkills.map((s) => (
-                  <option key={s} value={s} disabled={!skillsByName.has(s)}>
+                  <button
+                    key={s}
+                    type="button"
+                    className={skill === s ? "on" : ""}
+                    disabled={!skillsByName.has(s)}
+                    onClick={() => setSkill(s)}
+                  >
                     /{s}
-                    {skillsByName.has(s) ? "" : " (not installed)"}
-                  </option>
+                    {!skillsByName.has(s) && " (not installed)"}
+                  </button>
                 ))}
-              </select>
-            </label>
+              </div>
+            </div>
             <label className="field">
               <span>Note (optional)</span>
               <textarea
