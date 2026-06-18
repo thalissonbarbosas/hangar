@@ -193,6 +193,20 @@ const TERMINAL_PRESETS: { label: string; template: string }[] = [
     label: "Ghostty",
     template: `open -na Ghostty --args --working-directory="{{dir}}" -e {{command}}`,
   },
+  {
+    // Warp has no scripting API or CLI flag to open at a directory and run a command (the launch-
+    // config `commands` don't fire over the warp:// URI), so we drive it via System Events: focus a
+    // new window, then type `cd "<dir>" && <command>` and press Return. This needs Accessibility
+    // permission for your shell/terminal (System Settings → Privacy & Security → Accessibility).
+    label: "Warp",
+    template:
+      `osascript -e 'tell application "Warp" to activate' ` +
+      `-e 'delay 0.3' ` +
+      `-e 'tell application "System Events" to keystroke "n" using command down' ` +
+      `-e 'delay 0.3' ` +
+      `-e 'tell application "System Events" to keystroke "cd \\"{{dir}}\\" && {{command}}"' ` +
+      `-e 'tell application "System Events" to key code 36'`,
+  },
 ];
 
 function TerminalSection({ onSaved }: { onSaved: () => void }) {
