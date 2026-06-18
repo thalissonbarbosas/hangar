@@ -10,6 +10,7 @@ import {
   ExternalLink,
   MoreVertical,
   RotateCw,
+  Pencil,
   User,
   Play,
   Activity,
@@ -62,6 +63,7 @@ export function AiWorkflowBar({
 }) {
   const [busy, setBusy] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [editing, setEditing] = useState<AiwfProject | null>(null);
 
   function install() {
     if (!window.confirm("Install AI Workflow into ~/.claude? This runs the aiwf bootstrap script.")) return;
@@ -103,13 +105,19 @@ export function AiWorkflowBar({
         <>
           <div className="aiwf-proj-picker">
             {projects.map((p) => (
-              <button
-                key={p.id}
-                className={`pill${p.id === selectedId ? " on" : ""}`}
-                onClick={() => onSelect(p.id)}
-              >
-                {p.name}
-              </button>
+              <span key={p.id} className="aiwf-proj">
+                <button className={`pill${p.id === selectedId ? " on" : ""}`} onClick={() => onSelect(p.id)}>
+                  {p.name}
+                </button>
+                <button
+                  className="aiwf-proj-edit has-tip"
+                  data-tip="Edit project"
+                  disabled={busy}
+                  onClick={() => setEditing(p)}
+                >
+                  <Pencil size={12} />
+                </button>
+              </span>
             ))}
             {projects.length === 0 && <span className="subbar-dim">No projects yet</span>}
           </div>
@@ -139,6 +147,19 @@ export function AiWorkflowBar({
             onSelect(project.id);
             if (runId)
               onOpenSession({ runId, ticketKey: `${project.name}: scaffold`, agentName: "new-project" });
+          }}
+        />
+      )}
+
+      {editing && (
+        <EditProjectModal
+          project={editing}
+          onClose={() => setEditing(null)}
+          onError={onError}
+          onSaved={(project) => {
+            setEditing(null);
+            onReload();
+            onSelect(project.id);
           }}
         />
       )}
@@ -754,6 +775,94 @@ function NewProjectWizard({
           </button>
           <button className="btn" onClick={submit} disabled={busy || !name.trim() || !repoPath.trim()}>
             {busy ? <Loader2 size={15} className="spin" /> : null} Create
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Edit a registered project's display name and location (repoPath) in place. The id is unchanged,
+// so the board and its cards just re-point to the new location.
+function EditProjectModal({
+  project,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  project: AiwfProject;
+  onClose: () => void;
+  onSaved: (project: AiwfProject) => void;
+  onError: (msg: string) => void;
+}) {
+  const [name, setName] = useState(project.name);
+  const [repoPath, setRepoPath] = useState(project.repoPath);
+  const [pathOk, setPathOk] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const p = repoPath.trim();
+    if (!p) {
+      setPathOk(null);
+      return;
+    }
+    const t = setTimeout(() => {
+      api
+        .checkPath(p)
+        .then((r) => setPathOk(r.exists))
+        .catch(() => setPathOk(null));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [repoPath]);
+
+  const changed = name.trim() !== project.name || repoPath.trim() !== project.repoPath;
+
+  function submit() {
+    if (!name.trim() || !repoPath.trim() || !changed) return;
+    setBusy(true);
+    api
+      .updateAiwfProject(project.id, { name: name.trim(), repoPath: repoPath.trim() })
+      .then((r) => onSaved(r.project))
+      .catch((e) => onError(String(e.message ?? e)))
+      .finally(() => setBusy(false));
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal aiwf-modal aiwf-wizard" onClick={(e) => e.stopPropagation()}>
+        <h2>Edit AI Workflow project</h2>
+        <label className="field">
+          <span>Project name</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Dynamic Core"
+            autoFocus
+          />
+        </label>
+        <label className="field">
+          <span>Repository path</span>
+          <input
+            value={repoPath}
+            onChange={(e) => setRepoPath(e.target.value)}
+            placeholder="~/dev/thalissonbarbosa/dynamiccore"
+          />
+          {pathOk === false && <em className="field-warn">Path does not exist</em>}
+          {pathOk === true && <em className="field-ok">Path found</em>}
+          <em className="hint">
+            Cards stay with the project in Hangar's data dir; only future work uses the new path.
+          </em>
+        </label>
+        <div className="modal-actions">
+          <button className="btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="btn"
+            onClick={submit}
+            disabled={busy || !name.trim() || !repoPath.trim() || !changed}
+          >
+            {busy ? <Loader2 size={15} className="spin" /> : null} Save
           </button>
         </div>
       </div>

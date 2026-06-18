@@ -16,6 +16,12 @@ There are no GitHub Releases or git tags; this file is the record, and the root 
 
 ### Added
 
+- **Change an AI Workflow project's location** — each project chip now has an **Edit** (pencil)
+  button that opens a modal to change the project's display name and **location** (`repoPath`) in
+  place, with the same live path-validation as the New-project wizard. The project keeps its id, so
+  its board cards (stored under `<HANGAR_DATA_DIR>/aiwf/<projectId>/board/`) carry over unchanged —
+  re-pointing the location just runs future work against the new path. New
+  `PATCH /api/aiwf/projects/:id` route + `updateAiwfProject` client wrapper.
 - **One-click Resume** — a quick **Resume** button on any stopped/finished run that has a Claude
   session id picks the session up where it left off (sends a default "Continue.") with no modal. It
   appears both in the Sessions list and in the run panel header, to the left of **Hand off**. In the

@@ -78,6 +78,8 @@ export const api = {
       repoPath,
       mode,
     }),
+  updateAiwfProject: (id: string, fields: { name?: string; repoPath?: string }) =>
+    sendJson<{ project: AiwfProject }>("PATCH", `/api/aiwf/projects/${id}`, fields),
   deleteAiwfProject: (id: string) => sendJson<{ ok: boolean }>("DELETE", `/api/aiwf/projects/${id}`, {}),
   aiwfCards: (id: string) => getJson<{ tickets: Ticket[] }>(`/api/aiwf/projects/${id}/cards`),
   createAiwfCard: (
