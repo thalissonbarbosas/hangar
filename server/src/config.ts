@@ -2,7 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import dotenv from "dotenv";
-import { HangarConfig, WorkflowConfig } from "./types";
+import { HangarConfig, WorkflowConfig, AiwfProject } from "./types";
 import { isDemo, demoConfig } from "./demo";
 
 // Resolve repo root = hangar/ (two levels up from server/src)
@@ -56,6 +56,42 @@ function validateConfig(raw: HangarConfig): void {
     }
   }
   if (!raw.agentsDir) throw new Error("Config must define agentsDir");
+  if (raw.aiWorkflow) {
+    if (!Array.isArray(raw.aiWorkflow.projects)) {
+      throw new Error("aiWorkflow.projects must be an array");
+    }
+    for (const p of raw.aiWorkflow.projects) {
+      if (!p.id || !p.name || !p.repoPath) {
+        throw new Error(`Invalid aiWorkflow project: ${JSON.stringify(p)}`);
+      }
+    }
+  }
+}
+
+/** Sanitize the aiWorkflow projects list, dropping incomplete entries. */
+function cleanAiwfProjects(raw: unknown): AiwfProject[] {
+  const projects = (raw as { projects?: unknown })?.projects;
+  if (!Array.isArray(projects)) return [];
+  const out: AiwfProject[] = [];
+  for (const p of projects) {
+    if (!p || typeof p !== "object") continue;
+    const proj = p as Partial<AiwfProject>;
+    const id = String(proj.id ?? "").trim();
+    const name = String(proj.name ?? "").trim();
+    const repoPath = String(proj.repoPath ?? "").trim();
+    if (!id || !name || !repoPath) continue;
+    const columns = Array.isArray(proj.columns)
+      ? proj.columns.map((c) => String(c).trim()).filter(Boolean)
+      : undefined;
+    out.push({
+      id,
+      name,
+      repoPath,
+      ...(columns && columns.length ? { columns } : {}),
+      createdAt: typeof proj.createdAt === "number" ? proj.createdAt : Date.now(),
+    });
+  }
+  return out;
 }
 
 export function loadConfig(): HangarConfig {
@@ -106,6 +142,12 @@ export function saveConfig(raw: HangarConfig): HangarConfig {
         ...(workflows.length ? { workflows } : {}),
       };
     }),
+    // AI Workflow projects: explicit list wins, otherwise preserve the existing one.
+    ...(raw.aiWorkflow
+      ? { aiWorkflow: { projects: cleanAiwfProjects(raw.aiWorkflow) } }
+      : currentConfig?.aiWorkflow
+        ? { aiWorkflow: currentConfig.aiWorkflow }
+        : {}),
     // Explicit value wins; otherwise preserve the existing setting (so saving boards
     // from the UI doesn't reset the permission mode).
     ...(typeof raw.bypassPermissions === "boolean"
@@ -149,6 +191,17 @@ export function boardPaths(board?: { repoPath?: string; repoPaths?: string[] }):
   if (!board) return [];
   const raw = board.repoPaths?.length ? board.repoPaths : board.repoPath ? [board.repoPath] : [];
   return raw.map(expandHome);
+}
+
+/** The configured AI Workflow projects (empty when none). */
+export function getAiwfProjects(): AiwfProject[] {
+  return getConfig().aiWorkflow?.projects ?? [];
+}
+
+/** Persist a new aiWorkflow projects list (hot-swaps the in-memory config too). */
+export function saveAiwfProjects(projects: AiwfProject[]): AiwfProject[] {
+  const next = saveConfig({ ...getConfig(), aiWorkflow: { projects } });
+  return next.aiWorkflow?.projects ?? [];
 }
 
 export interface JiraEnv {

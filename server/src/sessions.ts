@@ -1,12 +1,13 @@
 import { randomUUID } from "crypto";
 import { existsSync } from "fs";
-import { expandHome, getConfig, boardPaths } from "./config";
+import { expandHome, getConfig, boardPaths, getAiwfProjects } from "./config";
 import { loadAgent, AgentDetail } from "./agents";
 import { createWorktree, removeWorktree, Worktree } from "./worktree";
 import { saveRunRecord, deleteRunRecord, loadRunRecords, RunRecord } from "./store";
 import { Ticket } from "./types";
 import { demoRunSeeds } from "./demo";
 import { isSafeBashCommand } from "./safe-shell";
+import { appendCardHistory } from "./aiwf";
 
 // "Only risky actions" approval model: reads AND file edits run automatically;
 // everything else (shell commands, kill, and any other state-changing/unknown tool)
@@ -69,6 +70,8 @@ export interface Run {
   skillSource?: "user" | "repo"; // for rebuilding options on resume
   runtimeDirs?: string[]; // mapped additionalDirectories (worktree paths) — reused on resume
   inputOpen?: boolean; // the streaming-input queue is accepting messages
+  aiwfProjectId?: string; // set for aiwf card runs — used to log results into the card's history
+  aiwfPhase?: string; // the phase column the card was in when this session started
   // Observed by the workflow engine to advance steps on state changes. Idempotent.
   onState?: (run: Run, state: RunState) => void;
   // runtime handles (loosely typed to avoid importing ESM-only SDK types)
@@ -244,15 +247,16 @@ function buildPrompt(opts: { ticket?: Ticket; note?: string; skillName?: string;
   }
 
   const lines = [
-    skillName
-      ? `Use the "${skillName}" skill to work the following Jira ticket.`
-      : "Work the following Jira ticket.",
+    skillName ? `Use the "${skillName}" skill to work the following ticket.` : "Work the following ticket.",
     `Ticket: ${ticket.key} — ${ticket.summary}`,
     `Status: ${ticket.status}${ticket.issuetype ? `   Type: ${ticket.issuetype}` : ""}`,
     ticket.assignee ? `Assignee: ${ticket.assignee}` : "",
-    `URL: ${ticket.url}`,
+    ticket.url ? `URL: ${ticket.url}` : "",
     `Repo (working directory): ${cwd}`,
   ];
+  if (ticket.description?.trim()) {
+    lines.push("Ticket details:", ticket.description.trim());
+  }
   if (note?.trim()) {
     lines.push("Operator note (additional context — does not replace the task):", note.trim());
   }
@@ -443,6 +447,8 @@ export interface StartOpts {
   skipWorktree?: boolean; // don't create a worktree; run in cwd as-is
   branch?: string; // display-only branch label (the engine-owned worktree branch)
   skillSource?: "user" | "repo"; // when kind=skill: load project settings for repo skills
+  aiwfProjectId?: string; // aiwf card run: project id, so the result lands in the card's history
+  aiwfPhase?: string; // aiwf card run: the phase column the card is in
 }
 
 export function startRun(opts: StartOpts): Run {
@@ -483,9 +489,16 @@ export function startRun(opts: StartOpts): Run {
       branch = parent.branch;
     }
   } else if (opts.ticket) {
-    const paths = boardPaths(cfg.boards.find((b) => b.key === opts.ticket!.boardKey));
-    cwd = paths[0] ?? process.cwd();
-    additionalDirectories = paths.slice(1);
+    const board = cfg.boards.find((b) => b.key === opts.ticket!.boardKey);
+    if (board) {
+      const paths = boardPaths(board);
+      cwd = paths[0] ?? process.cwd();
+      additionalDirectories = paths.slice(1);
+    } else {
+      // aiwf card: its boardKey is the AI Workflow project id, so resolve the project repo.
+      const proj = getAiwfProjects().find((p) => p.id === opts.ticket!.boardKey);
+      cwd = proj ? expandHome(proj.repoPath) : process.cwd();
+    }
     ticketKey = opts.ticket.key;
     ticketUrl = opts.ticket.url;
   } else {
@@ -512,6 +525,8 @@ export function startRun(opts: StartOpts): Run {
     branch,
     skipWorktree,
     skillSource: opts.skillSource,
+    aiwfProjectId: opts.aiwfProjectId,
+    aiwfPhase: opts.aiwfPhase,
     state: "starting",
     startedAt: Date.now(),
     events: [],
@@ -752,6 +767,20 @@ async function streamTurn(run: Run, options: Record<string, unknown>, seedText: 
           run.state = "done";
           run.result = msg.result;
           emit(run, "result", { subtype: "success", result: msg.result, costUsd: msg.total_cost_usd });
+          // Record this session in the card's history (aiwf card runs only).
+          if (run.aiwfProjectId && run.ticketKey) {
+            try {
+              appendCardHistory(run.aiwfProjectId, run.ticketKey, {
+                phase: run.aiwfPhase ?? "",
+                skill: run.agentName,
+                at: Date.now(),
+                runId: run.id,
+                summary: (msg.result ?? "").slice(0, 300),
+              });
+            } catch {
+              /* don't let history persistence break the run */
+            }
+          }
         } else {
           run.state = "error";
           run.error = `Run ended: ${msg.subtype}`;

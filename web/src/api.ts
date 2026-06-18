@@ -1,5 +1,7 @@
 import {
   Agent,
+  AiwfProject,
+  AiwfStatus,
   FullConfig,
   JiraSettings,
   RunKind,
@@ -65,6 +67,40 @@ export const api = {
     getJson<{ statuses: string[] }>(`/api/jira/statuses?project=${encodeURIComponent(project)}`),
   transitionTicket: (key: string, status: string) =>
     sendJson<{ ok: boolean }>("POST", `/api/tickets/${encodeURIComponent(key)}/transition`, { status }),
+  // ---- AI Workflow connection ----
+  aiwfStatus: () => getJson<AiwfStatus>("/api/aiwf/status"),
+  aiwfInstall: () => sendJson<AiwfStatus & { output: string }>("POST", "/api/aiwf/install", {}),
+  aiwfUninstall: () => sendJson<AiwfStatus & { output: string }>("POST", "/api/aiwf/uninstall", {}),
+  aiwfProjects: () => getJson<{ projects: AiwfProject[] }>("/api/aiwf/projects"),
+  createAiwfProject: (name: string, repoPath: string, mode: "new" | "adopt") =>
+    sendJson<{ project: AiwfProject; runId?: string }>("POST", "/api/aiwf/projects", {
+      name,
+      repoPath,
+      mode,
+    }),
+  deleteAiwfProject: (id: string) => sendJson<{ ok: boolean }>("DELETE", `/api/aiwf/projects/${id}`, {}),
+  aiwfCards: (id: string) => getJson<{ tickets: Ticket[] }>(`/api/aiwf/projects/${id}/cards`),
+  createAiwfCard: (
+    id: string,
+    fields: {
+      title: string;
+      status?: string;
+      kind?: "thread" | "task";
+      skill?: string;
+      description?: string;
+    },
+  ) => sendJson<{ ticket: Ticket }>("POST", `/api/aiwf/projects/${id}/cards`, fields),
+  transitionAiwfCard: (id: string, key: string, status: string) =>
+    sendJson<{ ok: boolean }>(
+      "POST",
+      `/api/aiwf/projects/${id}/cards/${encodeURIComponent(key)}/transition`,
+      { status },
+    ),
+  aiwfRunCard: (id: string, key: string, skill: string, note?: string) =>
+    sendJson<{ runId: string }>("POST", `/api/aiwf/projects/${id}/cards/${encodeURIComponent(key)}/run`, {
+      skill,
+      note,
+    }),
   ticketPr: (key: string) => getJson<{ prUrl: string | null }>(`/api/tickets/${encodeURIComponent(key)}/pr`),
   checkPath: (path: string) =>
     getJson<{ exists: boolean }>(`/api/fs/exists?path=${encodeURIComponent(path)}`),

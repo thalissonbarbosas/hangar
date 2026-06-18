@@ -2337,3 +2337,415 @@ a.session-ticket {
   flex: 0 0 auto;
   height: 38px;
 }
+
+/* ---- AI Workflow view ---- */
+.aiwf {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.aiwf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.aiwf-head h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 20px;
+}
+.aiwf-install {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.aiwf-install span {
+  flex: 1;
+}
+.aiwf-health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.aiwf-projects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.aiwf-proj-chip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.aiwf-proj-chip.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.aiwf-proj-chip > button:first-child {
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 6px 10px;
+  cursor: pointer;
+  font: inherit;
+}
+.aiwf-onboard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.aiwf-onboard-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-right: 4px;
+}
+/* ---- AI Workflow modal form controls (consistent dropdowns + inputs) ---- */
+.aiwf-modal h2 {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.aiwf-modal h2 code {
+  font-family: var(--mono);
+  background: var(--accent-soft);
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+.aiwf-modal .field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 13px;
+}
+.aiwf-modal .field > span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.aiwf-modal .field input,
+.aiwf-modal .field select,
+.aiwf-modal .field textarea {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  color: var(--text);
+  padding: 9px 11px;
+  font: 400 13px var(--font);
+  transition:
+    border-color var(--t),
+    box-shadow var(--t);
+}
+.aiwf-modal .field textarea {
+  resize: vertical;
+}
+.aiwf-modal .field select {
+  /* native dropdown, themed like the rest of the app's selects */
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 30px;
+  cursor: pointer;
+}
+.aiwf-modal .field input:focus,
+.aiwf-modal .field select:focus,
+.aiwf-modal .field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.aiwf-modal .field select option {
+  background: var(--surface);
+  color: var(--text);
+}
+.aiwf-modal .hint {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+/* segmented toggle, used by the modals' Type / Setup-mode pickers */
+.seg {
+  display: flex;
+  gap: 6px;
+}
+.seg button {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  transition:
+    border-color var(--t),
+    background var(--t);
+}
+.seg button.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.seg button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.field-warn {
+  font-size: 11px;
+  color: #ef4444;
+}
+.field-ok {
+  font-size: 11px;
+  color: #10b981;
+}
+
+/* ---- Connection switcher (topbar) ---- */
+.conn-switch {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.conn-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+}
+.conn-tab.on {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ---- Connection sub-menu bar ---- */
+.subbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-wrap: wrap;
+}
+.subbar-spacer {
+  flex: 1;
+}
+.subbar-warn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #e08e0b;
+}
+.subbar-dim {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.aiwf-proj-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.aiwf-health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ---- AI Workflow options dropdown ---- */
+.aiwf-options {
+  position: relative;
+}
+.aiwf-options-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 50;
+  min-width: 210px;
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+}
+.aiwf-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+.aiwf-opt:hover {
+  background: var(--accent-soft);
+}
+.aiwf-opt.danger {
+  color: #ef4444;
+}
+.aiwf-opt-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 2px;
+}
+
+/* ---- AI Workflow skill palette ---- */
+.aiwf-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.aiwf-palette-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+.aiwf-palette-head > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.aiwf-group {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.aiwf-group-name {
+  flex: 0 0 120px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.aiwf-group-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.aiwf-skill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.aiwf-skill:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.aiwf-skill:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.aiwf-skill-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+}
+
+/* ---- AI Workflow phase board ---- */
+.aiwf-board-area {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+}
+.column-header .col-add {
+  margin-left: 4px;
+  padding: 2px;
+  width: 22px;
+  height: 22px;
+}
+.aiwf-card .card-key-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.aiwf-kind {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 6px;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+.aiwf-kind.task {
+  color: #e08e0b;
+  border-color: color-mix(in srgb, #e08e0b 40%, transparent);
+}
+.aiwf-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.aiwf-hist {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: var(--text-dim);
+  background: var(--accent-soft);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.btn-ghost.sm {
+  padding: 3px 8px;
+  font-size: 12px;
+}
