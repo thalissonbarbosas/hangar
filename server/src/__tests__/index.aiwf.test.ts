@@ -216,4 +216,133 @@ describe("AI Workflow routes", () => {
     expect((await request(app).delete("/api/aiwf/projects/p1")).status).toBe(200);
     expect((await request(app).delete("/api/aiwf/projects/p1")).status).toBe(404);
   });
+
+  // ---- archive route ----
+
+  it("archive route sets archived: true and is visible in card list", async () => {
+    // Create a fresh card under p2 (so the project is still alive after the "deletes a project" test above).
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Archive Test", repoPath: REPO, mode: "adopt" });
+    const pid = proj.body.project.id;
+
+    const card = await request(app).post(`/api/aiwf/projects/${pid}/cards`).send({ title: "Archive me" });
+    const key = card.body.ticket.key;
+
+    // Archive it.
+    const arch = await request(app)
+      .post(`/api/aiwf/projects/${pid}/cards/${key}/archive`)
+      .send({ archived: true });
+    expect(arch.status).toBe(200);
+    expect(arch.body.ok).toBe(true);
+
+    // The card list returns archived: true.
+    const list = await request(app).get(`/api/aiwf/projects/${pid}/cards`);
+    const found = list.body.tickets.find((t: { key: string }) => t.key === key);
+    expect(found.archived).toBe(true);
+  });
+
+  it("archive route with archived: false clears the flag", async () => {
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Unarchive Test", repoPath: REPO, mode: "adopt" });
+    const pid = proj.body.project.id;
+
+    const card = await request(app).post(`/api/aiwf/projects/${pid}/cards`).send({ title: "Unarchive me" });
+    const key = card.body.ticket.key;
+
+    // Archive, then unarchive.
+    await request(app).post(`/api/aiwf/projects/${pid}/cards/${key}/archive`).send({ archived: true });
+    const unarch = await request(app)
+      .post(`/api/aiwf/projects/${pid}/cards/${key}/archive`)
+      .send({ archived: false });
+    expect(unarch.status).toBe(200);
+
+    const list = await request(app).get(`/api/aiwf/projects/${pid}/cards`);
+    const found = list.body.tickets.find((t: { key: string }) => t.key === key);
+    // archived must be absent or falsy after unarchive
+    expect(found.archived).toBeFalsy();
+  });
+
+  it("archive route returns 400 for an unknown card key", async () => {
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Archive 400 Test", repoPath: REPO, mode: "adopt" });
+    const pid = proj.body.project.id;
+
+    const res = await request(app)
+      .post(`/api/aiwf/projects/${pid}/cards/NOPE-99/archive`)
+      .send({ archived: true });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/Card not found/);
+  });
+
+  it("archive route returns 404 for an unknown project id", async () => {
+    const res = await request(app)
+      .post("/api/aiwf/projects/no-such-proj/cards/X-1/archive")
+      .send({ archived: true });
+    expect(res.status).toBe(404);
+  });
+
+  // ---- delete route ----
+
+  it("delete route removes the card file and it no longer appears in the list", async () => {
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Delete Test", repoPath: REPO, mode: "adopt" });
+    const pid = proj.body.project.id;
+
+    const card = await request(app).post(`/api/aiwf/projects/${pid}/cards`).send({ title: "Delete me" });
+    const key = card.body.ticket.key;
+
+    const del = await request(app).delete(`/api/aiwf/projects/${pid}/cards/${key}`);
+    expect(del.status).toBe(200);
+    expect(del.body.ok).toBe(true);
+
+    // Card is gone from the list.
+    const list = await request(app).get(`/api/aiwf/projects/${pid}/cards`);
+    expect(list.body.tickets.map((t: { key: string }) => t.key)).not.toContain(key);
+  });
+
+  it("delete route returns 404 for a non-existent card", async () => {
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Delete 404 Test", repoPath: REPO, mode: "adopt" });
+    const pid = proj.body.project.id;
+
+    const res = await request(app).delete(`/api/aiwf/projects/${pid}/cards/NOPE-99`);
+    expect(res.status).toBe(404);
+    expect(res.body.error).toMatch(/No such card/);
+  });
+
+  it("delete route returns 404 for an unknown project id", async () => {
+    const res = await request(app).delete("/api/aiwf/projects/no-such-proj/cards/X-1");
+    expect(res.status).toBe(404);
+  });
+
+  // ---- demo mode ----
+
+  it("archive and delete routes return success in demo mode without writing to disk", async () => {
+    // Register a project before switching to demo mode (the project guard uses the real config list).
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Demo Mode Test", repoPath: REPO, mode: "adopt" });
+    const pid = proj.body.project.id;
+
+    process.env.HANGAR_DEMO = "1";
+    try {
+      // Both routes must succeed without touching disk in demo mode.
+      const arch = await request(app)
+        .post(`/api/aiwf/projects/${pid}/cards/ANY-1/archive`)
+        .send({ archived: true });
+      expect(arch.status).toBe(200);
+      expect(arch.body.ok).toBe(true);
+
+      const del = await request(app).delete(`/api/aiwf/projects/${pid}/cards/ANY-1`);
+      expect(del.status).toBe(200);
+      expect(del.body.ok).toBe(true);
+    } finally {
+      delete process.env.HANGAR_DEMO;
+    }
+  });
 });
