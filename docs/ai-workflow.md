@@ -109,6 +109,9 @@ worktree branch persists for inspection/PR until the run is deleted. The `autopi
 orchestrators stay in place: they spawn their own worktree subagents and open their own PRs, so an
 extra outer worktree would only fragment their git work. Each run is a normal `kind: "skill"` session
 streamed into the run panel; on success its result is logged to the card via `appendCardHistory`.
+If a GitHub PR URL was detected in the run's streamed output (`run.prUrl`), it is also written to
+the card's `pr:` frontmatter at that point — so the link persists across Hangar restarts and shows
+on the board card even after the run is cleared.
 
 ### Card file format
 
