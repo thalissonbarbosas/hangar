@@ -109,5 +109,11 @@ does not manage its own key.
   (`.env.example`, `hangar.config.example.json`) instead.
 - **PR titles**: plain sentence case, no type prefix. Write `Fix open-PR preference in dev-status`,
   not `bugfix: Fix open-PR preference` or `feat/my-branch: Fix open-PR preference`.
+- **Changelog (required)**: always add the current change to `CHANGELOG.md`. Put it under
+  `[Unreleased]` while iterating, or directly under a new version heading when finishing the PR.
+  One entry per PR, in a Keep a Changelog category (Added / Changed / Fixed / Removed), and bump the
+  root `package.json` `version` to match (MINOR for a notable feature, PATCH for a small change —
+  see the versioning note at the top of `CHANGELOG.md`). There are no releases/tags; the changelog
+  is the record.
 - No automated tests exist yet — verify changes with `npm run typecheck` and, where it matters, by
   running `npm run dev` and exercising the flow in the UI.

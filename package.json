@@ -1,6 +1,6 @@
 {
   "name": "hangar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "license": "MIT",
   "description": "A mouse-driven board that turns Jira tickets into Claude Code agent sessions.",
