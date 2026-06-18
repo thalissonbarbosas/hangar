@@ -1268,6 +1268,56 @@ html[data-theme="light"] .model-haiku {
   height: 30px;
 }
 
+/* ---- sessions project tab bar ---- */
+.sessions-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.sessions-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: none;
+  color: var(--text-muted);
+  font: 500 13px var(--font);
+  cursor: pointer;
+  transition:
+    color var(--t),
+    background var(--t),
+    border-color var(--t);
+}
+.sessions-tab:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+.sessions-tab.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+.sessions-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 700;
+}
+.sessions-tab.active .sessions-tab-count {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
 /* ---- agent permissions toggle + flag ---- */
 .switch-row {
   display: flex;

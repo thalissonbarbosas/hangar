@@ -518,6 +518,8 @@ export function App() {
         <div className="settings-area">
           <SessionsView
             runs={runs}
+            boards={boards}
+            aiwfProjects={aiwfProjects}
             onOpenRun={openRun}
             onStop={stop}
             onDelete={deleteRun}
