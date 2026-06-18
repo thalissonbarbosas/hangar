@@ -24,7 +24,7 @@ export interface BoardConfig {
 export interface AiwfProject {
   id: string; // stable id (used as the synthetic boardKey for its cards)
   name: string; // display name
-  repoPath: string; // project root; cards live at <repoPath>/.aiwf/board/*.md
+  repoPath: string; // project root (stays pristine; cards live in Hangar's data dir, keyed by id)
   columns?: string[]; // kanban columns; undefined = the default dev columns
   createdAt: number;
 }

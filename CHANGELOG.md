@@ -16,8 +16,6 @@ There are no GitHub Releases or git tags; this file is the record, and the root 
 
 ### Added
 
-- **Self-hosted AI Workflow board** — track Hangar's own AI Workflow board cards in the repo under
-  `.aiwf/board/` (`HAN-1`/`HAN-2`/`HAN-3`), so Hangar dogfoods its aiwf connection against itself.
 - **One-click Resume** — a quick **Resume** button on any stopped/finished run that has a Claude
   session id picks the session up where it left off (sends a default "Continue.") with no modal. It
   appears both in the Sessions list and in the run panel header, to the left of **Hand off**. In the
@@ -28,6 +26,15 @@ There are no GitHub Releases or git tags; this file is the record, and the root 
   with `{{dir}}` and `{{command}}` placeholders (presets for macOS Terminal, iTerm2, and Ghostty);
   when no terminal is set, clicking the action warns and points you to Settings. New `terminal`
   config field and `POST /api/runs/:id/terminal` route.
+
+### Changed
+
+- **AI Workflow board lives in Hangar's data dir** — board cards moved from each project repo's
+  `.aiwf/board/` to `<HANGAR_DATA_DIR>/aiwf/<projectId>/board/` (gitignored runtime state, like
+  `.hangar/`). Target repos now stay completely pristine — nothing writes `.aiwf/` into them. The
+  `roadmap` seed instruction is given the absolute board path. A task's durable criteria belong in a
+  tracked `docs/specs/NNN_*.md`. Point dev + stable instances at one `HANGAR_DATA_DIR` to share a
+  board. (Supersedes the brief tracking of the `HAN-1`/`HAN-2`/`HAN-3` cards.)
 
 ### Fixed
 

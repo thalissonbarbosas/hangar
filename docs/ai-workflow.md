@@ -54,8 +54,12 @@ An AI Workflow **project** is a registered local repo. Create one from the sub-b
 - **Adopt** — registers an existing repo as-is.
 
 Projects are stored in `hangar.config.json` under `aiWorkflow.projects` (see
-[Configuration](#configuration)). Cards for each project live **inside that project's repo** at
-`<repoPath>/.aiwf/board/*.md`, committed alongside the aiwf docs the skills produce.
+[Configuration](#configuration)). Cards are **runtime board state** — their `status:` and history
+are rewritten on every move and run — so they live in **Hangar's own data dir** at
+`<HANGAR_DATA_DIR>/aiwf/<projectId>/board/*.md` (gitignored, like `.hangar/`), **not** in the
+project repo, which stays pristine. A task's durable description/acceptance criteria belong in a
+tracked `docs/specs/NNN_*.md` (via the `spec` skill); the lasting record lives in `docs/` + the PR.
+Point dev and stable Hangar instances at one `HANGAR_DATA_DIR` to share a project's board.
 
 ## The phase board
 
@@ -78,7 +82,7 @@ A **card is a work thread** that flows through the phases:
 
 Per-phase skills come from `COLUMN_SKILLS` (derived from `SKILL_GROUPS`; the `Complete` column has
 none). The `roadmap` skill is additionally instructed to **seed the board** — it writes one card per
-roadmap task into `.aiwf/board/`.
+roadmap task into the project's board dir (Hangar passes it the absolute data-dir path).
 
 <img src="aiwf-new-item.png" alt="Creating a session or task in a phase column" width="640" />
 
@@ -91,7 +95,8 @@ panel; on success its result is logged to the card via `appendCardHistory`.
 
 ### Card file format
 
-`<repoPath>/.aiwf/board/<KEY>.md` — flat YAML frontmatter + markdown body + an embedded history block:
+`<HANGAR_DATA_DIR>/aiwf/<projectId>/board/<KEY>.md` — flat YAML frontmatter + markdown body + an
+embedded history block:
 
 ```markdown
 ---

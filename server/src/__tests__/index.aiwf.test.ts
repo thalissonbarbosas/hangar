@@ -18,7 +18,8 @@ fs.writeFileSync(
   }),
 );
 process.env.CONFIG_PATH = CONFIG_PATH;
-process.env.HANGAR_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "aiwf-rt-data-"));
+const DATA = fs.mkdtempSync(path.join(os.tmpdir(), "aiwf-rt-data-"));
+process.env.HANGAR_DATA_DIR = DATA;
 delete process.env.HANGAR_DEMO;
 for (const k of ["JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_MY_TICKETS_ONLY"])
   process.env[k] = "";
@@ -84,7 +85,9 @@ describe("AI Workflow routes", () => {
     expect(ok.status).toBe(200);
     expect(ok.body.project.name).toBe("Adopted");
     expect(ok.body.runId).toBeUndefined(); // adopt does not scaffold
-    expect(fs.existsSync(path.join(REPO2, ".aiwf", "board"))).toBe(true);
+    // The board lives in Hangar's data dir keyed by project id — the adopted repo stays pristine.
+    expect(fs.existsSync(path.join(DATA, "aiwf", ok.body.project.id, "board"))).toBe(true);
+    expect(fs.existsSync(path.join(REPO2, ".aiwf"))).toBe(false);
 
     expect((await request(app).post("/api/aiwf/projects").send({ name: "" })).status).toBe(400);
     expect(
