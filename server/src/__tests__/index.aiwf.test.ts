@@ -331,6 +331,84 @@ describe("AI Workflow routes", () => {
 
   // ---- demo mode ----
 
+  // ---- spec card read-only guards ----
+
+  it("transition route returns 400 for a SPEC-* key", async () => {
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Spec Guard Test", repoPath: REPO, mode: "adopt" });
+    const pid = proj.body.project.id;
+    const res = await request(app)
+      .post(`/api/aiwf/projects/${pid}/cards/SPEC-001/transition`)
+      .send({ status: "Review" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/read-only/i);
+  });
+
+  it("archive route returns 400 for a SPEC-* key", async () => {
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Spec Archive Guard", repoPath: REPO, mode: "adopt" });
+    const pid = proj.body.project.id;
+    const res = await request(app)
+      .post(`/api/aiwf/projects/${pid}/cards/SPEC-001/archive`)
+      .send({ archived: true });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/read-only/i);
+  });
+
+  it("delete route returns 400 for a SPEC-* key", async () => {
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Spec Delete Guard", repoPath: REPO, mode: "adopt" });
+    const pid = proj.body.project.id;
+    const res = await request(app).delete(`/api/aiwf/projects/${pid}/cards/SPEC-001`);
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/read-only/i);
+  });
+
+  it("cards list includes spec cards when docs/specs/ contains matching files", async () => {
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Spec List Test", repoPath: REPO, mode: "adopt" });
+    const pid = proj.body.project.id;
+
+    // Plant a spec file in the project repo's docs/specs/.
+    const specsDir = path.join(REPO, "docs", "specs");
+    fs.mkdirSync(specsDir, { recursive: true });
+    fs.writeFileSync(path.join(specsDir, "001_my-feature.md"), "# My Feature\n\nBody.");
+    try {
+      const res = await request(app).get(`/api/aiwf/projects/${pid}/cards`);
+      expect(res.status).toBe(200);
+      const spec = res.body.tickets.find((t: { key: string }) => t.key === "SPEC-001");
+      expect(spec).toBeDefined();
+      expect(spec.kind).toBe("spec");
+      expect(spec.summary).toBe("My Feature");
+    } finally {
+      fs.rmSync(path.join(REPO, "docs"), { recursive: true, force: true });
+    }
+  });
+
+  it("run route returns 200 for a valid spec card key via getSpecCard fallback", async () => {
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Spec Run Test", repoPath: REPO, mode: "adopt" });
+    const pid = proj.body.project.id;
+
+    const specsDir = path.join(REPO, "docs", "specs");
+    fs.mkdirSync(specsDir, { recursive: true });
+    fs.writeFileSync(path.join(specsDir, "001_runnable.md"), "# Runnable\n\nBody.");
+    try {
+      const res = await request(app)
+        .post(`/api/aiwf/projects/${pid}/cards/SPEC-001/run`)
+        .send({ skill: "feature" });
+      expect(res.status).toBe(200);
+      expect(res.body.runId).toBeDefined();
+    } finally {
+      fs.rmSync(path.join(REPO, "docs"), { recursive: true, force: true });
+    }
+  });
+
   it("archive and delete routes return success in demo mode without writing to disk", async () => {
     // Register a project before switching to demo mode (the project guard uses the real config list).
     const proj = await request(app)
