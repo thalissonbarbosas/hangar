@@ -3,7 +3,14 @@ import os from "os";
 import path from "path";
 
 // aiwf.ts shells out for install/uninstall/version — mock child_process so nothing runs for real.
-jest.mock("child_process", () => ({ execSync: jest.fn() }));
+// exec must carry util.promisify.custom so promisify(exec) returns { stdout, stderr } like the real impl.
+jest.mock("child_process", () => {
+  const { promisify } = jest.requireActual("util") as typeof import("util");
+  const execFn = jest.fn();
+
+  (execFn as any)[promisify.custom] = jest.fn(() => Promise.resolve({ stdout: "", stderr: "" }));
+  return { execSync: jest.fn(), exec: execFn };
+});
 
 // Wire a temp project repo + skills dir + config BEFORE any module loads.
 // Board cards live in the data dir (store.ts reads HANGAR_DATA_DIR at module-eval) — isolate to
