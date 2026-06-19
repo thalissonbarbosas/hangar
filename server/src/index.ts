@@ -33,6 +33,9 @@ import {
   columnsFor,
   projectRunNote,
   skillNeedsWorktree,
+  resolveTaskWorktree,
+  clearSpecState,
+  TASK_WORKTREE_SKILLS,
   DEFAULT_COLUMNS,
   COLUMN_SKILLS,
   SKILL_GROUPS,
@@ -432,9 +435,15 @@ app.post("/api/aiwf/projects/:id/cards", (req, res) => {
 app.post("/api/aiwf/projects/:id/cards/:key/transition", (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
-  if (req.params.key.startsWith("SPEC-")) return res.status(400).json({ error: "Spec cards are read-only." });
   const status = String(req.body?.status ?? "").trim();
   if (!status) return res.status(400).json({ error: "status is required" });
+  // Spec cards have no mutable board card file. Allow Complete transitions only — they clear the
+  // task-branch state so the next code run on the card gets a fresh worktree.
+  if (req.params.key.startsWith("SPEC-")) {
+    if (status !== "Complete") return res.status(400).json({ error: "Spec cards are read-only." });
+    clearSpecState(p.id, req.params.key);
+    return res.json({ ok: true });
+  }
   try {
     transitionCard(p, req.params.key, status);
     res.json({ ok: true });
@@ -474,7 +483,7 @@ app.delete("/api/aiwf/projects/:id/cards/:key", (req, res) => {
 // recorded so the result lands in that phase of its history; the roadmap skill also seeds cards.
 // Spec cards (kind:"spec") are read-only — the spec file is never written, but a normal session
 // runs with the spec content as context; appendCardHistory no-ops because no board file exists.
-app.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, (req, res) => {
+app.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, async (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
   if (isDemo()) return res.json({ runId: "demo" }); // no real sessions in demo
@@ -488,16 +497,36 @@ app.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, (req, res) =
   if (!skillExists(cfg, skill)) {
     return res.status(400).json({ error: `Skill "${skill}" not found — install AI Workflow first.` });
   }
+
+  // Spec cards get a task-scoped worktree: a persistent branch (feat/<slug>) shared across all
+  // skill runs on that card. Non-spec board cards fall back to the original per-run worktree model.
+  let cwdOverride = expandHome(p.repoPath);
+  let skipWorktree = !skillNeedsWorktree(skill);
+  let taskBranch: string | undefined;
+
+  if (card.kind === "spec") {
+    const taskWt = await resolveTaskWorktree(p, card.key, skill);
+    if (taskWt) {
+      cwdOverride = taskWt.cwd;
+      skipWorktree = true; // worktree already created by resolveTaskWorktree
+      taskBranch = taskWt.branch;
+    } else if (taskWt === null && TASK_WORKTREE_SKILLS.has(skill)) {
+      // resolveTaskWorktree returned null: either createWorktree failed (e.g. branch already checked
+      // out in another worktree) or a git error. Abort rather than silently running in the wrong dir.
+      return res.status(503).json({
+        error: "Could not create task worktree — branch may already be checked out. Check git worktree list.",
+      });
+    }
+  }
+
   const run = startRun({
     kind: "skill",
     name: skill,
     note: projectRunNote(skill, p, userNote),
     ticket: card,
-    cwdOverride: expandHome(p.repoPath),
-    // Code-producing skills (feature/fix) run in an isolated worktree so parallel implementation runs
-    // don't clobber the repo; planning/doc/review/delivery (and the self-delivering autopilot/factory
-    // orchestrators) run in place so their docs/git work operate on the real repo.
-    skipWorktree: !skillNeedsWorktree(skill),
+    cwdOverride,
+    skipWorktree,
+    ...(taskBranch ? { branch: taskBranch } : {}),
     skillSource: findSkill(cfg, skill)?.source,
     aiwfProjectId: p.id,
     aiwfPhase: card.status,

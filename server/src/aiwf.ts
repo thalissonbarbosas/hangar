@@ -1,6 +1,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { randomUUID } from "crypto";
 import { execSync, exec as execRaw } from "child_process";
 import { promisify } from "util";
 
@@ -8,6 +9,7 @@ const execAsync = promisify(execRaw);
 import { expandHome, getConfig, getAiwfProjects } from "./config";
 import { AiwfProject, AiwfHistoryEntry, Ticket } from "./types";
 import { isDemo, demoAiwfCards } from "./demo";
+import { createWorktree, findWorktreePath, sanitize } from "./worktree";
 import { DATA_DIR } from "./store";
 
 // ---------------------------------------------------------------------------
@@ -55,6 +57,17 @@ export const WORKTREE_SKILLS = new Set(["feature", "fix"]);
 export function skillNeedsWorktree(skill: string): boolean {
   return WORKTREE_SKILLS.has(skill);
 }
+
+// Skills that run inside the spec card's task-scoped worktree (create it if absent, reuse if present).
+// Planning/doc/bootstrap skills are excluded — they write to the real repo so their output is tracked.
+export const TASK_WORKTREE_SKILLS = new Set([
+  "feature",
+  "fix", // code-producing: mutate source in isolation
+  "review",
+  "sec-review", // review the actual implementation, not the real repo
+  "commit",
+  "pr", // deliver from the task branch, not the real repo
+]);
 
 // The roadmap skill is also asked to seed the board so the kanban fills in from the roadmap tasks.
 // The board lives in Hangar's data dir (not the repo), so the skill is given the absolute path.
@@ -474,4 +487,151 @@ export function appendCardHistory(
   if (entry.skill && entry.skill !== "task") fm.skill = entry.skill;
   if (prUrl?.trim()) fm.pr = prUrl.trim();
   fs.writeFileSync(file, serializeCard(fm, description, history));
+}
+
+// ---- Task-scoped worktrees for spec card runs ----
+//
+// Each SPEC-* card gets a persistent git worktree on a semantic branch (feat/<slug>, fix/<slug>)
+// derived from the spec file's Trunk Metadata type and filename. The branch state is stored in
+// the board data dir so all subsequent skill runs on that card reuse the same branch, whether
+// they arrive via handoff or a fresh direct assignment from the board.
+
+function specStateDir(projectId: string): string {
+  return path.join(DATA_DIR, "aiwf", projectId, "spec-state");
+}
+
+export interface SpecState {
+  taskBranch: string;
+  worktreePath: string;
+}
+
+export function getSpecState(projectId: string, key: string): SpecState | null {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(specStateDir(projectId), `${key}.json`), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+export function setSpecState(projectId: string, key: string, state: SpecState): void {
+  const dir = specStateDir(projectId);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, `${key}.json`), JSON.stringify(state));
+}
+
+export function clearSpecState(projectId: string, key: string): void {
+  try {
+    fs.unlinkSync(path.join(specStateDir(projectId), `${key}.json`));
+  } catch {
+    /* best-effort */
+  }
+}
+
+/**
+ * Derive the git branch name for a spec's task worktree.
+ * Reads the spec file's `## Trunk Metadata` block for the `Type` field; falls back to `feat`.
+ * For sliced specs (`NNN_slug/`), uses the directory slug, not the slice filename.
+ *
+ * @param specAbsPath - absolute path to the spec file OR its parent directory (sliced spec).
+ */
+export function branchFromSpec(specAbsPath: string): string {
+  const stat = (() => {
+    try {
+      return fs.statSync(specAbsPath);
+    } catch {
+      return null;
+    }
+  })();
+  const isDir = stat?.isDirectory() ?? false;
+
+  // Slug: strip NNN_ prefix and .md extension from the basename (or directory name).
+  const base = path.basename(isDir ? specAbsPath : specAbsPath.replace(/\.md$/, ""));
+  const slug = sanitize(base.replace(/^\d{3}_/, ""));
+
+  // Read spec content to extract Trunk Metadata type.
+  let content = "";
+  try {
+    const file = isDir ? path.join(specAbsPath, "README.md") : specAbsPath;
+    content = fs.readFileSync(file, "utf8");
+  } catch {
+    /* can't read — use default type */
+  }
+
+  const typeMatch = content.match(/##\s+Trunk\s+Metadata[\s\S]*?\*\*Type:\*\*\s+(\w+)/i);
+  const raw = typeMatch?.[1]?.toLowerCase() ?? "feat";
+  const validTypes = ["feat", "fix", "refactor", "chore", "test", "docs", "perf", "security"];
+  const prefix = validTypes.includes(raw) ? raw : "feat";
+
+  return `${prefix}/${slug}`;
+}
+
+/** Absolute path to the spec file (or sliced spec directory) for a SPEC-NNN key. Returns null if not found.
+ *  When both a file and a directory share the same NNN_ prefix, the directory (sliced spec) takes precedence. */
+function specAbsPath(project: AiwfProject, key: string): string | null {
+  const num = key.replace(/^SPEC-/, "");
+  const specsDir = path.join(expandHome(project.repoPath), "docs", "specs");
+  try {
+    const entries = fs.readdirSync(specsDir, { withFileTypes: true });
+    let filePath: string | null = null;
+    for (const entry of entries) {
+      if (!entry.name.startsWith(`${num}_`)) continue;
+      const full = path.join(specsDir, entry.name);
+      if (entry.isDirectory()) return full; // sliced spec wins immediately
+      filePath = full;
+    }
+    return filePath;
+  } catch {
+    /* specs dir missing */
+  }
+  return null;
+}
+
+/**
+ * Resolve (or create) the task-scoped worktree for a spec card skill run.
+ *
+ * Returns `{ cwd, branch }` when the skill should run in a task worktree, or `null` when
+ * the skill should run in the real project repo (planning/doc/bootstrap skills).
+ *
+ * Side-effect: writes or updates the spec-state file on the first run.
+ */
+export async function resolveTaskWorktree(
+  project: AiwfProject,
+  cardKey: string,
+  skill: string,
+): Promise<{ cwd: string; branch: string } | null> {
+  if (!TASK_WORKTREE_SKILLS.has(skill)) return null;
+
+  const repoRoot = expandHome(project.repoPath);
+  const existing = getSpecState(project.id, cardKey);
+
+  if (existing) {
+    // Fast path: stored path still alive.
+    if (fs.existsSync(existing.worktreePath)) {
+      return { cwd: existing.worktreePath, branch: existing.taskBranch };
+    }
+    // Stale path — check via git before re-creating.
+    const gitPath = await findWorktreePath(repoRoot, existing.taskBranch);
+    if (gitPath && fs.existsSync(gitPath)) {
+      setSpecState(project.id, cardKey, { ...existing, worktreePath: gitPath });
+      return { cwd: gitPath, branch: existing.taskBranch };
+    }
+    // Re-create on the existing branch.
+    const wt = await createWorktree(repoRoot, existing.taskBranch, randomUUID(), {
+      existingBranch: existing.taskBranch,
+    });
+    if (!wt) return null;
+    setSpecState(project.id, cardKey, { taskBranch: wt.branch, worktreePath: wt.path });
+    return { cwd: wt.path, branch: wt.branch };
+  }
+
+  // First run — derive branch name from spec and create from main.
+  const specPath = specAbsPath(project, cardKey);
+  const taskBranch = specPath ? branchFromSpec(specPath) : `feat/${sanitize(cardKey)}`;
+  const wt = await createWorktree(repoRoot, taskBranch, randomUUID(), {
+    branchName: taskBranch,
+    baseBranch: "main",
+  });
+  if (!wt) return null;
+  setSpecState(project.id, cardKey, { taskBranch: wt.branch, worktreePath: wt.path });
+  return { cwd: wt.path, branch: wt.branch };
 }

@@ -22,7 +22,7 @@ async function gitRoot(dir: string): Promise<string | null> {
   }
 }
 
-function sanitize(s: string): string {
+export function sanitize(s: string): string {
   return (
     s
       .replace(/[^A-Za-z0-9._-]/g, "-")
@@ -31,20 +31,64 @@ function sanitize(s: string): string {
   );
 }
 
+export interface CreateWorktreeOpts {
+  /** Branch to base from instead of HEAD (e.g. "main"). */
+  baseBranch?: string;
+  /** Check out an existing branch instead of creating a new one (omits -b). */
+  existingBranch?: string;
+  /** Override the auto-generated hangar/<label>-<id> branch name. Ignored when existingBranch is set. */
+  branchName?: string;
+}
+
 /**
  * Create an isolated git worktree of the repo containing `dir`, on a fresh branch.
  * Returns null if `dir` isn't a git repo or the worktree couldn't be created
  * (caller should fall back to running in place).
  */
-export async function createWorktree(dir: string, label: string, runId: string): Promise<Worktree | null> {
+export async function createWorktree(
+  dir: string,
+  label: string,
+  runId: string,
+  opts?: CreateWorktreeOpts,
+): Promise<Worktree | null> {
   const root = await gitRoot(dir);
   if (!root) return null;
   const wtPath = path.join(os.tmpdir(), "hangar-worktrees", runId, path.basename(root));
-  const branch = `hangar/${sanitize(label)}-${runId.slice(0, 8)}`;
+
+  let branch: string;
+  let gitArgs: string[];
+
+  if (opts?.existingBranch) {
+    branch = opts.existingBranch;
+    gitArgs = ["-C", root, "worktree", "add", wtPath, branch];
+  } else {
+    branch = opts?.branchName ?? `hangar/${sanitize(label)}-${runId.slice(0, 8)}`;
+    gitArgs = ["-C", root, "worktree", "add", "-b", branch, wtPath];
+    if (opts?.baseBranch) gitArgs.push(opts.baseBranch);
+  }
+
   try {
     fs.mkdirSync(path.dirname(wtPath), { recursive: true });
-    await exec("git", ["-C", root, "worktree", "add", "-b", branch, wtPath]);
+    await exec("git", gitArgs);
     return { path: wtPath, branch, repoRoot: root };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Find the worktree path for a given branch by parsing `git worktree list --porcelain`.
+ * Returns null if the branch has no registered worktree or the repo root can't be resolved.
+ */
+export async function findWorktreePath(repoRoot: string, branch: string): Promise<string | null> {
+  try {
+    const { stdout } = await exec("git", ["-C", repoRoot, "worktree", "list", "--porcelain"]);
+    for (const block of stdout.trim().split(/\n\n+/)) {
+      const wtMatch = block.match(/^worktree (.+)$/m);
+      const branchMatch = block.match(/^branch refs\/heads\/(.+)$/m);
+      if (wtMatch && branchMatch && branchMatch[1] === branch) return wtMatch[1];
+    }
+    return null;
   } catch {
     return null;
   }

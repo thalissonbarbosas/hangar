@@ -35,6 +35,17 @@ delete process.env.HANGAR_DEMO;
 for (const k of ["JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_MY_TICKETS_ONLY"])
   process.env[k] = "";
 
+// aiwf.ts now imports worktree.ts; mock it so we don't need a real git repo or execFile.
+jest.mock("../worktree", () => ({
+  createWorktree: jest.fn(async () => null),
+  findWorktreePath: jest.fn(async () => null),
+  sanitize: (s: string) =>
+    s
+      .replace(/[^A-Za-z0-9._-]/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "run",
+}));
+
 import * as aiwf from "../aiwf";
 import { AiwfProject } from "../types";
 
