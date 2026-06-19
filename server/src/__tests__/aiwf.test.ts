@@ -87,6 +87,76 @@ describe("constants", () => {
   });
 });
 
+describe("listSpecCards / getSpecCard", () => {
+  let specsDir: string;
+  beforeEach(() => {
+    specsDir = path.join(REPO, "docs", "specs");
+    fs.mkdirSync(specsDir, { recursive: true });
+  });
+  afterEach(() => {
+    fs.rmSync(path.join(REPO, "docs"), { recursive: true, force: true });
+  });
+
+  it("parses a single-file spec: key, summary (heading stripped), kind, source, status, description prefix", () => {
+    fs.writeFileSync(path.join(specsDir, "001_foo.md"), "# Spec 001 — Foo\n\nBody text.");
+    const cards = aiwf.listSpecCards(project);
+    expect(cards).toHaveLength(1);
+    expect(cards[0].key).toBe("SPEC-001");
+    expect(cards[0].summary).toBe("Foo");
+    expect(cards[0].kind).toBe("spec");
+    expect(cards[0].source).toBe("aiwf");
+    expect(cards[0].status).toBe("Implementation");
+    expect(cards[0].description).toMatch(/^Spec: docs[/\\]specs[/\\]001_foo\.md/);
+  });
+
+  it("parses a sliced spec directory (README.md inside NNN_dir/)", () => {
+    const dir = path.join(specsDir, "006_bar");
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, "README.md"), "# Feature: Bar\n\nContent.");
+    const cards = aiwf.listSpecCards(project);
+    expect(cards).toHaveLength(1);
+    expect(cards[0].key).toBe("SPEC-006");
+    expect(cards[0].summary).toBe("Bar");
+  });
+
+  it("ignores slice files inside a spec directory (not top-level entries)", () => {
+    const dir = path.join(specsDir, "006_bar");
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, "README.md"), "# Bar\n");
+    fs.writeFileSync(path.join(dir, "001_slice-a.md"), "# Slice A\n");
+    const cards = aiwf.listSpecCards(project);
+    expect(cards).toHaveLength(1);
+    expect(cards[0].key).toBe("SPEC-006");
+  });
+
+  it("returns [] when docs/specs/ does not exist", () => {
+    fs.rmSync(specsDir, { recursive: true, force: true });
+    expect(aiwf.listSpecCards(project)).toEqual([]);
+  });
+
+  it("returns [] in demo mode", () => {
+    process.env.HANGAR_DEMO = "1";
+    try {
+      fs.writeFileSync(path.join(specsDir, "001_foo.md"), "# Foo\n");
+      expect(aiwf.listSpecCards(project)).toEqual([]);
+    } finally {
+      delete process.env.HANGAR_DEMO;
+    }
+  });
+
+  it("getSpecCard returns the matching card for a known SPEC-NNN key", () => {
+    fs.writeFileSync(path.join(specsDir, "001_foo.md"), "# Foo\n");
+    expect(aiwf.getSpecCard(project, "SPEC-001")).not.toBeNull();
+    expect(aiwf.getSpecCard(project, "SPEC-001")?.key).toBe("SPEC-001");
+  });
+
+  it("getSpecCard returns null for an unknown key or non-SPEC prefix", () => {
+    fs.writeFileSync(path.join(specsDir, "001_foo.md"), "# Foo\n");
+    expect(aiwf.getSpecCard(project, "SPEC-999")).toBeNull();
+    expect(aiwf.getSpecCard(project, "X-1")).toBeNull();
+  });
+});
+
 describe("skillNeedsWorktree", () => {
   it("isolates source-editing implementation skills in a worktree", () => {
     for (const s of ["feature", "fix"]) {
