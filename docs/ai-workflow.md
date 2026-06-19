@@ -112,19 +112,18 @@ roadmap task into the project's board dir (Hangar passes it the absolute data-di
 
 ### Execution model
 
-Most AI Workflow sessions run **in place** in the project repo (`skipWorktree`), not in an isolated
-Hangar worktree, because aiwf manages its own git (it has `/commit` and `/pr`) and its planning/doc
-skills must write into the real repo. The exception is **code-producing implementation skills** —
-`feature` and `fix` (`WORKTREE_SKILLS` / `skillNeedsWorktree` in `server/src/aiwf.ts`) — which mutate
-source directly in their own run, so they run in their own git worktree + branch like any other Hangar
+Most AI Workflow sessions run **in place** in the project repo, not in an isolated Hangar worktree,
+because aiwf manages its own git (it has `/commit` and `/pr`) and its planning/doc skills must write
+into the real repo. The exception is **code-producing implementation skills** — `feature` and `fix`
+— which mutate source directly, so they run in their own git worktree + branch like any other Hangar
 run; parallel implementation runs (and your own working tree) can't clobber each other, and the
 worktree branch persists for inspection/PR until the run is deleted. The `autopilot`/`factory`
 orchestrators stay in place: they spawn their own worktree subagents and open their own PRs, so an
 extra outer worktree would only fragment their git work. Each run is a normal `kind: "skill"` session
 streamed into the run panel; on success its result is logged to the card via `appendCardHistory`.
-If a GitHub PR URL was detected in the run's streamed output (`run.prUrl`), it is also written to
-the card's `pr:` frontmatter at that point — so the link persists across Hangar restarts and shows
-on the board card even after the run is cleared.
+If a GitHub PR URL was detected in the run's streamed output, it is also written to the card's `pr:`
+frontmatter at that point — so the link persists across Hangar restarts and shows on the board card
+even after the run is cleared.
 
 ### Card file format
 
