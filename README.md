@@ -21,9 +21,9 @@ run, with a human in the loop when it matters.
 - **Your Jira, as a board** — tickets stream in live as Kanban columns, across multiple
   projects. Filter by assignee or text, and drag a card between columns to transition the issue.
 - **Launch an agent on a ticket** — pick from your `~/.claude/agents` and `~/.claude/skills`,
-  optionally add a note, and run. The session runs in that board's repo (with extra repos passed
-  as `additionalDirectories` for cross-repo work).
-- **Live run panel** — token-by-token output, tool calls, the captured session id and running
+  optionally add a note, and run. The session runs in that board's repo (with extra repos accessible
+  in the same session for cross-repo work).
+- **Live run panel** — live output, tool calls, the captured session id and running
   cost, and an auto-detected PR link.
 - **Human-in-the-loop** — run unrestricted, or _gated_: reads and edits auto-run while risky
   shell commands pause for approval. Agent questions surface right in the panel with answer buttons.
@@ -101,9 +101,9 @@ that can reach port 3001 can start agent sessions, read run transcripts, and mod
 
 <img src="docs/done.png" alt="A finished agent session" width="880" />
 
-**Sessions view** — every run, active first, with state, model, age, cost, a PR link when one was
-opened, and **Open in terminal** to resume a session in your own terminal (set it up in **Settings →
-Terminal**):
+**Sessions view** — every run, grouped by project with a tab bar, with state, model, age, cost, a
+PR link when one was opened. **Resume** continues a finished session in-app; **Open in terminal**
+hands it off to your shell (set it up in **Settings → Terminal**):
 
 <img src="docs/sessions.png" alt="The sessions view" width="880" />
 
