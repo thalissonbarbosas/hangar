@@ -42,6 +42,11 @@ The AI Workflow sub-bar shows install state and an options menu:
 - **Install** — a one-click button (with a confirm) runs the aiwf bootstrap
   (`curl -fsSL …/bootstrap.sh | bash`) via `POST /api/aiwf/install`. Hangar only mutates `~/.claude`
   on your click.
+- **Skills guide (📖)** — a **BookOpen** button opens a modal that lists every aiwf skill
+  organised by phase tab (Planning → Design → Implementation → Review → Delivery). Each skill
+  shows its name and description; skills not yet installed appear dimmed with a **not installed**
+  badge. Descriptions are read from the installed skill's own frontmatter, with static fallbacks
+  for uninstalled ones.
 - **Options menu (⋯)** — open the repo, open the author, **Reinstall**, and **Uninstall**.
   Uninstall (`POST /api/aiwf/uninstall`) runs `aiwf uninstall-all` — it removes the **toolkit only**;
   your projects and their board cards are never touched.
