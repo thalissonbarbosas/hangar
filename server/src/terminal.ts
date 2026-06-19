@@ -21,9 +21,16 @@ export function resumeCommand(sessionId: string): string {
   return `claude --resume ${sessionId}`;
 }
 
+/** Shell-quote a string using single-quote escaping: safe for any path character. */
+function shellQuote(s: string): string {
+  return "'" + s.replace(/'/g, "'\\''") + "'";
+}
+
 /** Substitute `{{dir}}` and `{{command}}` (any number of times) in a terminal template. */
 export function renderTerminalCommand(template: string, dir: string, command: string): string {
-  return template.replace(PLACEHOLDER, (_m, key) => (key === "dir" ? dir : command));
+  // dir is shell-quoted so paths with spaces or metacharacters are safe.
+  // Write {{dir}} without surrounding quotes in your template (e.g. `cd {{dir}}` not `cd "{{dir}}"`).
+  return template.replace(PLACEHOLDER, (_m, key) => (key === "dir" ? shellQuote(dir) : command));
 }
 
 export class TerminalError extends Error {}
@@ -43,9 +50,7 @@ export function buildTerminalCommand(run: Run): string {
   if (!run.cwd || !existsSync(run.cwd)) {
     throw new TerminalError(`The session's working directory no longer exists: ${run.cwd}`);
   }
-  // `cwd` is interpolated raw: it's server-generated (a worktree temp dir or an operator-set repo
-  // path), never end-user input, and the session id is regex-validated above — so the only shell
-  // the rendered string reaches is the operator's own (matching the app's bypass-permissions model).
+  // dir is shell-quoted by renderTerminalCommand; session id is validated above.
   return renderTerminalCommand(template, run.cwd, resumeCommand(run.sessionId));
 }
 
