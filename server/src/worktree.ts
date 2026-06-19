@@ -57,3 +57,14 @@ export async function removeWorktree(wt: Worktree): Promise<void> {
     // best effort — leave it for `git worktree prune`
   }
 }
+
+/** Run `git worktree prune` in the repo containing `dir` to remove stale worktree entries.
+ *  Best-effort — errors are swallowed. */
+export async function pruneWorktrees(dir: string): Promise<void> {
+  try {
+    const root = await gitRoot(dir);
+    if (root) await exec("git", ["-C", root, "worktree", "prune"]);
+  } catch {
+    /* best effort */
+  }
+}
