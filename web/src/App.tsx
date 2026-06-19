@@ -35,6 +35,7 @@ import { SkillRunner } from "./components/SkillRunner";
 import { WorkflowsBar } from "./components/WorkflowsBar";
 import { AiWorkflowView, AiWorkflowBar } from "./components/AiWorkflow";
 import { useTheme } from "./useTheme";
+import { filterByBoard } from "./utils";
 
 // Two connections (sources) share the board surface; overlays take over the main area.
 type Connection = "jira" | "aiworkflow";
@@ -128,6 +129,16 @@ export function App() {
     if (!found.size) return skills;
     return skills.map((s) => (found.has(s.name) ? { ...s, aiwf: true as const } : s));
   }, [skills, aiwf]);
+
+  // Board-scoped filtering for the active run's HandoffModal.
+  // Extract board key = text before the first "-" in ticketKey (e.g. "PP" from "PP-123").
+  // Ad-hoc/standalone runs use "ad-hoc" or a title with no "-" → no board match → full list.
+  const { agents: activeRunAgents, skills: activeRunSkills } = useMemo(() => {
+    if (!activeRun) return { agents, skills: enrichedSkills };
+    const boardKey = activeRun.ticketKey.split("-")[0];
+    const board = boards.find((b) => b.key === boardKey) ?? null;
+    return filterByBoard(board, agents, enrichedSkills);
+  }, [activeRun, boards, agents, enrichedSkills]);
 
   const refreshRuns = useCallback(() => {
     api
@@ -548,6 +559,7 @@ export function App() {
             agents={agents}
             skills={enrichedSkills}
             codebasePaths={codebasePaths}
+            boards={boards}
             onRun={runStandalone}
           />
         </div>
@@ -604,8 +616,8 @@ export function App() {
           ticketKey={activeRun.ticketKey}
           agentName={activeRun.agentName}
           ticketUrl={activeRun.ticketUrl}
-          agents={agents}
-          skills={enrichedSkills}
+          agents={activeRunAgents}
+          skills={activeRunSkills}
           onHandoff={handoff}
           onClose={() => setActiveRun(null)}
         />
