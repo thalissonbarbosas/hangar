@@ -41,13 +41,23 @@ describe("resumeCommand", () => {
 describe("renderTerminalCommand", () => {
   it("substitutes {{dir}} and {{command}}, including repeats and whitespace", () => {
     const out = renderTerminalCommand("cd {{dir}}; {{ command }}; echo {{dir}}", "/x", "go");
-    expect(out).toBe("cd /x; go; echo /x");
+    expect(out).toBe("cd '/x'; go; echo '/x'");
+  });
+
+  it("shell-quotes dir with spaces", () => {
+    const out = renderTerminalCommand("cd {{dir}}", "/my projects/repo", "");
+    expect(out).toBe("cd '/my projects/repo'");
+  });
+
+  it("shell-quotes dir containing a single quote", () => {
+    const out = renderTerminalCommand("cd {{dir}}", "/it's/here", "");
+    expect(out).toBe("cd '/it'\\''s/here'");
   });
 });
 
 describe("buildTerminalCommand", () => {
   it("renders the configured template for a valid run", () => {
-    expect(buildTerminalCommand(run())).toBe("open /tmp/wt && claude --resume abc-123");
+    expect(buildTerminalCommand(run())).toBe("open '/tmp/wt' && claude --resume abc-123");
   });
 
   it("throws when no terminal is configured", () => {
@@ -74,7 +84,7 @@ describe("openInTerminal", () => {
   it("spawns the rendered command via the shell, detached, and unrefs it", () => {
     process.env.SHELL = "/bin/zsh";
     const cmd = openInTerminal(run());
-    expect(cmd).toBe("open /tmp/wt && claude --resume abc-123");
+    expect(cmd).toBe("open '/tmp/wt' && claude --resume abc-123");
     expect(mockSpawn).toHaveBeenCalledWith("/bin/zsh", ["-c", cmd], {
       detached: true,
       stdio: "ignore",
@@ -84,7 +94,7 @@ describe("openInTerminal", () => {
 
   it("does not spawn in demo mode", () => {
     mockIsDemo.mockReturnValue(true);
-    expect(openInTerminal(run())).toBe("open /tmp/wt && claude --resume abc-123");
+    expect(openInTerminal(run())).toBe("open '/tmp/wt' && claude --resume abc-123");
     expect(mockSpawn).not.toHaveBeenCalled();
   });
 
