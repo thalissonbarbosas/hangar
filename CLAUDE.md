@@ -102,8 +102,9 @@ its own key.
 - **Naming**: the product is **Hangar**. The old name was FleetView — do not reintroduce it.
   The folder is `hangar/`, config is `hangar.config.json`, data dir `.hangar/`, injected env is
   `HANGAR_*`, and worktree branches are `hangar/…`.
-- Adding a config field: update the `HangarConfig` type, `validateConfig`/`saveConfig` in
-  `config.ts`, the Settings UI, and `README.md`.
+- Adding a config field: use **`/config-field`** — it enforces all five touch-points:
+  `HangarConfig` type, `validateConfig`/`saveConfig` in `config.ts`, the mirrored `FullConfig` in
+  `web/src/types.ts`, the Settings UI, and `README.md`.
 - Adding an API route: define it in `index.ts`, add a typed wrapper in `web/src/api.ts`, and keep
   `web/src/types.ts` in sync with `server/src/types.ts`.
 - Never commit `.env`, `hangar.config.json`, or anything under `.hangar/` — all gitignored
@@ -116,6 +117,7 @@ its own key.
   new standalone doc files to the repo root.
 - **AI Workflow doc (required)**: whenever you change the AI Workflow connection — its routes, board
   model, phases/skills, config shape, install flow, or card format — update `docs/ai-workflow.md` in
-  the same change.
+  the same change. Run **`/aiwf-sync`** after any such change to verify the doc is in sync.
 - No automated tests exist yet — verify changes with `npm run typecheck` and, where it matters, by
-  running `npm run dev` and exercising the flow in the UI.
+  running `npm run dev` and exercising the flow in the UI. Run **`/smoke`** before merging any
+  server change — it boots demo mode and exercises the critical API paths end-to-end.
