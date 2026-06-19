@@ -620,6 +620,8 @@ export function App() {
           skills={activeRunSkills}
           onHandoff={handoff}
           onClose={() => setActiveRun(null)}
+          onOpenInTerminal={() => openInTerminal(activeRun.runId)}
+          terminalConfigured={terminalConfigured}
         />
       )}
     </div>
