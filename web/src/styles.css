@@ -18,6 +18,7 @@ html[data-theme="dark"] {
   --border-strong: #353d52;
   --text: #e8ebf2;
   --text-muted: #99a2b5;
+  --text-dim: #8b93a3;
   --text-faint: #6b7488;
   --accent: #6e8bff;
   --accent-hover: #8aa0ff;
@@ -40,6 +41,7 @@ html[data-theme="light"] {
   --border-strong: #ccd2dd;
   --text: #1a1e29;
   --text-muted: #59616f;
+  --text-dim: #747882;
   --text-faint: #8b93a3;
   --accent: #5566ef;
   --accent-hover: #4453d6;
@@ -175,6 +177,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  overflow: hidden;
 }
 
 .topbar {
@@ -269,6 +272,7 @@ body {
 }
 .boards-area {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 20px;
   display: flex;
@@ -551,6 +555,7 @@ html[data-theme="light"] .model-haiku {
 /* ============================ settings ============================ */
 .settings-area {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 24px;
 }
@@ -2886,6 +2891,7 @@ a.session-ticket {
 /* ---- AI Workflow phase board ---- */
 .aiwf-board-area {
   flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 20px;
 }
