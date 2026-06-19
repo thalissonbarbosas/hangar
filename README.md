@@ -138,7 +138,8 @@ instead of a tracker: Hangar detects/installs the toolkit, sets up a project, an
 phase-lifecycle board (`Planning → Design → Implementation → Review → Delivery → Complete`) whose cards
 are work threads stored in the repo. Runs are executed by Claude (the existing engine). Each project
 chip can be edited to change its name or location (the repo path) in place. Cards support per-card
-**archive**, **delete**, and **see data** actions via a `⋯` menu.
+**archive**, **delete**, and **see data** actions via a `⋯` menu. A **📖 Skills guide** button in
+the sub-bar shows every aiwf skill by phase tab, with install status and descriptions.
 
 **→ Full guide: [`docs/ai-workflow.md`](docs/ai-workflow.md).**
 
