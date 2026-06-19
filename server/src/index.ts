@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import { existsSync, mkdirSync } from "fs";
 import { randomUUID } from "crypto";
 import {
@@ -75,6 +76,16 @@ import { HangarConfig, Ticket, AiwfProject } from "./types";
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Limit session-spawning endpoints: 30 requests per minute per IP.
+// Hangar is a single-operator tool; this guards against runaway loops or misconfigured clients.
+const runCreateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many sessions started — slow down and try again in a minute." },
+});
 
 loadConfig(); // initialize (throws early if the config file is invalid)
 loadPersistedRuns(); // restore runs saved before the last restart
@@ -453,7 +464,7 @@ app.delete("/api/aiwf/projects/:id/cards/:key", (req, res) => {
 
 // Start a phase skill as an in-place session against a card. The card's current phase is
 // recorded so the result lands in that phase of its history; the roadmap skill also seeds cards.
-app.post("/api/aiwf/projects/:id/cards/:key/run", (req, res) => {
+app.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
   if (isDemo()) return res.json({ runId: "demo" }); // no real sessions in demo
@@ -487,7 +498,7 @@ app.post("/api/aiwf/projects/:id/cards/:key/run", (req, res) => {
 
 // Start a run. Either ticket-based ({ ticket, name, kind, note? }) or standalone
 // ({ name, kind, note, cwd?, title? } — the note is the task, no ticket required).
-app.post("/api/runs", (req, res) => {
+app.post("/api/runs", runCreateLimiter, (req, res) => {
   const ticket = req.body?.ticket as Ticket | undefined;
   const name = String(req.body?.name ?? req.body?.agentName ?? "");
   const kind = req.body?.kind === "skill" ? "skill" : "agent";
@@ -597,7 +608,7 @@ app.delete("/api/runs/:id", async (req, res) => {
 // ---------------- Board workflows (sequential agent pipelines) ----------------
 
 // Start a workflow on a ticket: { boardKey, workflowId, ticket }.
-app.post("/api/workflows/runs", async (req, res) => {
+app.post("/api/workflows/runs", runCreateLimiter, async (req, res) => {
   const boardKey = String(req.body?.boardKey ?? "");
   const workflowId = String(req.body?.workflowId ?? "");
   const ticket = req.body?.ticket as Ticket | undefined;
