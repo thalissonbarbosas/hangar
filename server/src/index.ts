@@ -513,12 +513,9 @@ app.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, async (req, 
     } else if (taskWt === null && TASK_WORKTREE_SKILLS.has(skill)) {
       // resolveTaskWorktree returned null: either createWorktree failed (e.g. branch already checked
       // out in another worktree) or a git error. Abort rather than silently running in the wrong dir.
-      return res
-        .status(503)
-        .json({
-          error:
-            "Could not create task worktree — branch may already be checked out. Check git worktree list.",
-        });
+      return res.status(503).json({
+        error: "Could not create task worktree — branch may already be checked out. Check git worktree list.",
+      });
     }
   }
 
