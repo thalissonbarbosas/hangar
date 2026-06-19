@@ -1,16 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sparkles, Bot, Play, FolderGit2 } from "lucide-react";
-import { Agent, RunKind, Skill } from "../types";
+import { Agent, BoardConfig, RunKind, Skill } from "../types";
+import { filterByBoard } from "../utils";
 
 export function SkillRunner({
   agents,
   skills,
   codebasePaths,
+  boards,
   onRun,
 }: {
   agents: Agent[];
   skills: Skill[];
   codebasePaths: string[];
+  boards: BoardConfig[];
   onRun: (name: string, kind: RunKind, note: string, cwd?: string, title?: string) => void;
 }) {
   const [kind, setKind] = useState<RunKind>("skill");
@@ -20,7 +23,24 @@ export function SkillRunner({
 
   useEffect(() => setName(""), [kind]); // reset selection when switching kind
 
-  const options = kind === "skill" ? skills : agents;
+  // Derive the board whose resolvedPaths contains the selected cwd.
+  const activeBoard = useMemo((): BoardConfig | null => {
+    if (!cwd) return null;
+    return boards.find((b) => (b.resolvedPaths ?? (b.repoPath ? [b.repoPath] : [])).includes(cwd)) ?? null;
+  }, [cwd, boards]);
+
+  const { agents: filteredAgents, skills: filteredSkills } = useMemo(
+    () => filterByBoard(activeBoard, agents, skills),
+    [activeBoard, agents, skills],
+  );
+
+  // Reset selected name if it is no longer available after a cwd change.
+  useEffect(() => {
+    const opts = kind === "skill" ? filteredSkills : filteredAgents;
+    if (name && !opts.some((o) => o.name === name)) setName("");
+  }, [filteredAgents, filteredSkills, kind, name]);
+
+  const options = kind === "skill" ? filteredSkills : filteredAgents;
   const canRun = !!name && !!note.trim();
 
   function run() {
