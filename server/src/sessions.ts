@@ -385,6 +385,11 @@ export async function deleteRun(id: string): Promise<boolean> {
   const run = runs.get(id);
   if (!run) return false;
   if (ACTIVE.includes(run.state)) await stopRun(run);
+  const t = saveTimers.get(id);
+  if (t) {
+    clearTimeout(t);
+    saveTimers.delete(id);
+  }
   await cleanupWorktrees(run);
   runs.delete(id);
   deleteRunRecord(id);
@@ -401,6 +406,11 @@ export async function clearRuns(scope: "finished" | "all", ids?: Set<string>): P
     if (scope === "finished" && active) continue;
     if (active) await stopRun(run);
     await cleanupWorktrees(run);
+    const t = saveTimers.get(run.id);
+    if (t) {
+      clearTimeout(t);
+      saveTimers.delete(run.id);
+    }
     runs.delete(run.id);
     deleteRunRecord(run.id);
     n++;
