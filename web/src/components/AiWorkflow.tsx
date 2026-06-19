@@ -1078,7 +1078,7 @@ function AiwfGuidanceModal({
               >
                 <span className="aiwf-guide-tab-dot" style={{ background: color }} />
                 {group.phase}
-                {idx < groups.length - 1 && !active && <span className="aiwf-guide-tab-arrow">→</span>}
+                {idx < groups.length - 1 && <span className="aiwf-guide-tab-arrow">→</span>}
               </button>
             );
           })}
@@ -1088,7 +1088,7 @@ function AiwfGuidanceModal({
           <div className="aiwf-guide-skills">
             {activeGroup.skills.map((name) => {
               const installed = skillsByName.has(name);
-              const desc = skillsByName.get(name)?.description || SKILL_DESCRIPTIONS[name] || "";
+              const desc = SKILL_DESCRIPTIONS[name] || skillsByName.get(name)?.description || "";
               return (
                 <div key={name} className={`aiwf-guide-skill${installed ? "" : " not-installed"}`}>
                   <span className="aiwf-guide-skill-label">
