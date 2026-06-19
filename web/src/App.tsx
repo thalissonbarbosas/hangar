@@ -509,6 +509,7 @@ export function App() {
           status={aiwf}
           projects={aiwfProjects}
           selectedId={aiwfSelected}
+          skills={enrichedSkills}
           onSelect={setAiwfSelected}
           onReload={loadAiwf}
           onError={setError}
