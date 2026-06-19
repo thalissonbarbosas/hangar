@@ -281,9 +281,9 @@ app.get("/api/aiwf/status", (_req, res) => {
 });
 
 // One-click install (the client confirms first). Runs the aiwf bootstrap script.
-app.post("/api/aiwf/install", (_req, res) => {
+app.post("/api/aiwf/install", async (_req, res) => {
   try {
-    const { status, output } = installAiwf();
+    const { status, output } = await installAiwf();
     res.json({ ...status, output: output.slice(-2000) });
   } catch (err) {
     res.status(500).json({ error: String(err instanceof Error ? err.message : err) });
@@ -291,9 +291,9 @@ app.post("/api/aiwf/install", (_req, res) => {
 });
 
 // Uninstall aiwf from ~/.claude (toolkit only — projects and their .aiwf/board cards are kept).
-app.post("/api/aiwf/uninstall", (_req, res) => {
+app.post("/api/aiwf/uninstall", async (_req, res) => {
   try {
-    const { status, output } = uninstallAiwf();
+    const { status, output } = await uninstallAiwf();
     res.json({ ...status, output: output.slice(-2000) });
   } catch (err) {
     res.status(500).json({ error: String(err instanceof Error ? err.message : err) });
