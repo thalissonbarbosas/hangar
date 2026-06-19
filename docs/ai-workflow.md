@@ -20,10 +20,10 @@ model. A project that happens to be Gemini-based (`GEMINI.md`) just becomes cont
 
 ai-workflow is a Claude-native, spec-driven-development toolkit installed globally into `~/.claude/`
 (`skills/`, `agents/`, `commands/`, `CLAUDE.md`, `settings.json`) plus an `aiwf` launcher in
-`~/.local/bin/`. Because Hangar already reads `~/.claude/skills` (`server/src/skills.ts`), **once aiwf
+`~/.local/bin/`. Because Hangar already reads `~/.claude/skills`, **once aiwf
 is installed its skills appear in Hangar automatically** — no extra wiring.
 
-The skills, by lifecycle phase (this mapping is `SKILL_GROUPS` in `server/src/aiwf.ts`):
+The skills, by lifecycle phase:
 
 | Phase            | Skills                                                       |
 | ---------------- | ------------------------------------------------------------ |
@@ -80,7 +80,7 @@ the removed project was the selected one, the view falls back to the first remai
 ## The phase board
 
 The board **columns are the aiwf lifecycle phases** plus a terminal **Complete** column
-(`DEFAULT_COLUMNS`, configurable per project):
+(configurable per project):
 
 ```
 Planning → Design → Implementation → Review → Delivery → Complete
@@ -104,9 +104,9 @@ A **card is a work thread** that flows through the phases:
   - **Delete** — permanently removes the card file (with a confirm). Run records under
     `<DATA_DIR>/runs/` are unaffected.
 
-Per-phase skills come from `COLUMN_SKILLS` (derived from `SKILL_GROUPS`; the `Complete` column has
-none). The `roadmap` skill is additionally instructed to **seed the board** — it writes one card per
-roadmap task into the project's board dir (Hangar passes it the absolute data-dir path).
+Each phase column's skill list matches the table above; the `Complete` column has none. The `roadmap`
+skill is additionally instructed to **seed the board** — it writes one card per roadmap task into
+the project's board dir (Hangar passes it the absolute data-dir path).
 
 <img src="aiwf-new-item.png" alt="Creating a session or task in a phase column" width="640" />
 
@@ -119,8 +119,8 @@ into the real repo. The exception is **code-producing implementation skills** �
 run; parallel implementation runs (and your own working tree) can't clobber each other, and the
 worktree branch persists for inspection/PR until the run is deleted. The `autopilot`/`factory`
 orchestrators stay in place: they spawn their own worktree subagents and open their own PRs, so an
-extra outer worktree would only fragment their git work. Each run is a normal `kind: "skill"` session
-streamed into the run panel; on success its result is logged to the card via `appendCardHistory`.
+extra outer worktree would only fragment their git work. Each run is a normal skill session streamed into the run panel; on success its result is logged to
+the card's history.
 If a GitHub PR URL was detected in the run's streamed output, it is also written to the card's `pr:`
 frontmatter at that point — so the link persists across Hangar restarts and shows on the board card
 even after the run is cleared.
@@ -149,8 +149,8 @@ HANGAR_HISTORY-->
 
 `status` is the card's current phase column; `kind` is `thread` (runs skills) or `task` (manual).
 `archived: true` marks a card as soft-hidden from the active columns (omitted on active cards).
-A card maps onto Hangar's `Ticket` shape (`summary`=title, `boardKey`=project id, `source: "aiwf"`,
-`description`=body) so runs / the run panel work unchanged.
+Cards integrate directly with Hangar's run engine, so the run panel, sessions view, and all run
+features work unchanged for aiwf cards.
 
 ## Configuration
 
@@ -172,8 +172,8 @@ In `hangar.config.json` (template: `hangar.config.example.json`):
 }
 ```
 
-`columns` is optional (defaults to the phases + Complete). The list is validated and persisted by
-`validateConfig` / `saveConfig` in `server/src/config.ts`.
+`columns` is optional (defaults to the phases + Complete). The list is validated on save and
+hot-reloaded — no restart needed.
 
 ## API
 
