@@ -3101,35 +3101,44 @@ a.session-ticket {
 
 /* ---- AI Workflow skills guide modal ---- */
 .aiwf-guide-modal {
-  width: min(860px, 96vw);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 860px;
+  height: 560px;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  /* override the base .modal centering so our fixed positioning takes over */
+  margin: 0;
 }
 .aiwf-guide-intro {
   font-size: 13px;
   color: var(--text-muted);
-  margin: 4px 0 14px;
+  margin: 4px 0 12px;
   line-height: 1.55;
+  flex-shrink: 0;
 }
 /* Phase tabs */
 .aiwf-guide-tabs {
   display: flex;
   gap: 2px;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   overflow-x: auto;
+  flex-shrink: 0;
 }
 .aiwf-guide-tab {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px;
+  height: 25px;
+  padding: 0 12px;
   border: none;
   border-bottom: 2px solid transparent;
   background: none;
   color: var(--text-muted);
-  font: 600 12px var(--font);
+  font: 600 11px var(--font);
   cursor: pointer;
   white-space: nowrap;
   transition:
@@ -3144,8 +3153,8 @@ a.session-ticket {
   background: none;
 }
 .aiwf-guide-tab-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -3154,11 +3163,14 @@ a.session-ticket {
   color: var(--text-faint);
   font-weight: 400;
 }
-/* Skills list */
+/* Skills list — scrollable, fills remaining modal height */
 .aiwf-guide-skills {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 .aiwf-guide-skill {
   display: flex;
@@ -3196,11 +3208,12 @@ a.session-ticket {
   flex: 1;
 }
 .aiwf-guide-footer {
-  margin-top: 16px;
+  margin-top: 14px;
   font-size: 12px;
   color: var(--text-faint);
   border-top: 1px solid var(--border);
-  padding-top: 12px;
+  padding-top: 10px;
+  flex-shrink: 0;
 }
 .aiwf-guide-footer a {
   color: var(--accent);
