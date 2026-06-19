@@ -72,6 +72,7 @@ import {
   loadPersistedWorkflowRuns,
 } from "./workflows";
 import { HangarConfig, Ticket, AiwfProject } from "./types";
+import { pruneWorktrees } from "./worktree";
 
 const app = express();
 app.use(cors());
@@ -702,4 +703,19 @@ if (require.main === module) {
     console.log(`  agentsDir: ${getConfig().agentsDir}`);
     console.log(`  jira: ${jira ? jira.baseUrl : "NOT CONFIGURED (set in Settings)"}`);
   });
+
+  // Graceful shutdown: clean up active runs and worktrees before exiting.
+  async function shutdown(signal: string): Promise<void> {
+    console.log(`[hangar] ${signal} received — shutting down gracefully`);
+    await Promise.allSettled([clearRuns("all"), clearWorkflowRuns("all")]);
+    process.exit(0);
+  }
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+
+  // Prune stale worktrees left over from any previous crash (best-effort, non-blocking).
+  for (const board of getConfig().boards) {
+    const paths = boardPaths(board);
+    if (paths[0]) pruneWorktrees(paths[0]).catch(() => {});
+  }
 }
