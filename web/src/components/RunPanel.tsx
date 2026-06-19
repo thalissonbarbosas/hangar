@@ -49,6 +49,8 @@ export function RunPanel({
   skills,
   onHandoff,
   onClose,
+  onOpenInTerminal,
+  terminalConfigured,
 }: {
   runId: string;
   ticketKey: string;
@@ -58,6 +60,8 @@ export function RunPanel({
   skills: Skill[];
   onHandoff: (name: string, kind: RunKind, note: string) => void;
   onClose: () => void;
+  onOpenInTerminal?: () => void;
+  terminalConfigured?: boolean;
 }) {
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [submitting, setSubmitting] = useState<Set<string>>(new Set());
@@ -65,6 +69,7 @@ export function RunPanel({
   const [reconnect, setReconnect] = useState(0);
   const [composer, setComposer] = useState("");
   const [sending, setSending] = useState(false);
+  const [terminalWarning, setTerminalWarning] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   // Reconnecting (bumped after sending a follow-up) re-opens the SSE so a resumed/steered
@@ -185,6 +190,21 @@ export function RunPanel({
                 <RotateCcw size={13} /> Resume
               </button>
             )}
+            {!isActive(state) && sessionId && onOpenInTerminal && (
+              <button
+                className="btn-ghost sm"
+                onClick={() => {
+                  if (!terminalConfigured) {
+                    setTerminalWarning(true);
+                    return;
+                  }
+                  onOpenInTerminal();
+                }}
+                title="Resume this session in your terminal"
+              >
+                <Terminal size={13} /> Terminal
+              </button>
+            )}
             <button
               className="btn-ghost sm"
               onClick={() => setHandoff(true)}
@@ -202,6 +222,13 @@ export function RunPanel({
             </button>
           </div>
         </header>
+
+        {terminalWarning && (
+          <div className="banner warn">
+            <AlertCircle size={14} /> No terminal configured. Set your default terminal in{" "}
+            <b>Settings → Terminal</b> to use "Open in terminal".
+          </div>
+        )}
 
         <div className="run-sub">
           {ticketUrl && (
