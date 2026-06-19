@@ -21,12 +21,14 @@ import {
   detectAiwf,
   installAiwf,
   listCards,
+  listSpecCards,
   createCard,
   transitionCard,
   setCardArchived,
   deleteCard,
   uninstallAiwf,
   getCard,
+  getSpecCard,
   boardDir,
   columnsFor,
   projectRunNote,
@@ -399,11 +401,13 @@ function requireAiwfProject(res: express.Response, id: string): AiwfProject | nu
   return p;
 }
 
-// The project's board cards (markdown files in <DATA_DIR>/aiwf/<projectId>/board).
+// The project's board cards (markdown files in <DATA_DIR>/aiwf/<projectId>/board) plus
+// read-only spec cards sourced from <repoPath>/docs/specs/. Spec cards have kind:"spec".
+// Both list functions handle demo mode internally (listSpecCards returns [] in demo mode).
 app.get("/api/aiwf/projects/:id/cards", (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
-  res.json({ tickets: listCards(p) });
+  res.json({ tickets: [...listCards(p), ...listSpecCards(p)] });
 });
 
 app.post("/api/aiwf/projects/:id/cards", (req, res) => {
@@ -428,6 +432,7 @@ app.post("/api/aiwf/projects/:id/cards", (req, res) => {
 app.post("/api/aiwf/projects/:id/cards/:key/transition", (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
+  if (req.params.key.startsWith("SPEC-")) return res.status(400).json({ error: "Spec cards are read-only." });
   const status = String(req.body?.status ?? "").trim();
   if (!status) return res.status(400).json({ error: "status is required" });
   try {
@@ -443,6 +448,7 @@ app.post("/api/aiwf/projects/:id/cards/:key/transition", (req, res) => {
 app.post("/api/aiwf/projects/:id/cards/:key/archive", (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
+  if (req.params.key.startsWith("SPEC-")) return res.status(400).json({ error: "Spec cards are read-only." });
   const archived = req.body?.archived !== false; // coerce: absent or true → true, explicit false → false
   if (isDemo()) return res.json({ ok: true });
   try {
@@ -457,6 +463,7 @@ app.post("/api/aiwf/projects/:id/cards/:key/archive", (req, res) => {
 app.delete("/api/aiwf/projects/:id/cards/:key", (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
+  if (req.params.key.startsWith("SPEC-")) return res.status(400).json({ error: "Spec cards are read-only." });
   if (isDemo()) return res.json({ ok: true });
   const removed = deleteCard(p, req.params.key);
   if (!removed) return res.status(404).json({ error: "No such card" });
@@ -465,11 +472,14 @@ app.delete("/api/aiwf/projects/:id/cards/:key", (req, res) => {
 
 // Start a phase skill as an in-place session against a card. The card's current phase is
 // recorded so the result lands in that phase of its history; the roadmap skill also seeds cards.
+// Spec cards (kind:"spec") are read-only — the spec file is never written, but a normal session
+// runs with the spec content as context; appendCardHistory no-ops because no board file exists.
 app.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
   if (isDemo()) return res.json({ runId: "demo" }); // no real sessions in demo
-  const card = getCard(p, req.params.key);
+  // Check board cards first, then read-only spec cards.
+  const card = getCard(p, req.params.key) ?? getSpecCard(p, req.params.key);
   if (!card) return res.status(404).json({ error: "No such card" });
   const skill = String(req.body?.skill ?? "").trim();
   const userNote = typeof req.body?.note === "string" ? req.body.note : undefined;
