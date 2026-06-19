@@ -61,14 +61,18 @@ function skillSourceFor(name: string): "user" | "repo" {
   return findSkill(getConfig(), name)?.source ?? "user";
 }
 
+const STEP_RESULT_LIMIT = 2000;
+
 /** Compose the per-step prompt note: workflow context + the prior step's result + the step's own note. */
 function stepNote(wf: WorkflowRun, step: WorkflowStep, prev?: Run): string {
   const lines: string[] = [
     `You are step ${wf.stepIndex + 1} of ${wf.steps.length} in the "${wf.workflowName}" workflow for ticket ${wf.ticketKey}.`,
   ];
   if (prev?.result?.trim()) {
+    const raw = prev.result.trim();
+    const result = raw.length > STEP_RESULT_LIMIT ? raw.slice(0, STEP_RESULT_LIMIT) + "…" : raw;
     lines.push(`\nThe previous step (${prev.agentName}) finished with this result:`);
-    lines.push(prev.result.trim());
+    lines.push(result);
     lines.push(`\nThe repository working tree already contains that step's changes — build on them.`);
   }
   if (step.note?.trim()) {
