@@ -674,13 +674,21 @@ function buildOptions(run: Run, opts: OptionOpts): Record<string, unknown> {
     message: `Runtime: COMPOSE_PROJECT_NAME=${composeProject}, HANGAR_PORT_OFFSET=${portOffset}`,
   });
 
+  // Strip Hangar-internal credentials so they don't leak into agent sessions.
+  const {
+    JIRA_API_TOKEN: _jiraToken,
+    JIRA_EMAIL: _jiraEmail,
+    JIRA_BASE_URL: _jiraUrl,
+    ...sessionEnv
+  } = process.env;
+
   const base: Record<string, unknown> = {
     ...(opts.model && opts.model !== "(default)" ? { model: opts.model } : {}),
     ...(opts.systemPrompt ? { systemPrompt: opts.systemPrompt } : {}),
     cwd: run.cwd,
     ...(opts.additionalDirectories.length ? { additionalDirectories: opts.additionalDirectories } : {}),
     env: {
-      ...process.env,
+      ...sessionEnv,
       COMPOSE_PROJECT_NAME: composeProject,
       HANGAR_RUN_ID: run.id,
       HANGAR_PORT_OFFSET: String(portOffset),
