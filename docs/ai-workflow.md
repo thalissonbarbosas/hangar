@@ -110,6 +110,24 @@ the project's board dir (Hangar passes it the absolute data-dir path).
 
 <img src="aiwf-new-item.png" alt="Creating a session or task in a phase column" width="640" />
 
+### Spec tasks
+
+Skills like `/spec` and `/roadmap` write spec files into the project repo under
+`docs/specs/NNN_<slug>.md` (or `docs/specs/NNN_<slug>/README.md` for sliced specs). Hangar scans
+that directory and surfaces matching files as **read-only spec cards** in a collapsible
+**Specs (N)** section below the phase columns.
+
+- **Key scheme** — `SPEC-NNN`, where `NNN` is the numeric prefix of the filename or directory
+  (e.g. `006_aiwf-spec-tasks.md` → `SPEC-006`).
+- **Title** — the first `# ` heading in the file, with common skill-generated prefixes stripped
+  (`Spec NNN — `, `Feature: `, `Phase NNN: `).
+- **Run skill** — clicking "▶ Run skill" on a spec card opens the Implementation-phase skill
+  picker (same picker used when moving a card into Implementation). After picking a skill, a
+  normal Hangar session starts with the spec's full content as context.
+- **Read-only guarantee** — spec files are never modified by Hangar. Mutation routes
+  (transition, archive, delete) return `400 Spec cards are read-only.` for `SPEC-*` keys.
+- The section is hidden when `docs/specs/` is absent or contains no matching files.
+
 ### Execution model
 
 Most AI Workflow sessions run **in place** in the project repo, not in an isolated Hangar worktree,
