@@ -3098,3 +3098,117 @@ a.session-ticket {
   color: var(--text);
   margin-top: 2px;
 }
+
+/* ---- AI Workflow skills guide modal ---- */
+.aiwf-guide-modal {
+  width: min(680px, 94vw);
+  max-height: 84vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.aiwf-guide-intro {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 4px 0 14px;
+  line-height: 1.55;
+}
+/* Phase tabs */
+.aiwf-guide-tabs {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+  overflow-x: auto;
+}
+.aiwf-guide-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-muted);
+  font: 600 12px var(--font);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color var(--t),
+    border-bottom-color var(--t);
+  margin-bottom: -1px;
+}
+.aiwf-guide-tab:hover {
+  color: var(--text);
+}
+.aiwf-guide-tab.active {
+  background: none;
+}
+.aiwf-guide-tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.aiwf-guide-tab-arrow {
+  margin-left: 2px;
+  color: var(--text-faint);
+  font-weight: 400;
+}
+/* Skills list */
+.aiwf-guide-skills {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 160px;
+}
+.aiwf-guide-skill {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.aiwf-guide-skill.not-installed {
+  opacity: 0.5;
+}
+.aiwf-guide-skill-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 150px;
+}
+.aiwf-guide-skill-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.aiwf-guide-not-installed {
+  font-size: 10px;
+  color: var(--text-faint);
+  font-style: italic;
+  white-space: nowrap;
+}
+.aiwf-guide-skill-desc {
+  color: var(--text-muted);
+  line-height: 1.5;
+  flex: 1;
+}
+.aiwf-guide-footer {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.aiwf-guide-footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.aiwf-guide-footer a:hover {
+  text-decoration: underline;
+}
