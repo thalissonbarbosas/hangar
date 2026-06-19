@@ -51,6 +51,29 @@ for (const k of ["JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_MY_TICKE
 import * as aiwf from "../aiwf";
 import { AiwfProject } from "../types";
 
+// Mock worktree functions used by resolveTaskWorktree — real git not available in unit tests.
+// Inline sanitize to avoid loading the real worktree.ts (which needs execFile from child_process).
+jest.mock("../worktree", () => ({
+  createWorktree: jest.fn(
+    async (
+      _dir: string,
+      _label: string,
+      _id: string,
+      opts?: { branchName?: string; existingBranch?: string },
+    ) => ({
+      path: "/tmp/mock-wt",
+      branch: opts?.branchName ?? opts?.existingBranch ?? "feat/mock",
+      repoRoot: "/tmp/mock-repo",
+    }),
+  ),
+  findWorktreePath: jest.fn(async () => null),
+  sanitize: (s: string) =>
+    s
+      .replace(/[^A-Za-z0-9._-]/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "run",
+}));
+
 const project: AiwfProject = { id: "p1", name: "Demo Project", repoPath: REPO, createdAt: 0 };
 
 function rmrf(p: string) {
@@ -181,6 +204,134 @@ describe("skillNeedsWorktree", () => {
     ]) {
       expect(aiwf.skillNeedsWorktree(s)).toBe(false);
     }
+  });
+});
+
+describe("TASK_WORKTREE_SKILLS", () => {
+  it("includes code-producing, review, and delivery skills", () => {
+    for (const s of ["feature", "fix", "review", "sec-review", "commit", "pr"]) {
+      expect(aiwf.TASK_WORKTREE_SKILLS.has(s)).toBe(true);
+    }
+  });
+  it("excludes planning and doc skills", () => {
+    for (const s of ["prd", "spec", "roadmap", "architecture", "new-project", "autopilot", "factory"]) {
+      expect(aiwf.TASK_WORKTREE_SKILLS.has(s)).toBe(false);
+    }
+  });
+});
+
+describe("branchFromSpec", () => {
+  let specsDir: string;
+  beforeEach(() => {
+    specsDir = path.join(REPO, "docs", "specs");
+    fs.mkdirSync(specsDir, { recursive: true });
+  });
+  afterEach(() => {
+    fs.rmSync(path.join(REPO, "docs"), { recursive: true, force: true });
+  });
+
+  it("derives feat/<slug> from a file with Type: feat in Trunk Metadata", () => {
+    const file = path.join(specsDir, "007_standardize-agent-skill-selects.md");
+    fs.writeFileSync(file, "# Feature\n\n## Trunk Metadata\n\n- **Type:** feat\n");
+    expect(aiwf.branchFromSpec(file)).toBe("feat/standardize-agent-skill-selects");
+  });
+
+  it("derives fix/<slug> when Type is fix", () => {
+    const file = path.join(specsDir, "006_fix-overflow.md");
+    fs.writeFileSync(file, "# Fix\n\n## Trunk Metadata\n\n- **Type:** fix\n");
+    expect(aiwf.branchFromSpec(file)).toBe("fix/fix-overflow");
+  });
+
+  it("falls back to feat/<slug> when Trunk Metadata is missing", () => {
+    const file = path.join(specsDir, "008_no-metadata.md");
+    fs.writeFileSync(file, "# No metadata here\n\nJust a spec.\n");
+    expect(aiwf.branchFromSpec(file)).toBe("feat/no-metadata");
+  });
+
+  it("falls back to feat/<slug> for an unrecognized type", () => {
+    const file = path.join(specsDir, "009_weird.md");
+    fs.writeFileSync(file, "## Trunk Metadata\n\n- **Type:** unknown-type\n");
+    expect(aiwf.branchFromSpec(file)).toBe("feat/weird");
+  });
+
+  it("uses directory slug for a sliced spec directory", () => {
+    const dir = path.join(specsDir, "010_task-scoped-worktrees");
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, "README.md"), "# Feature\n\n## Trunk Metadata\n\n- **Type:** feat\n");
+    expect(aiwf.branchFromSpec(dir)).toBe("feat/task-scoped-worktrees");
+  });
+});
+
+describe("getSpecState / setSpecState / clearSpecState", () => {
+  it("returns null when no state file exists", () => {
+    expect(aiwf.getSpecState("p1", "SPEC-999")).toBeNull();
+  });
+
+  it("round-trips state through the data dir", () => {
+    const state: aiwf.SpecState = { taskBranch: "feat/my-task", worktreePath: "/tmp/wt" };
+    aiwf.setSpecState("p1", "SPEC-007", state);
+    expect(aiwf.getSpecState("p1", "SPEC-007")).toEqual(state);
+  });
+
+  it("clearSpecState removes the file and does not throw if already absent", () => {
+    aiwf.setSpecState("p1", "SPEC-001", { taskBranch: "feat/x", worktreePath: "/tmp/x" });
+    aiwf.clearSpecState("p1", "SPEC-001");
+    expect(aiwf.getSpecState("p1", "SPEC-001")).toBeNull();
+    expect(() => aiwf.clearSpecState("p1", "SPEC-001")).not.toThrow(); // idempotent
+  });
+});
+
+describe("resolveTaskWorktree", () => {
+  let specsDir: string;
+  beforeEach(() => {
+    specsDir = path.join(REPO, "docs", "specs");
+    fs.mkdirSync(specsDir, { recursive: true });
+    // Clear any spec-state from prior tests
+    aiwf.clearSpecState("p1", "SPEC-007");
+  });
+  afterEach(() => {
+    fs.rmSync(path.join(REPO, "docs"), { recursive: true, force: true });
+    aiwf.clearSpecState("p1", "SPEC-007");
+  });
+
+  it("returns null for planning skills (not in TASK_WORKTREE_SKILLS)", async () => {
+    expect(await aiwf.resolveTaskWorktree(project, "SPEC-007", "spec")).toBeNull();
+    expect(await aiwf.resolveTaskWorktree(project, "SPEC-007", "prd")).toBeNull();
+    expect(await aiwf.resolveTaskWorktree(project, "SPEC-007", "roadmap")).toBeNull();
+  });
+
+  it("creates a worktree on first run with a semantic branch name", async () => {
+    const file = path.join(specsDir, "007_standardize-agent-skill-selects.md");
+    fs.writeFileSync(file, "## Trunk Metadata\n\n- **Type:** feat\n");
+    const result = await aiwf.resolveTaskWorktree(project, "SPEC-007", "feature");
+    expect(result).not.toBeNull();
+    expect(result!.branch).toBe("feat/standardize-agent-skill-selects");
+    // State was persisted
+    expect(aiwf.getSpecState("p1", "SPEC-007")?.taskBranch).toBe("feat/standardize-agent-skill-selects");
+  });
+
+  it("reuses the stored worktree path on subsequent runs", async () => {
+    aiwf.setSpecState("p1", "SPEC-007", { taskBranch: "feat/my-task", worktreePath: DATA });
+    // DATA dir exists on disk — should reuse without calling createWorktree
+    const { createWorktree: mockCreate } = jest.requireMock("../worktree");
+    mockCreate.mockClear();
+    const result = await aiwf.resolveTaskWorktree(project, "SPEC-007", "commit");
+    expect(result).not.toBeNull();
+    expect(result!.branch).toBe("feat/my-task");
+    expect(result!.cwd).toBe(DATA);
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("recreates the worktree on the existing branch when stored path is stale", async () => {
+    aiwf.setSpecState("p1", "SPEC-007", { taskBranch: "feat/stale", worktreePath: "/tmp/gone-path-xyz" });
+    const { createWorktree: mockCreate } = jest.requireMock("../worktree");
+    mockCreate.mockClear();
+    const result = await aiwf.resolveTaskWorktree(project, "SPEC-007", "commit");
+    expect(result).not.toBeNull();
+    expect(result!.branch).toBe("feat/stale");
+    expect(mockCreate).toHaveBeenCalledWith(expect.any(String), "feat/stale", expect.any(String), {
+      existingBranch: "feat/stale",
+    });
   });
 });
 
