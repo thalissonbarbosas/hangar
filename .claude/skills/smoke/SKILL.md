@@ -39,19 +39,19 @@ If it doesn't come up in 15 s, kill the process, report the failure, and stop.
 
 Run all of these and report the status code + a brief summary of the payload for each:
 
-| Endpoint                      | What to check                                                 |
-| ----------------------------- | ------------------------------------------------------------- |
-| `GET /api/config`             | returns `{ boards: [...] }` with at least one board           |
-| `GET /api/tickets?board=DEMO` | returns an array of demo tickets (expect 6+)                  |
-| `GET /api/agents`             | returns an array (may be empty if no agents dir)              |
-| `GET /api/skills`             | returns an array of skills                                    |
-| `GET /api/runs`               | returns seeded demo runs (array with at least one `done` run) |
+| Endpoint                      | What to check                                          |
+| ----------------------------- | ------------------------------------------------------ |
+| `GET /api/config`             | returns `{ boards: [...] }` with at least one board    |
+| `GET /api/tickets?board=DEMO` | returns `{ tickets: [...] }` with 6+ demo tickets      |
+| `GET /api/agents`             | returns an array (may be empty if no agents dir)       |
+| `GET /api/skills`             | returns an array of skills                             |
+| `GET /api/runs`               | returns `{ runs: [...] }` with at least one `done` run |
 
 For each, note the HTTP status code. A 4xx/5xx is a failure; report it clearly.
 
 ### 4. Verify the SSE stream
 
-Pick the first run from `GET /api/runs` that has state `done`. Connect to its SSE stream:
+Pick the first run from `GET /api/runs` (`runs` array) that has state `done`. Connect to its SSE stream:
 
 ```
 curl -sf --max-time 3 http://localhost:3001/api/runs/<id>/stream
