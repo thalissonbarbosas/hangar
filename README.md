@@ -77,6 +77,16 @@ Open **http://localhost:5180** and click **⚙ Settings** to finish setup:
 A ticket whose status isn't in a board's column list lands in an `(unmapped)` column, so nothing
 silently disappears. The board still loads (columns + agents) before Jira is configured.
 
+## Security & deployment
+
+Hangar is a **single-operator, localhost-only tool**. It has no authentication layer — any client
+that can reach port 3001 can start agent sessions, read run transcripts, and modify settings.
+
+- **Do not expose port 3001** to your LAN, a cloud host, or the internet.
+- Multi-user setups are not supported (the server uses single-process in-memory state).
+- Run transcripts saved under `.hangar/runs/` are plain JSON and may contain file contents read by
+  agent sessions during a run — treat them as sensitive.
+
 ## A look around
 
 **Live agent session** — streaming output, tool calls, the worktree branch, session id, and cost:
