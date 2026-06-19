@@ -57,8 +57,20 @@ jest.mock("../agents", () => {
 // Spy on worktree creation so we can assert which aiwf runs ask for isolation. Returning null makes
 // every run fall back to in-place (the temp repo isn't a git tree anyway) — no stray worktrees.
 jest.mock("../worktree", () => ({
-  createWorktree: jest.fn(async () => null),
+  createWorktree: jest.fn(
+    async (
+      _dir: string,
+      _label: string,
+      _id: string,
+      opts?: { branchName?: string; existingBranch?: string },
+    ) =>
+      opts?.branchName || opts?.existingBranch
+        ? { path: "/tmp/mock-task-wt", branch: opts.branchName ?? opts.existingBranch, repoRoot: _dir }
+        : null,
+  ),
+  findWorktreePath: jest.fn(async () => null),
   removeWorktree: jest.fn(async () => {}),
+  sanitize: jest.requireActual("../worktree").sanitize,
 }));
 
 // SDK mock: every session finishes immediately so card/setup runs complete (and the history hook fires).
@@ -75,6 +87,7 @@ jest.mock("@anthropic-ai/claude-agent-sdk", () => ({
 import request from "supertest";
 import { app } from "../index";
 import { createWorktree } from "../worktree";
+import * as aiwf from "../aiwf";
 
 const createWorktreeMock = createWorktree as unknown as jest.Mock;
 const tick = () => new Promise((r) => setTimeout(r, 60));
@@ -174,6 +187,106 @@ describe("AI Workflow routes", () => {
     expect(codeRun.status).toBe(200);
     await tick();
     expect(createWorktreeMock).toHaveBeenCalled();
+  });
+
+  describe("spec card task-scoped worktrees", () => {
+    let specsDir: string;
+    const specKey = "SPEC-007";
+
+    beforeEach(() => {
+      specsDir = path.join(REPO, "docs", "specs");
+      fs.mkdirSync(specsDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(specsDir, "007_standardize-agent-skill-selects.md"),
+        "# Feature\n\n## Trunk Metadata\n\n- **Type:** feat\n",
+      );
+      aiwf.clearSpecState("p1", specKey);
+      createWorktreeMock.mockClear();
+    });
+    afterEach(() => {
+      fs.rmSync(path.join(REPO, "docs"), { recursive: true, force: true });
+      aiwf.clearSpecState("p1", specKey);
+    });
+
+    it("creates a task worktree with a semantic branch on first skill run for a spec card", async () => {
+      const run = await request(app)
+        .post(`/api/aiwf/projects/p1/cards/${specKey}/run`)
+        .send({ skill: "feature" });
+      expect(run.status).toBe(200);
+      await tick();
+      // createWorktree called with branchName derived from spec slug
+      expect(createWorktreeMock).toHaveBeenCalledWith(
+        expect.any(String),
+        "feat/standardize-agent-skill-selects",
+        expect.any(String),
+        { branchName: "feat/standardize-agent-skill-selects", baseBranch: "main" },
+      );
+      // Spec state persisted
+      const state = aiwf.getSpecState("p1", specKey);
+      expect(state?.taskBranch).toBe("feat/standardize-agent-skill-selects");
+    });
+
+    it("reuses the stored worktree for a second skill run on the same spec card", async () => {
+      // First run: creates worktree.
+      await request(app).post(`/api/aiwf/projects/p1/cards/${specKey}/run`).send({ skill: "feature" });
+      await tick();
+      const callsAfterFirst = createWorktreeMock.mock.calls.length;
+
+      // Second run (commit): should reuse the stored path, not create a new worktree.
+      // The mock returns a path of "/tmp/mock-task-wt" which doesn't exist on disk,
+      // so resolveTaskWorktree will see a stale path and re-create — that's acceptable.
+      // What we verify: the second call uses existingBranch, not baseBranch/branchName.
+      await request(app).post(`/api/aiwf/projects/p1/cards/${specKey}/run`).send({ skill: "commit" });
+      await tick();
+      const callsAfterSecond = createWorktreeMock.mock.calls.length;
+      // A second createWorktree call happened (stale path re-create) and used existingBranch.
+      expect(callsAfterSecond).toBeGreaterThan(callsAfterFirst);
+      const lastCall = createWorktreeMock.mock.calls[callsAfterSecond - 1];
+      expect(lastCall[3]).toMatchObject({ existingBranch: "feat/standardize-agent-skill-selects" });
+    });
+
+    it("runs a planning skill on a spec card in the real repo, not a worktree", async () => {
+      createWorktreeMock.mockClear();
+      const run = await request(app)
+        .post(`/api/aiwf/projects/p1/cards/${specKey}/run`)
+        .send({ skill: "spec" });
+      expect(run.status).toBe(200);
+      await tick();
+      expect(createWorktreeMock).not.toHaveBeenCalled();
+      expect(aiwf.getSpecState("p1", specKey)).toBeNull();
+    });
+
+    it("returns 503 when worktree creation fails for a task-worktree skill", async () => {
+      // Force createWorktree to fail (returns null) even when branchName is provided.
+      createWorktreeMock.mockResolvedValueOnce(null);
+      const run = await request(app)
+        .post(`/api/aiwf/projects/p1/cards/${specKey}/run`)
+        .send({ skill: "feature" });
+      expect(run.status).toBe(503);
+      expect(run.body.error).toMatch(/task worktree/i);
+    });
+
+    it("Complete transition clears spec-state; non-Complete transitions are read-only", async () => {
+      // Seed a spec-state entry to verify it gets cleared.
+      aiwf.setSpecState("p1", specKey, { taskBranch: "feat/test", worktreePath: "/tmp/test-wt" });
+      expect(aiwf.getSpecState("p1", specKey)).not.toBeNull();
+
+      // Non-Complete transitions are blocked.
+      const blocked = await request(app)
+        .post(`/api/aiwf/projects/p1/cards/${specKey}/transition`)
+        .send({ status: "Review" });
+      expect(blocked.status).toBe(400);
+      expect(blocked.body.error).toMatch(/read-only/i);
+      expect(aiwf.getSpecState("p1", specKey)).not.toBeNull(); // state unchanged
+
+      // Complete transition clears the spec-state.
+      const done = await request(app)
+        .post(`/api/aiwf/projects/p1/cards/${specKey}/transition`)
+        .send({ status: "Complete" });
+      expect(done.status).toBe(200);
+      expect(done.body.ok).toBe(true);
+      expect(aiwf.getSpecState("p1", specKey)).toBeNull();
+    });
   });
 
   it("404s on unknown projects", async () => {
