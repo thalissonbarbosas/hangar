@@ -95,7 +95,7 @@ export interface Ticket {
   source?: "jira" | "aiwf"; // origin of the ticket; defaults to Jira when absent
   description?: string; // free-text body (aiwf card body); fed into the agent prompt
   prUrl?: string; // pull-request URL, if known (aiwf cards read it from frontmatter)
-  kind?: "thread" | "task"; // aiwf: a work thread (runs skills) or a manual task
+  kind?: "thread" | "task" | "spec"; // aiwf: a work thread, manual task, or read-only spec card from docs/specs/
   skill?: string; // aiwf: the most recent skill run on this card
   history?: AiwfHistoryEntry[]; // aiwf: sessions/tasks recorded against this card
   archived?: boolean; // aiwf: soft-hidden from the active board columns (reversible)

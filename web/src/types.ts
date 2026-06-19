@@ -89,7 +89,7 @@ export interface Ticket {
   source?: "jira" | "aiwf";
   description?: string;
   prUrl?: string;
-  kind?: "thread" | "task";
+  kind?: "thread" | "task" | "spec"; // "spec" = read-only card sourced from docs/specs/ in the project repo
   skill?: string;
   history?: AiwfHistoryEntry[];
   archived?: boolean; // aiwf: soft-hidden from active board columns (reversible)
@@ -120,6 +120,7 @@ export interface TicketDragData {
   key: string;
   boardKey: string;
   status: string;
+  kind?: string; // "spec" when dragging a spec card to promote it to a board card
 }
 
 export type RunKind = "agent" | "skill";

@@ -370,6 +370,77 @@ export function setCardArchived(project: AiwfProject, key: string, archived: boo
   fs.writeFileSync(file, serializeCard(fm, description, history));
 }
 
+// ---- Spec cards: read-only cards derived from docs/specs/ in the project repo ----
+//
+// Files created by /spec and /roadmap live in the project's docs/specs/ directory.
+// Hangar surfaces them as read-only kind:"spec" Tickets so skills can be delegated
+// to them from the board — no write operations ever touch the spec file itself.
+
+/** Parse a spec file and return a Ticket. relPath is relative to the project root. */
+function parseSpecFile(content: string, entryName: string, relPath: string, project: AiwfProject): Ticket {
+  // Key from the 3-digit numeric prefix: "006_aiwf-spec-tasks.md" / "006_aiwf-spec-tasks/" → SPEC-006
+  const m = entryName.match(/^(\d{3})_/);
+  const key = m ? `SPEC-${m[1]}` : `SPEC-${entryName.replace(/\.md$/, "").slice(0, 20)}`;
+
+  // Title: first "# " heading; strip common skill-generated prefixes so the summary is clean.
+  const headingLine = content.split(/\r?\n/).find((l) => l.startsWith("# "));
+  let summary = headingLine ? headingLine.slice(2).trim() : entryName.replace(/\.md$/, "");
+  summary = summary.replace(/^(?:Spec\s+\d+\s*[—-]\s*|Feature:\s*|Phase\s+\d+:\s*)/i, "").trim() || summary;
+
+  // Description: spec file path prepended so skills can resolve it by path.
+  const description = `Spec: ${relPath}\n\n${content}`;
+
+  return {
+    key,
+    summary,
+    status: "Implementation", // the phase /spec belongs to; not used for column placement
+    assignee: null,
+    assigneeAvatar: null,
+    issuetype: null,
+    priority: null,
+    boardKey: project.id,
+    source: "aiwf",
+    kind: "spec",
+    description,
+    history: [],
+  };
+}
+
+/** Scan <project.repoPath>/docs/specs/ for NNN_*.md files and sliced NNN_slug/README.md entries.
+ * Returns read-only Ticket objects. Returns [] in demo mode or if the directory doesn't exist. */
+export function listSpecCards(project: AiwfProject): Ticket[] {
+  if (isDemo()) return [];
+  const specsDir = path.join(expandHome(project.repoPath), "docs", "specs");
+  if (!fs.existsSync(specsDir)) return [];
+
+  const cards: Ticket[] = [];
+  for (const entry of fs.readdirSync(specsDir, { withFileTypes: true })) {
+    if (entry.isFile() && /^\d{3}_.*\.md$/.test(entry.name)) {
+      // Single-file spec: docs/specs/NNN_slug.md
+      const absPath = path.join(specsDir, entry.name);
+      const relPath = path.join("docs", "specs", entry.name);
+      const content = fs.readFileSync(absPath, "utf8");
+      cards.push(parseSpecFile(content, entry.name, relPath, project));
+    } else if (entry.isDirectory() && /^\d{3}_/.test(entry.name)) {
+      // Sliced spec directory: docs/specs/NNN_slug/README.md
+      const readme = path.join(specsDir, entry.name, "README.md");
+      if (fs.existsSync(readme)) {
+        const relPath = path.join("docs", "specs", entry.name, "README.md");
+        const content = fs.readFileSync(readme, "utf8");
+        cards.push(parseSpecFile(content, entry.name, relPath, project));
+      }
+    }
+  }
+  // Sort ascending by numeric prefix (same keyNum helper used for board cards).
+  return cards.sort((a, b) => keyNum(a.key) - keyNum(b.key));
+}
+
+/** Find a single spec card by SPEC-NNN key. Returns null if not found. */
+export function getSpecCard(project: AiwfProject, key: string): Ticket | null {
+  if (!key.startsWith("SPEC-")) return null;
+  return listSpecCards(project).find((c) => c.key === key) ?? null;
+}
+
 /**
  * Permanently remove a card file. Returns true if a file was removed, false if none was found.
  * Demo mode is handled in the route — this function is not called in demo mode.
