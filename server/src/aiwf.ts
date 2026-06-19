@@ -1,7 +1,10 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { execSync } from "child_process";
+import { execSync, exec as execRaw } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(execRaw);
 import { expandHome, getConfig, getAiwfProjects } from "./config";
 import { AiwfProject, AiwfHistoryEntry, Ticket } from "./types";
 import { isDemo, demoAiwfCards } from "./demo";
@@ -119,12 +122,16 @@ export function detectAiwf(): AiwfStatus {
   return { installed, aiwfBin, version, skillsFound };
 }
 
-/** Run the aiwf bootstrap installer (blocking). Returns the refreshed status + captured output. */
-export function installAiwf(): { status: AiwfStatus; output: string } {
+/** Run the aiwf bootstrap installer (non-blocking). Returns the refreshed status + captured output. */
+export async function installAiwf(): Promise<{ status: AiwfStatus; output: string }> {
   if (isDemo()) return { status: detectAiwf(), output: "Demo mode — install is simulated." };
   try {
-    const output = execSync(BOOTSTRAP_CMD, { encoding: "utf8", timeout: 300_000, shell: "/bin/bash" });
-    return { status: detectAiwf(), output };
+    const { stdout } = await execAsync(BOOTSTRAP_CMD, {
+      encoding: "utf8",
+      timeout: 300_000,
+      shell: "/bin/bash",
+    });
+    return { status: detectAiwf(), output: stdout ?? "" };
   } catch (err) {
     const e = err as { stdout?: string; stderr?: string; message?: string };
     const detail = `${e.stdout ?? ""}${e.stderr ?? ""}${e.message ?? ""}`;
@@ -136,15 +143,15 @@ export function installAiwf(): { status: AiwfStatus; output: string } {
  * Uninstall aiwf from ~/.claude / ~/.local/bin via its launcher (`aiwf uninstall-all`).
  * This removes the toolkit only — it never touches a project repo or its .aiwf/board cards.
  */
-export function uninstallAiwf(): { status: AiwfStatus; output: string } {
+export async function uninstallAiwf(): Promise<{ status: AiwfStatus; output: string }> {
   if (isDemo()) return { status: detectAiwf(), output: "Demo mode — uninstall is simulated." };
   const { aiwfBin } = detectAiwf();
   if (!aiwfBin) {
     throw new Error("aiwf launcher not found (~/.local/bin/aiwf) — nothing to uninstall.");
   }
   try {
-    const output = execSync(`"${aiwfBin}" uninstall-all`, { encoding: "utf8", timeout: 120_000 });
-    return { status: detectAiwf(), output };
+    const { stdout } = await execAsync(`"${aiwfBin}" uninstall-all`, { encoding: "utf8", timeout: 120_000 });
+    return { status: detectAiwf(), output: stdout ?? "" };
   } catch (err) {
     const e = err as { stdout?: string; stderr?: string; message?: string };
     const detail = `${e.stdout ?? ""}${e.stderr ?? ""}${e.message ?? ""}`;
