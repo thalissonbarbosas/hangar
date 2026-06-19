@@ -24,11 +24,20 @@ delete process.env.HANGAR_DEMO;
 for (const k of ["JIRA_BASE_URL", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_MY_TICKETS_ONLY"])
   process.env[k] = "";
 
-// aiwf install/uninstall/version shell out — stub execSync but keep the rest (worktree uses execFile).
-jest.mock("child_process", () => ({
-  ...jest.requireActual("child_process"),
-  execSync: jest.fn(() => "mock-output"),
-}));
+// aiwf install/uninstall/version shell out — stub execSync + exec (installAiwf uses execAsync which
+// wraps exec via promisify). Keep the rest: worktree uses execFile which must stay real.
+// exec must carry util.promisify.custom so promisify(exec) returns { stdout, stderr } like the real impl.
+jest.mock("child_process", () => {
+  const { promisify } = jest.requireActual("util") as typeof import("util");
+  const execFn = jest.fn();
+
+  (execFn as any)[promisify.custom] = jest.fn(() => Promise.resolve({ stdout: "mock-output", stderr: "" }));
+  return {
+    ...jest.requireActual("child_process"),
+    execSync: jest.fn(() => "mock-output"),
+    exec: execFn,
+  };
+});
 
 // Skills resolve for any name so the run/onboard routes proceed; agents unused here.
 jest.mock("../skills", () => {
