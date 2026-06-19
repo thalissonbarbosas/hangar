@@ -3,9 +3,26 @@ import os from "os";
 import path from "path";
 
 // aiwf.ts shells out for install/uninstall/version — mock child_process so nothing runs for real.
-jest.mock("child_process", () => ({ execSync: jest.fn() }));
-import { execSync } from "child_process";
+// exec must carry util.promisify.custom so promisify(exec) returns { stdout, stderr } like the real impl.
+jest.mock("child_process", () => {
+  const { promisify } = jest.requireActual("util") as typeof import("util");
+  const execFn = jest.fn();
+
+  (execFn as any)[promisify.custom] = jest.fn(() => Promise.resolve({ stdout: "", stderr: "" }));
+  return { execSync: jest.fn(), exec: execFn };
+});
+import { execSync, exec } from "child_process";
+import { promisify } from "util";
 const execSyncMock = execSync as unknown as jest.Mock;
+
+const execCustomMock = (exec as any)[promisify.custom] as jest.Mock;
+
+function mockExecResolve(stdout: string) {
+  execCustomMock.mockResolvedValue({ stdout, stderr: "" });
+}
+function mockExecReject(err: Error & { stdout?: string; stderr?: string }) {
+  execCustomMock.mockRejectedValue(err);
+}
 
 // Wire a temp project repo + skills dir + config BEFORE config.ts loads (it reads CONFIG_PATH at
 // module-eval and lazy-loads on first getConfig). appendCardHistory/detectAiwf read from this config.
@@ -47,6 +64,7 @@ function makeSkill(name: string) {
 
 beforeEach(() => {
   execSyncMock.mockReset();
+  execCustomMock.mockReset();
   rmrf(aiwf.boardDir(project)); // fresh board each test
   for (const e of fs.readdirSync(SKILLS)) rmrf(path.join(SKILLS, e)); // fresh skills each test
 });
@@ -314,43 +332,40 @@ describe("detectAiwf", () => {
 });
 
 describe("installAiwf / uninstallAiwf", () => {
-  it("install returns the captured output + refreshed status", () => {
+  it("install returns the captured output + refreshed status", async () => {
     jest.spyOn(os, "homedir").mockReturnValue(fs.mkdtempSync(path.join(os.tmpdir(), "aiwf-home-")));
-    execSyncMock.mockReturnValue("bootstrapped");
-    const { output, status } = aiwf.installAiwf();
+    mockExecResolve("bootstrapped");
+    const { output, status } = await aiwf.installAiwf();
     expect(output).toBe("bootstrapped");
     expect(status.installed).toBe(false); // nothing actually linked in this temp home
   });
 
-  it("install throws a wrapped error on failure", () => {
-    execSyncMock.mockImplementation(() => {
-      throw Object.assign(new Error("curl failed"), { stdout: "out", stderr: "err" });
-    });
-    expect(() => aiwf.installAiwf()).toThrow(/aiwf install failed/);
+  it("install throws a wrapped error on failure", async () => {
+    mockExecReject(Object.assign(new Error("curl failed"), { stdout: "out", stderr: "err" }));
+    await expect(aiwf.installAiwf()).rejects.toThrow(/aiwf install failed/);
   });
 
-  it("uninstall refuses when the launcher is absent", () => {
+  it("uninstall refuses when the launcher is absent", async () => {
     jest.spyOn(os, "homedir").mockReturnValue(fs.mkdtempSync(path.join(os.tmpdir(), "aiwf-home-")));
-    expect(() => aiwf.uninstallAiwf()).toThrow(/nothing to uninstall/);
+    await expect(aiwf.uninstallAiwf()).rejects.toThrow(/nothing to uninstall/);
   });
 
-  it("uninstall runs the launcher and returns refreshed status", () => {
+  it("uninstall runs the launcher and returns refreshed status", async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "aiwf-home-"));
     fs.mkdirSync(path.join(home, ".local", "bin"), { recursive: true });
     fs.writeFileSync(path.join(home, ".local", "bin", "aiwf"), "#!/bin/sh\n");
     jest.spyOn(os, "homedir").mockReturnValue(home);
-    execSyncMock.mockReturnValue("removed");
-    expect(aiwf.uninstallAiwf().output).toBe("removed");
+    mockExecResolve("removed");
+    const { output } = await aiwf.uninstallAiwf();
+    expect(output).toBe("removed");
   });
 
-  it("uninstall throws a wrapped error when the launcher fails", () => {
+  it("uninstall throws a wrapped error when the launcher fails", async () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "aiwf-home-"));
     fs.mkdirSync(path.join(home, ".local", "bin"), { recursive: true });
     fs.writeFileSync(path.join(home, ".local", "bin", "aiwf"), "#!/bin/sh\n");
     jest.spyOn(os, "homedir").mockReturnValue(home);
-    execSyncMock.mockImplementation(() => {
-      throw Object.assign(new Error("boom"), { stderr: "bad" });
-    });
-    expect(() => aiwf.uninstallAiwf()).toThrow(/aiwf uninstall failed/);
+    mockExecReject(Object.assign(new Error("boom"), { stderr: "bad" }));
+    await expect(aiwf.uninstallAiwf()).rejects.toThrow(/aiwf uninstall failed/);
   });
 });
