@@ -21,10 +21,12 @@ import {
   Eye,
   ChevronDown,
   ChevronRight,
+  BookOpen,
 } from "lucide-react";
 import { api } from "../api";
 import {
   AiwfProject,
+  AiwfSkillGroup,
   AiwfStatus,
   RunSummary,
   Skill,
@@ -54,6 +56,7 @@ export function AiWorkflowBar({
   status,
   projects,
   selectedId,
+  skills,
   onSelect,
   onReload,
   onError,
@@ -62,6 +65,7 @@ export function AiWorkflowBar({
   status: AiwfStatus | null;
   projects: AiwfProject[];
   selectedId: string | null;
+  skills?: Skill[];
   onSelect: (id: string) => void;
   onReload: () => void;
   onError: (msg: string) => void;
@@ -70,6 +74,7 @@ export function AiWorkflowBar({
   const [busy, setBusy] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editing, setEditing] = useState<AiwfProject | null>(null);
+  const [guidanceOpen, setGuidanceOpen] = useState(false);
 
   function install() {
     if (!window.confirm("Install AI Workflow into ~/.claude? This runs the aiwf bootstrap script.")) return;
@@ -164,7 +169,22 @@ export function AiWorkflowBar({
         </span>
       )}
 
+      <button className="icon-btn has-tip" data-tip="Skills guide" onClick={() => setGuidanceOpen(true)}>
+        <BookOpen size={17} />
+      </button>
+
       <OptionsMenu status={status} busy={busy} onReinstall={install} onUninstall={uninstall} />
+
+      {guidanceOpen && (
+        <AiwfGuidanceModal
+          skillGroups={status?.skillGroups ?? []}
+          skills={skills ?? []}
+          repoUrl={status?.repoUrl ?? "https://github.com/0xrafasec/ai-workflow"}
+          author={status?.author ?? "0xrafasec"}
+          authorUrl={status?.authorUrl ?? "https://github.com/0xrafasec"}
+          onClose={() => setGuidanceOpen(false)}
+        />
+      )}
 
       {wizardOpen && (
         <NewProjectWizard
@@ -954,6 +974,150 @@ function PhaseSkillModal({
           </button>
           <button className="btn" disabled={!skill} onClick={() => onRun(skill, note.trim() || undefined)}>
             Start session
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Brief, ordered descriptions for each aiwf skill — shown when the skill isn't installed locally.
+const SKILL_DESCRIPTIONS: Record<string, string> = {
+  prd: "Draft a Product Requirements Document capturing goals, scope, and user stories.",
+  architecture: "Generate a system architecture document with components, data flow, and trade-offs.",
+  tdd: "Write a Test-Driven Development plan before any implementation begins.",
+  security: "Produce a security threat model — attack surface, STRIDE analysis, mitigations.",
+  adr: "Record an Architecture Decision with context, options considered, and the rationale.",
+  rfc: "Draft a Request for Comments for a design proposal, open for review.",
+  roadmap: "Generate a phased project roadmap and seed the AI Workflow board with task cards.",
+  issues: "Create GitHub issues from a roadmap, one issue per task.",
+  design: "Generate UI/UX design artifacts — wireframes, component specs, interaction notes.",
+  "verify-design": "Verify a design against the spec and catch gaps before implementation.",
+  spec: "Write a detailed feature specification: behaviour, edge cases, acceptance criteria.",
+  feature: "Implement a feature end-to-end from a spec file — code, tests, and commit.",
+  fix: "Investigate, reproduce, and fix a bug with a confirming test.",
+  autopilot: "Execute a roadmap end-to-end — phase by phase — with human checkpoints between.",
+  factory: "Generate multiple independent implementations in parallel from one spec.",
+  "new-project": "Scaffold a new project: folder structure, CI, and the first aiwf board.",
+  review: "Review a PR or branch for correctness, security, and test coverage.",
+  "sec-review": "Deep security-focused review — injection, auth, secrets, PHI handling.",
+  commit: "Stage and commit changes with a conventional commit message.",
+  pr: "Push the current branch and open a pull request via GitHub CLI.",
+};
+
+const PHASE_COLORS: Record<string, string> = {
+  Planning: "#4f7cff",
+  Design: "#8b5cf6",
+  Implementation: "#10b981",
+  Review: "#e08e0b",
+  Delivery: "#0ea5e9",
+};
+
+function AiwfGuidanceModal({
+  skillGroups,
+  skills,
+  repoUrl,
+  author,
+  authorUrl,
+  onClose,
+}: {
+  skillGroups: AiwfSkillGroup[];
+  skills: Skill[];
+  repoUrl: string;
+  author: string;
+  authorUrl: string;
+  onClose: () => void;
+}) {
+  const skillsByName = useMemo(() => new Map(skills.map((s) => [s.name, s])), [skills]);
+  // Fall back to the static SKILL_GROUPS order when the server hasn't returned groups yet.
+  const groups = skillGroups.length
+    ? skillGroups
+    : [
+        {
+          phase: "Planning",
+          skills: ["prd", "architecture", "tdd", "security", "adr", "rfc", "roadmap", "issues"],
+        },
+        { phase: "Design", skills: ["design", "verify-design"] },
+        {
+          phase: "Implementation",
+          skills: ["spec", "feature", "fix", "autopilot", "factory", "new-project"],
+        },
+        { phase: "Review", skills: ["review", "sec-review"] },
+        { phase: "Delivery", skills: ["commit", "pr"] },
+      ];
+  const [activeTab, setActiveTab] = useState(groups[0]?.phase ?? "");
+  const activeGroup = groups.find((g) => g.phase === activeTab) ?? groups[0];
+  const activeColor = PHASE_COLORS[activeGroup?.phase ?? ""] ?? "#6b7488";
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal aiwf-guide-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <span className="modal-title">
+            <BookOpen size={16} /> AI Workflow skills guide
+          </span>
+          <button className="icon-btn" onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+        <p className="aiwf-guide-intro">
+          Skills are organized by lifecycle phase. Run them in order on a work card to take a feature from
+          idea to shipped PR.
+        </p>
+
+        <div className="aiwf-guide-tabs">
+          {groups.map((group, idx) => {
+            const color = PHASE_COLORS[group.phase] ?? "#6b7488";
+            const active = group.phase === activeTab;
+            return (
+              <button
+                key={group.phase}
+                className={`aiwf-guide-tab${active ? " active" : ""}`}
+                style={active ? { color, borderBottomColor: color } : undefined}
+                onClick={() => setActiveTab(group.phase)}
+              >
+                <span className="aiwf-guide-tab-dot" style={{ background: color }} />
+                {group.phase}
+                {idx < groups.length - 1 && <span className="aiwf-guide-tab-arrow">→</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {activeGroup && (
+          <div className="aiwf-guide-skills">
+            {activeGroup.skills.map((name) => {
+              const installed = skillsByName.has(name);
+              const desc = SKILL_DESCRIPTIONS[name] || skillsByName.get(name)?.description || "";
+              return (
+                <div key={name} className={`aiwf-guide-skill${installed ? "" : " not-installed"}`}>
+                  <span className="aiwf-guide-skill-label">
+                    <code className="aiwf-guide-skill-name" style={{ color: activeColor }}>
+                      /{name}
+                    </code>
+                    {!installed && <span className="aiwf-guide-not-installed">not installed</span>}
+                  </span>
+                  {desc && <span className="aiwf-guide-skill-desc">{desc}</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="aiwf-guide-footer">
+          Based on{" "}
+          <a href={repoUrl} target="_blank" rel="noreferrer">
+            ai-workflow
+          </a>{" "}
+          by{" "}
+          <a href={authorUrl} target="_blank" rel="noreferrer">
+            {author}
+          </a>
+          .
+        </div>
+        <div className="modal-actions">
+          <button className="btn" onClick={onClose}>
+            Close
           </button>
         </div>
       </div>
