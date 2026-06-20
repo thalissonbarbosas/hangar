@@ -444,8 +444,8 @@ export function listSpecCards(project: AiwfProject): Ticket[] {
       }
     }
   }
-  // Sort ascending by numeric prefix (same keyNum helper used for board cards).
-  return cards.sort((a, b) => keyNum(a.key) - keyNum(b.key));
+  // Sort descending by numeric prefix so the most recently added specs appear first.
+  return cards.sort((a, b) => keyNum(b.key) - keyNum(a.key));
 }
 
 /** Find a single spec card by SPEC-NNN key. Returns null if not found. */
