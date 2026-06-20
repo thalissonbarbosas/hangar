@@ -23,13 +23,22 @@ process.env.JIRA_API_TOKEN = "tok";
 
 jest.mock("../agents", () => {
   const actual = jest.requireActual("../agents");
-  return { ...actual, loadAgents: () => [], loadAgent: () => null };
+  return { ...actual, loadAgents: jest.fn(() => []), loadAgent: jest.fn(() => null) };
 });
 jest.mock("../skills", () => {
   const actual = jest.requireActual("../skills");
-  return { ...actual, allSkills: () => [], findSkill: () => undefined, skillExists: () => false };
+  return {
+    ...actual,
+    allSkills: jest.fn(() => []),
+    findSkill: jest.fn(() => undefined),
+    skillExists: jest.fn(() => false),
+  };
 });
-jest.mock("../worktree", () => ({ createWorktree: async () => null, removeWorktree: async () => {} }));
+jest.mock("../worktree", () => ({
+  createWorktree: jest.fn(async () => null),
+  removeWorktree: jest.fn(async () => {}),
+  sanitize: jest.requireActual("../worktree").sanitize,
+}));
 
 let fetchMock: jest.Mock;
 beforeEach(() => {
@@ -51,6 +60,13 @@ function errResponse(status: number): Response {
 
 import request from "supertest";
 import { app } from "../index";
+import { createWorktree } from "../worktree";
+import * as aiwf from "../aiwf";
+import * as skillsMod from "../skills";
+import * as cfgMod from "../config";
+import * as agentsMod from "../agents";
+
+const createWorktreeMock = createWorktree as unknown as jest.Mock;
 
 describe("health reports configured Jira", () => {
   it("GET /api/health → jiraConfigured true", async () => {
@@ -147,5 +163,115 @@ describe("config write errors", () => {
     const res = await request(app).put("/api/config").send({ agentsDir: "x", boards: [] });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/board/);
+  });
+});
+
+// Delivery-skill task-worktree wiring on the Jira /api/runs route.
+// Skills return 404 in this file's global mock, so we temporarily override skillExists here.
+describe("POST /api/runs — delivery skill task worktrees for Jira tickets", () => {
+  const ticket = { key: "PP-1", boardKey: "PP", summary: "Test ticket", source: "jira" };
+
+  const skillExistsMock = skillsMod.skillExists as jest.Mock;
+  const findSkillMock = skillsMod.findSkill as jest.Mock;
+  const loadAgentMock = agentsMod.loadAgent as jest.Mock;
+
+  beforeEach(() => {
+    createWorktreeMock.mockClear();
+    // The board "PP" has repoPaths: ["/repo/a"] — resolveCardWorktree will try to create a worktree.
+    // Override skillExists so delivery skill runs are not rejected.
+    skillExistsMock.mockReturnValue(true);
+    findSkillMock.mockReturnValue({ name: "feature", description: "", sourcePath: "", source: "user" });
+    aiwf.clearCardState("jira-PP", "PP-1");
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+    // Reset jest.fn() mocks back to their factory defaults.
+    skillExistsMock.mockReturnValue(false);
+    findSkillMock.mockReturnValue(undefined);
+    loadAgentMock.mockReturnValue(null);
+    aiwf.clearCardState("jira-PP", "PP-1");
+  });
+
+  it("creates a task worktree on first delivery skill run for a Jira ticket", async () => {
+    createWorktreeMock.mockResolvedValueOnce({
+      path: "/tmp/mock-jira-wt",
+      branch: "feat/pp-1",
+      repoRoot: "/repo/a",
+    });
+    const res = await request(app).post("/api/runs").send({ ticket, name: "feature", kind: "skill" });
+    expect(res.status).toBe(200);
+    expect(typeof res.body.runId).toBe("string");
+    expect(createWorktreeMock).toHaveBeenCalledWith("/repo/a", "feat/pp-1", expect.any(String), {
+      branchName: "feat/pp-1",
+      baseBranch: "main",
+    });
+    expect(aiwf.getCardState("jira-PP", "PP-1")?.taskBranch).toBe("feat/pp-1");
+  });
+
+  it("reuses the stored worktree on a second delivery skill run", async () => {
+    // Seed state with a path that exists on disk (tmpDir from the outer scope does exist).
+    aiwf.setCardState("jira-PP", "PP-1", { taskBranch: "feat/pp-1", worktreePath: tmpDir });
+    const res = await request(app).post("/api/runs").send({ ticket, name: "commit", kind: "skill" });
+    expect(res.status).toBe(200);
+    // Stored path exists → no createWorktree call.
+    expect(createWorktreeMock).not.toHaveBeenCalled();
+  });
+
+  it("falls through to isolateRuns path when worktree creation fails", async () => {
+    // createWorktree returns null (git error) → run proceeds without task worktree.
+    createWorktreeMock.mockResolvedValueOnce(null);
+    const res = await request(app).post("/api/runs").send({ ticket, name: "feature", kind: "skill" });
+    expect(res.status).toBe(200); // does not 503 — falls through gracefully
+    expect(aiwf.getCardState("jira-PP", "PP-1")).toBeNull();
+  });
+
+  it("does not create a task worktree for non-delivery skills", async () => {
+    findSkillMock.mockReturnValue({ name: "roadmap", description: "", sourcePath: "", source: "user" });
+    const res = await request(app).post("/api/runs").send({ ticket, name: "roadmap", kind: "skill" });
+    expect(res.status).toBe(200);
+    // createWorktree not called via delivery path (may be called by isolateRuns, but not with branchName).
+    const deliveryCalls = createWorktreeMock.mock.calls.filter(
+      (c: unknown[]) => (c[3] as { branchName?: string } | undefined)?.branchName,
+    );
+    expect(deliveryCalls).toHaveLength(0);
+    expect(aiwf.getCardState("jira-PP", "PP-1")).toBeNull();
+  });
+
+  it("does not create a task worktree when isolateRuns is false", async () => {
+    const spy = jest
+      .spyOn(cfgMod, "getConfig")
+      .mockReturnValue({ ...cfgMod.getConfig(), isolateRuns: false });
+    try {
+      createWorktreeMock.mockClear();
+      const res = await request(app).post("/api/runs").send({ ticket, name: "feature", kind: "skill" });
+      expect(res.status).toBe(200);
+      // isolateRuns: false → delivery-path block skipped; no branchName-based createWorktree call.
+      const deliveryCalls = createWorktreeMock.mock.calls.filter(
+        (c: unknown[]) => (c[3] as { branchName?: string } | undefined)?.branchName,
+      );
+      expect(deliveryCalls).toHaveLength(0);
+      expect(aiwf.getCardState("jira-PP", "PP-1")).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("does not create a task worktree for an agent run on a Jira ticket", async () => {
+    loadAgentMock.mockReturnValueOnce({
+      name: "my-agent",
+      description: "test agent",
+      tools: [],
+      sourcePath: "/tmp/my-agent.md",
+      body: "",
+    });
+    createWorktreeMock.mockClear();
+    const res = await request(app).post("/api/runs").send({ ticket, name: "my-agent", kind: "agent" });
+    expect(res.status).toBe(200);
+    // Agent kind bypasses the delivery-skill block entirely.
+    const deliveryCalls = createWorktreeMock.mock.calls.filter(
+      (c: unknown[]) => (c[3] as { branchName?: string } | undefined)?.branchName,
+    );
+    expect(deliveryCalls).toHaveLength(0);
+    expect(aiwf.getCardState("jira-PP", "PP-1")).toBeNull();
   });
 });
