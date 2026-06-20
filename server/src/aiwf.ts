@@ -60,6 +60,7 @@ export function skillNeedsWorktree(skill: string): boolean {
 
 // Skills that run inside the spec card's task-scoped worktree (create it if absent, reuse if present).
 // Planning/doc/bootstrap skills are excluded — they write to the real repo so their output is tracked.
+// @deprecated — use DELIVERY_SKILLS for new code
 export const TASK_WORKTREE_SKILLS = new Set([
   "feature",
   "fix", // code-producing: mutate source in isolation
@@ -67,6 +68,20 @@ export const TASK_WORKTREE_SKILLS = new Set([
   "sec-review", // review the actual implementation, not the real repo
   "commit",
   "pr", // deliver from the task branch, not the real repo
+]);
+
+// Skills that form the implementation-and-ship chain. These get persistent task worktrees shared
+// across all runs on the same card (Jira tickets + AIWF board cards + SPEC-* cards alike).
+// Non-delivery skills (prd, roadmap, autopilot, …) keep the existing isolateRuns path so Docker
+// environments and analysis agents are unaffected.
+export const DELIVERY_SKILLS = new Set([
+  "spec", // planning: writes the spec into the task branch
+  "feature",
+  "fix", // code: implements in isolation
+  "review",
+  "sec-review", // review: inspects the actual implementation
+  "commit",
+  "pr", // delivery: ships from the task branch
 ]);
 
 // The roadmap skill is also asked to seed the board so the kanban fills in from the roadmap tasks.
@@ -489,43 +504,80 @@ export function appendCardHistory(
   fs.writeFileSync(file, serializeCard(fm, description, history));
 }
 
-// ---- Task-scoped worktrees for spec card runs ----
+// ---- Task-scoped worktrees for card runs ----
 //
-// Each SPEC-* card gets a persistent git worktree on a semantic branch (feat/<slug>, fix/<slug>)
-// derived from the spec file's Trunk Metadata type and filename. The branch state is stored in
-// the board data dir so all subsequent skill runs on that card reuse the same branch, whether
-// they arrive via handoff or a fresh direct assignment from the board.
+// Every card (Jira ticket, AIWF board card, SPEC-* card) that runs a DELIVERY_SKILLS skill gets a
+// persistent git worktree on a semantic branch shared across all runs on that card. State is stored
+// in <DATA_DIR>/card-state/<contextId>/<key>.json where:
+//   contextId = "aiwf-<projectId>"  for AIWF board cards
+//   contextId = "jira-<boardKey>"   for Jira board tickets
+//
+// Backward compat: reads from the old spec-state path when card-state is missing, so existing
+// SPEC-* worktrees survive the upgrade without migration.
 
-function specStateDir(projectId: string): string {
+function cardStateDir(contextId: string): string {
+  return path.join(DATA_DIR, "card-state", contextId);
+}
+
+// @deprecated — kept so the old spec-state path is still readable (e.g. during server upgrades).
+function legacySpecStateDir(projectId: string): string {
   return path.join(DATA_DIR, "aiwf", projectId, "spec-state");
 }
 
-export interface SpecState {
+export interface CardState {
   taskBranch: string;
   worktreePath: string;
 }
 
-export function getSpecState(projectId: string, key: string): SpecState | null {
+export function getCardState(contextId: string, key: string): CardState | null {
   try {
-    return JSON.parse(fs.readFileSync(path.join(specStateDir(projectId), `${key}.json`), "utf8"));
+    return JSON.parse(fs.readFileSync(path.join(cardStateDir(contextId), `${key}.json`), "utf8"));
   } catch {
-    return null;
+    /* not found — try backward compat below */
   }
+  // Backward compat: for AIWF contexts fall back to old spec-state path.
+  if (contextId.startsWith("aiwf-")) {
+    const projectId = contextId.slice(5); // "aiwf-".length === 5
+    try {
+      return JSON.parse(fs.readFileSync(path.join(legacySpecStateDir(projectId), `${key}.json`), "utf8"));
+    } catch {
+      /* not found */
+    }
+  }
+  return null;
 }
 
-export function setSpecState(projectId: string, key: string, state: SpecState): void {
-  const dir = specStateDir(projectId);
+export function setCardState(contextId: string, key: string, state: CardState): void {
+  const dir = cardStateDir(contextId);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, `${key}.json`), JSON.stringify(state));
 }
 
-export function clearSpecState(projectId: string, key: string): void {
+export function clearCardState(contextId: string, key: string): void {
   try {
-    fs.unlinkSync(path.join(specStateDir(projectId), `${key}.json`));
+    fs.unlinkSync(path.join(cardStateDir(contextId), `${key}.json`));
   } catch {
     /* best-effort */
   }
+  // Also clear old spec-state file if present.
+  if (contextId.startsWith("aiwf-")) {
+    const projectId = contextId.slice(5); // "aiwf-".length === 5
+    try {
+      fs.unlinkSync(path.join(legacySpecStateDir(projectId), `${key}.json`));
+    } catch {
+      /* best-effort */
+    }
+  }
 }
+
+// Backward-compat aliases — kept so existing callers (index.ts transition handler, tests) don't break.
+export type SpecState = CardState;
+export const getSpecState = (projectId: string, key: string): CardState | null =>
+  getCardState(`aiwf-${projectId}`, key);
+export const setSpecState = (projectId: string, key: string, state: CardState): void =>
+  setCardState(`aiwf-${projectId}`, key, state);
+export const clearSpecState = (projectId: string, key: string): void =>
+  clearCardState(`aiwf-${projectId}`, key);
 
 /**
  * Derive the git branch name for a spec's task worktree.
@@ -586,23 +638,31 @@ function specAbsPath(project: AiwfProject, key: string): string | null {
   return null;
 }
 
+/** Derive a branch name for a non-SPEC card from the skill and card key.
+ *  fix/sec-review → fix/<key>, everything else → feat/<key>. */
+function branchForCard(skill: string, cardKey: string): string {
+  const prefix = skill === "fix" || skill === "sec-review" ? "fix" : "feat";
+  return `${prefix}/${sanitize(cardKey.toLowerCase())}`;
+}
+
 /**
- * Resolve (or create) the task-scoped worktree for a spec card skill run.
+ * Resolve (or create) the persistent task worktree for any card type.
  *
- * Returns `{ cwd, branch }` when the skill should run in a task worktree, or `null` when
- * the skill should run in the real project repo (planning/doc/bootstrap skills).
+ * - On first run: creates a worktree from `main` and stores state in card-state/.
+ * - On subsequent runs: reuses the stored path; re-creates the worktree if the path is stale.
+ * - Returns `{ cwd, branch }` on success, `null` on git error.
  *
- * Side-effect: writes or updates the spec-state file on the first run.
+ * @param stateContextId "aiwf-<projectId>" or "jira-<boardKey>"
+ * @param specPath       absolute path to the spec file — non-null only for SPEC-* cards
  */
-export async function resolveTaskWorktree(
-  project: AiwfProject,
+export async function resolveCardWorktree(
+  stateContextId: string,
   cardKey: string,
   skill: string,
+  repoRoot: string,
+  specPath: string | null = null,
 ): Promise<{ cwd: string; branch: string } | null> {
-  if (!TASK_WORKTREE_SKILLS.has(skill)) return null;
-
-  const repoRoot = expandHome(project.repoPath);
-  const existing = getSpecState(project.id, cardKey);
+  const existing = getCardState(stateContextId, cardKey);
 
   if (existing) {
     // Fast path: stored path still alive.
@@ -612,7 +672,7 @@ export async function resolveTaskWorktree(
     // Stale path — check via git before re-creating.
     const gitPath = await findWorktreePath(repoRoot, existing.taskBranch);
     if (gitPath && fs.existsSync(gitPath)) {
-      setSpecState(project.id, cardKey, { ...existing, worktreePath: gitPath });
+      setCardState(stateContextId, cardKey, { ...existing, worktreePath: gitPath });
       return { cwd: gitPath, branch: existing.taskBranch };
     }
     // Re-create on the existing branch.
@@ -620,18 +680,32 @@ export async function resolveTaskWorktree(
       existingBranch: existing.taskBranch,
     });
     if (!wt) return null;
-    setSpecState(project.id, cardKey, { taskBranch: wt.branch, worktreePath: wt.path });
+    setCardState(stateContextId, cardKey, { taskBranch: wt.branch, worktreePath: wt.path });
     return { cwd: wt.path, branch: wt.branch };
   }
 
-  // First run — derive branch name from spec and create from main.
-  const specPath = specAbsPath(project, cardKey);
-  const taskBranch = specPath ? branchFromSpec(specPath) : `feat/${sanitize(cardKey)}`;
+  // First run — derive branch name and create from main.
+  const taskBranch = specPath ? branchFromSpec(specPath) : branchForCard(skill, cardKey);
   const wt = await createWorktree(repoRoot, taskBranch, randomUUID(), {
     branchName: taskBranch,
     baseBranch: "main",
   });
   if (!wt) return null;
-  setSpecState(project.id, cardKey, { taskBranch: wt.branch, worktreePath: wt.path });
+  setCardState(stateContextId, cardKey, { taskBranch: wt.branch, worktreePath: wt.path });
   return { cwd: wt.path, branch: wt.branch };
+}
+
+/**
+ * Convenience wrapper for AIWF card runs: resolves the task worktree using the project context.
+ * Returns null when the skill is not in DELIVERY_SKILLS (caller should run in the real repo).
+ */
+export async function resolveTaskWorktree(
+  project: AiwfProject,
+  cardKey: string,
+  skill: string,
+): Promise<{ cwd: string; branch: string } | null> {
+  if (!DELIVERY_SKILLS.has(skill)) return null;
+  const repoRoot = expandHome(project.repoPath);
+  const specPath = cardKey.startsWith("SPEC-") ? specAbsPath(project, cardKey) : null;
+  return resolveCardWorktree(`aiwf-${project.id}`, cardKey, skill, repoRoot, specPath);
 }
