@@ -34,8 +34,9 @@ import {
   projectRunNote,
   skillNeedsWorktree,
   resolveTaskWorktree,
+  resolveCardWorktree,
   clearSpecState,
-  TASK_WORKTREE_SKILLS,
+  DELIVERY_SKILLS,
   DEFAULT_COLUMNS,
   COLUMN_SKILLS,
   SKILL_GROUPS,
@@ -498,21 +499,23 @@ app.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, async (req, 
     return res.status(400).json({ error: `Skill "${skill}" not found — install AI Workflow first.` });
   }
 
-  // Spec cards get a task-scoped worktree: a persistent branch (feat/<slug>) shared across all
-  // skill runs on that card. Non-spec board cards fall back to the original per-run worktree model.
+  // Delivery skills get a persistent task worktree shared across all runs on this card (any kind:
+  // spec, thread, task). Other skills keep the per-run isolateRuns path so analysis agents and
+  // Docker environments are unaffected. When isolateRuns is false the block is skipped entirely
+  // and every skill runs in the real repo.
   let cwdOverride = expandHome(p.repoPath);
   let skipWorktree = !skillNeedsWorktree(skill);
   let taskBranch: string | undefined;
 
-  if (card.kind === "spec") {
+  if ((cfg.isolateRuns ?? true) && DELIVERY_SKILLS.has(skill)) {
     const taskWt = await resolveTaskWorktree(p, card.key, skill);
     if (taskWt) {
       cwdOverride = taskWt.cwd;
-      skipWorktree = true; // worktree already created by resolveTaskWorktree
+      skipWorktree = true;
       taskBranch = taskWt.branch;
-    } else if (taskWt === null && TASK_WORKTREE_SKILLS.has(skill)) {
-      // resolveTaskWorktree returned null: either createWorktree failed (e.g. branch already checked
-      // out in another worktree) or a git error. Abort rather than silently running in the wrong dir.
+    } else {
+      // createWorktree failed (e.g. branch already checked out). Abort rather than silently running
+      // in the wrong directory.
       return res.status(503).json({
         error: "Could not create task worktree — branch may already be checked out. Check git worktree list.",
       });
@@ -538,7 +541,7 @@ app.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, async (req, 
 
 // Start a run. Either ticket-based ({ ticket, name, kind, note? }) or standalone
 // ({ name, kind, note, cwd?, title? } — the note is the task, no ticket required).
-app.post("/api/runs", runCreateLimiter, (req, res) => {
+app.post("/api/runs", runCreateLimiter, async (req, res) => {
   const ticket = req.body?.ticket as Ticket | undefined;
   const name = String(req.body?.name ?? req.body?.agentName ?? "");
   const kind = req.body?.kind === "skill" ? "skill" : "agent";
@@ -563,11 +566,42 @@ app.post("/api/runs", runCreateLimiter, (req, res) => {
     return res.status(400).json({ error: "Provide a ticket, or a note describing the standalone task." });
   }
 
+  // Delivery skill on a Jira ticket: resolve a persistent task worktree (one branch per card,
+  // shared across all skill runs). Non-delivery skills and agents keep the isolateRuns path so
+  // Docker environments and analysis agents are unaffected. When isolateRuns is false, the block
+  // is skipped and every run uses the real repo path.
+  let jiraTaskCwd: string | undefined;
+  let jiraSkipWorktree: boolean | undefined;
+  let jiraTaskBranch: string | undefined;
+
+  if (hasTicket && kind === "skill" && (cfg.isolateRuns ?? true) && DELIVERY_SKILLS.has(name)) {
+    const board = cfg.boards.find((b) => b.key === ticket!.boardKey);
+    const repoRoot = boardPaths(board)[0];
+    if (repoRoot) {
+      const taskWt = await resolveCardWorktree(`jira-${ticket!.boardKey}`, ticket!.key, name, repoRoot);
+      if (taskWt) {
+        jiraTaskCwd = taskWt.cwd;
+        jiraSkipWorktree = true;
+        jiraTaskBranch = taskWt.branch;
+      }
+      // If resolveCardWorktree returns null (git error), fall through to the isolateRuns path.
+    }
+  }
+
   const skillSource = kind === "skill" ? findSkill(cfg, name)?.source : undefined;
   const run = parentRunId
     ? startRun({ kind, name, note, parentRunId, skillSource })
     : hasTicket
-      ? startRun({ kind, name, note, ticket, skillSource })
+      ? startRun({
+          kind,
+          name,
+          note,
+          ticket,
+          skillSource,
+          ...(jiraTaskCwd
+            ? { cwdOverride: jiraTaskCwd, skipWorktree: jiraSkipWorktree, branch: jiraTaskBranch }
+            : {}),
+        })
       : startRun({ kind, name, note, cwd, title, skillSource });
   res.json({ runId: run.id });
 });
