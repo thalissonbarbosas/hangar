@@ -24,7 +24,8 @@ run, with a human in the loop when it matters.
   optionally add a note, and run. The session runs in that board's repo (with extra repos accessible
   in the same session for cross-repo work).
 - **Live run panel** — live output, tool calls, the captured session id and running
-  cost, and an auto-detected PR link.
+  cost, an auto-detected PR link, and an **Open in terminal** button for finished sessions
+  (set up in **Settings → Terminal**).
 - **Human-in-the-loop** — run unrestricted, or _gated_: reads and edits auto-run while risky
   shell commands pause for approval. Agent questions surface right in the panel with answer buttons.
 - **Run isolation** — each run gets its own git worktree + branch, so multiple agents work the
