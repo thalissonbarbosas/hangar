@@ -124,24 +124,30 @@ that directory and surfaces matching files as **read-only spec cards** in a coll
 - **Run skill** — clicking "▶ Run skill" on a spec card opens the Implementation-phase skill
   picker (same picker used when moving a card into Implementation). After picking a skill, a
   normal Hangar session starts with the spec's full content as context.
-- **Read-only guarantee** — spec files are never modified by Hangar. Mutation routes
-  (transition, archive, delete) return `400 Spec cards are read-only.` for `SPEC-*` keys.
+- **Task isolation** — when a code, delivery, or review skill (`feature`, `fix`, `commit`, `pr`,
+  `review`, `sec-review`) is run on a spec card, Hangar creates a shared worktree on a semantic
+  branch derived from the spec's filename and type (e.g. `feat/standardize-agent-skill-selects`,
+  always based on `main`). Every skill run on that card reuses the same branch, so `/commit` and
+  `/pr` deliver from the task's actual worktree even when started as a new run rather than a
+  handoff. The state persists until the card is transitioned to Complete.
+- **Read-only guarantee** — spec files are never modified by Hangar. Transition and archive/delete
+  routes return `400 Spec cards are read-only.` for `SPEC-*` keys — the one exception is
+  transitioning to `Complete`, which succeeds and resets the card's task-worktree state.
 - The section is hidden when `docs/specs/` is absent or contains no matching files.
 
 ### Execution model
 
-Most AI Workflow sessions run **in place** in the project repo, not in an isolated Hangar worktree,
-because aiwf manages its own git (it has `/commit` and `/pr`) and its planning/doc skills must write
-into the real repo. The exception is **code-producing implementation skills** — `feature` and `fix`
-— which mutate source directly, so they run in their own git worktree + branch like any other Hangar
-run; parallel implementation runs (and your own working tree) can't clobber each other, and the
-worktree branch persists for inspection/PR until the run is deleted. The `autopilot`/`factory`
-orchestrators stay in place: they spawn their own worktree subagents and open their own PRs, so an
-extra outer worktree would only fragment their git work. Each run is a normal skill session streamed into the run panel; on success its result is logged to
-the card's history.
-If a GitHub PR URL was detected in the run's streamed output, it is also written to the card's `pr:`
-frontmatter at that point — so the link persists across Hangar restarts and shows on the board card
-even after the run is cleared.
+Most AI Workflow sessions run **in place** in the project repo, because aiwf manages its own git
+(`/commit` and `/pr`) and its planning/doc skills must write into the real repo.
+
+**Spec card runs** with code, delivery, or review skills are the exception — see **Task isolation**
+above. Every other skill run on a regular board card also stays in place, except `feature` and `fix`
+on regular cards, which run in a per-run worktree + branch so parallel implementation runs can't
+clobber each other. The `autopilot`/`factory` orchestrators always stay in place: they spawn their
+own worktree subagents and open their own PRs.
+
+Each run is a normal skill session streamed into the run panel; on success its result is logged to
+the card's history. A PR URL detected in the output is saved to the card and persists across restarts.
 
 ### Card file format
 
