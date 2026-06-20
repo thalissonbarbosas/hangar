@@ -88,6 +88,7 @@ import request from "supertest";
 import { app } from "../index";
 import { createWorktree } from "../worktree";
 import * as aiwf from "../aiwf";
+import * as cfgMod from "../config";
 
 const createWorktreeMock = createWorktree as unknown as jest.Mock;
 const tick = () => new Promise((r) => setTimeout(r, 60));
@@ -166,20 +167,20 @@ describe("AI Workflow routes", () => {
     ).toBe(404);
   });
 
-  it("isolates code-producing skill runs in a worktree, but runs doc skills in place", async () => {
+  it("delivery skills get a task worktree; non-delivery skills run in place", async () => {
     const created = await request(app).post("/api/aiwf/projects/p1/cards").send({ title: "Ship it" });
     const key = created.body.ticket.key;
 
-    // A doc/review skill runs in place — no worktree requested.
+    // A non-delivery skill (roadmap) runs in place — no worktree.
     createWorktreeMock.mockClear();
-    const docRun = await request(app)
+    const planRun = await request(app)
       .post(`/api/aiwf/projects/p1/cards/${key}/run`)
-      .send({ skill: "review" });
-    expect(docRun.status).toBe(200);
+      .send({ skill: "roadmap" });
+    expect(planRun.status).toBe(200);
     await tick();
     expect(createWorktreeMock).not.toHaveBeenCalled();
 
-    // A code-producing skill is isolated — the run asks for a worktree off the project repo.
+    // A delivery skill (feature) gets a persistent task worktree.
     createWorktreeMock.mockClear();
     const codeRun = await request(app)
       .post(`/api/aiwf/projects/p1/cards/${key}/run`)
@@ -187,6 +188,22 @@ describe("AI Workflow routes", () => {
     expect(codeRun.status).toBe(200);
     await tick();
     expect(createWorktreeMock).toHaveBeenCalled();
+
+    // review is also a delivery skill now — reuses the same task worktree.
+    createWorktreeMock.mockClear();
+    const reviewRun = await request(app)
+      .post(`/api/aiwf/projects/p1/cards/${key}/run`)
+      .send({ skill: "review" });
+    expect(reviewRun.status).toBe(200);
+    await tick();
+    // Worktree already exists (stored from feature run) — mock path "/tmp/mock-task-wt" doesn't
+    // exist on disk, so resolveCardWorktree re-creates via existingBranch.
+    expect(createWorktreeMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({ existingBranch: expect.any(String) }),
+    );
   });
 
   describe("spec card task-scoped worktrees", () => {
@@ -245,15 +262,32 @@ describe("AI Workflow routes", () => {
       expect(lastCall[3]).toMatchObject({ existingBranch: "feat/standardize-agent-skill-selects" });
     });
 
-    it("runs a planning skill on a spec card in the real repo, not a worktree", async () => {
+    it("runs spec skill in a task worktree (spec is now a delivery skill)", async () => {
       createWorktreeMock.mockClear();
       const run = await request(app)
         .post(`/api/aiwf/projects/p1/cards/${specKey}/run`)
         .send({ skill: "spec" });
       expect(run.status).toBe(200);
       await tick();
+      // spec is in DELIVERY_SKILLS — createWorktree called with semantic branch from spec file
+      expect(createWorktreeMock).toHaveBeenCalledWith(
+        expect.any(String),
+        "feat/standardize-agent-skill-selects",
+        expect.any(String),
+        { branchName: "feat/standardize-agent-skill-selects", baseBranch: "main" },
+      );
+      expect(aiwf.getCardState("aiwf-p1", specKey)?.taskBranch).toBe("feat/standardize-agent-skill-selects");
+    });
+
+    it("runs a non-delivery skill on a spec card in the real repo", async () => {
+      createWorktreeMock.mockClear();
+      const run = await request(app)
+        .post(`/api/aiwf/projects/p1/cards/${specKey}/run`)
+        .send({ skill: "roadmap" });
+      expect(run.status).toBe(200);
+      await tick();
       expect(createWorktreeMock).not.toHaveBeenCalled();
-      expect(aiwf.getSpecState("p1", specKey)).toBeNull();
+      expect(aiwf.getCardState("aiwf-p1", specKey)).toBeNull();
     });
 
     it("returns 503 when worktree creation fails for a task-worktree skill", async () => {
@@ -287,6 +321,35 @@ describe("AI Workflow routes", () => {
       expect(done.body.ok).toBe(true);
       expect(aiwf.getSpecState("p1", specKey)).toBeNull();
     });
+  });
+
+  it("does not create task worktrees for delivery skills when isolateRuns is false", async () => {
+    const spy = jest
+      .spyOn(cfgMod, "getConfig")
+      .mockReturnValue({ ...cfgMod.getConfig(), isolateRuns: false });
+    try {
+      const proj = await request(app)
+        .post("/api/aiwf/projects")
+        .send({ name: "isolateRuns false test", repoPath: REPO, mode: "adopt" });
+      const pid = proj.body.project.id;
+      const card = await request(app).post(`/api/aiwf/projects/${pid}/cards`).send({ title: "Test card" });
+      const key = card.body.ticket.key;
+
+      createWorktreeMock.mockClear();
+      const run = await request(app)
+        .post(`/api/aiwf/projects/${pid}/cards/${key}/run`)
+        .send({ skill: "feature" });
+      expect(run.status).toBe(200);
+      await tick();
+      // isolateRuns: false → delivery-skill block skipped; no branchName-based worktree created.
+      const deliveryCalls = createWorktreeMock.mock.calls.filter(
+        (c: unknown[]) => (c[3] as { branchName?: string } | undefined)?.branchName,
+      );
+      expect(deliveryCalls).toHaveLength(0);
+      expect(aiwf.getCardState(`aiwf-${pid}`, key)).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("404s on unknown projects", async () => {

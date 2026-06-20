@@ -215,15 +215,15 @@ describe("skillNeedsWorktree", () => {
   });
 });
 
-describe("TASK_WORKTREE_SKILLS", () => {
-  it("includes code-producing, review, and delivery skills", () => {
-    for (const s of ["feature", "fix", "review", "sec-review", "commit", "pr"]) {
-      expect(aiwf.TASK_WORKTREE_SKILLS.has(s)).toBe(true);
+describe("DELIVERY_SKILLS", () => {
+  it("includes spec, code-producing, review, and delivery skills", () => {
+    for (const s of ["spec", "feature", "fix", "review", "sec-review", "commit", "pr"]) {
+      expect(aiwf.DELIVERY_SKILLS.has(s)).toBe(true);
     }
   });
-  it("excludes planning and doc skills", () => {
-    for (const s of ["prd", "spec", "roadmap", "architecture", "new-project", "autopilot", "factory"]) {
-      expect(aiwf.TASK_WORKTREE_SKILLS.has(s)).toBe(false);
+  it("excludes planning, doc, and bootstrap skills", () => {
+    for (const s of ["prd", "roadmap", "architecture", "new-project", "autopilot", "factory"]) {
+      expect(aiwf.DELIVERY_SKILLS.has(s)).toBe(false);
     }
   });
 });
@@ -294,18 +294,24 @@ describe("resolveTaskWorktree", () => {
   beforeEach(() => {
     specsDir = path.join(REPO, "docs", "specs");
     fs.mkdirSync(specsDir, { recursive: true });
-    // Clear any spec-state from prior tests
-    aiwf.clearSpecState("p1", "SPEC-007");
+    aiwf.clearCardState("aiwf-p1", "SPEC-007");
   });
   afterEach(() => {
     fs.rmSync(path.join(REPO, "docs"), { recursive: true, force: true });
-    aiwf.clearSpecState("p1", "SPEC-007");
+    aiwf.clearCardState("aiwf-p1", "SPEC-007");
   });
 
-  it("returns null for planning skills (not in TASK_WORKTREE_SKILLS)", async () => {
-    expect(await aiwf.resolveTaskWorktree(project, "SPEC-007", "spec")).toBeNull();
+  it("returns null for non-delivery skills (prd, roadmap)", async () => {
     expect(await aiwf.resolveTaskWorktree(project, "SPEC-007", "prd")).toBeNull();
     expect(await aiwf.resolveTaskWorktree(project, "SPEC-007", "roadmap")).toBeNull();
+  });
+
+  it("creates a worktree for spec skill (now a delivery skill)", async () => {
+    const file = path.join(specsDir, "007_standardize-agent-skill-selects.md");
+    fs.writeFileSync(file, "## Trunk Metadata\n\n- **Type:** feat\n");
+    const result = await aiwf.resolveTaskWorktree(project, "SPEC-007", "spec");
+    expect(result).not.toBeNull();
+    expect(result!.branch).toBe("feat/standardize-agent-skill-selects");
   });
 
   it("creates a worktree on first run with a semantic branch name", async () => {
@@ -314,13 +320,11 @@ describe("resolveTaskWorktree", () => {
     const result = await aiwf.resolveTaskWorktree(project, "SPEC-007", "feature");
     expect(result).not.toBeNull();
     expect(result!.branch).toBe("feat/standardize-agent-skill-selects");
-    // State was persisted
-    expect(aiwf.getSpecState("p1", "SPEC-007")?.taskBranch).toBe("feat/standardize-agent-skill-selects");
+    expect(aiwf.getCardState("aiwf-p1", "SPEC-007")?.taskBranch).toBe("feat/standardize-agent-skill-selects");
   });
 
   it("reuses the stored worktree path on subsequent runs", async () => {
-    aiwf.setSpecState("p1", "SPEC-007", { taskBranch: "feat/my-task", worktreePath: DATA });
-    // DATA dir exists on disk — should reuse without calling createWorktree
+    aiwf.setCardState("aiwf-p1", "SPEC-007", { taskBranch: "feat/my-task", worktreePath: DATA });
     const { createWorktree: mockCreate } = jest.requireMock("../worktree");
     mockCreate.mockClear();
     const result = await aiwf.resolveTaskWorktree(project, "SPEC-007", "commit");
@@ -331,7 +335,10 @@ describe("resolveTaskWorktree", () => {
   });
 
   it("recreates the worktree on the existing branch when stored path is stale", async () => {
-    aiwf.setSpecState("p1", "SPEC-007", { taskBranch: "feat/stale", worktreePath: "/tmp/gone-path-xyz" });
+    aiwf.setCardState("aiwf-p1", "SPEC-007", {
+      taskBranch: "feat/stale",
+      worktreePath: "/tmp/gone-path-xyz",
+    });
     const { createWorktree: mockCreate } = jest.requireMock("../worktree");
     mockCreate.mockClear();
     const result = await aiwf.resolveTaskWorktree(project, "SPEC-007", "commit");
@@ -340,6 +347,91 @@ describe("resolveTaskWorktree", () => {
     expect(mockCreate).toHaveBeenCalledWith(expect.any(String), "feat/stale", expect.any(String), {
       existingBranch: "feat/stale",
     });
+  });
+});
+
+describe("resolveCardWorktree", () => {
+  const contextId = "jira-HAN";
+  const cardKey = "HAN-8";
+
+  beforeEach(() => aiwf.clearCardState(contextId, cardKey));
+  afterEach(() => aiwf.clearCardState(contextId, cardKey));
+
+  it("derives feat/<key> for a non-fix first delivery skill", async () => {
+    const result = await aiwf.resolveCardWorktree(contextId, cardKey, "feature", REPO);
+    expect(result).not.toBeNull();
+    expect(result!.branch).toBe("feat/han-8");
+    expect(aiwf.getCardState(contextId, cardKey)?.taskBranch).toBe("feat/han-8");
+  });
+
+  it("derives fix/<key> when first skill is fix", async () => {
+    const result = await aiwf.resolveCardWorktree(contextId, cardKey, "fix", REPO);
+    expect(result!.branch).toBe("fix/han-8");
+  });
+
+  it("derives fix/<key> when first skill is sec-review", async () => {
+    const result = await aiwf.resolveCardWorktree(contextId, cardKey, "sec-review", REPO);
+    expect(result!.branch).toBe("fix/han-8");
+  });
+
+  it("derives feat/<key> for spec skill", async () => {
+    const result = await aiwf.resolveCardWorktree(contextId, cardKey, "spec", REPO);
+    expect(result!.branch).toBe("feat/han-8");
+  });
+
+  it("sanitizes the card key to lowercase", async () => {
+    const result = await aiwf.resolveCardWorktree("jira-PP", "PP-1234", "feature", REPO);
+    expect(result!.branch).toBe("feat/pp-1234");
+    aiwf.clearCardState("jira-PP", "PP-1234");
+  });
+
+  it("reuses stored state on subsequent runs", async () => {
+    aiwf.setCardState(contextId, cardKey, { taskBranch: "feat/han-8", worktreePath: DATA });
+    const { createWorktree: mockCreate } = jest.requireMock("../worktree");
+    mockCreate.mockClear();
+    const result = await aiwf.resolveCardWorktree(contextId, cardKey, "commit", REPO);
+    expect(result!.cwd).toBe(DATA);
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("reads old spec-state path as backward compat for aiwf context", async () => {
+    // Write a legacy spec-state file
+    const legacyDir = path.join(DATA, "aiwf", "p1", "spec-state");
+    fs.mkdirSync(legacyDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(legacyDir, "SPEC-099.json"),
+      JSON.stringify({ taskBranch: "feat/legacy", worktreePath: DATA }),
+    );
+    const result = await aiwf.resolveCardWorktree("aiwf-p1", "SPEC-099", "commit", REPO);
+    expect(result!.branch).toBe("feat/legacy");
+    // Cleanup
+    fs.rmSync(path.join(legacyDir, "SPEC-099.json"), { force: true });
+  });
+
+  it("uses branchFromSpec when specPath is provided", async () => {
+    const specsDir = path.join(REPO, "docs", "specs");
+    fs.mkdirSync(specsDir, { recursive: true });
+    const file = path.join(specsDir, "007_standardize-agent-skill-selects.md");
+    fs.writeFileSync(file, "## Trunk Metadata\n\n- **Type:** feat\n");
+    const result = await aiwf.resolveCardWorktree("aiwf-p1", "SPEC-007", "feature", REPO, file);
+    expect(result!.branch).toBe("feat/standardize-agent-skill-selects");
+    aiwf.clearCardState("aiwf-p1", "SPEC-007");
+    fs.rmSync(path.join(REPO, "docs"), { recursive: true, force: true });
+  });
+});
+
+describe("getCardState / setCardState / clearCardState", () => {
+  it("returns null when no state file exists", () => {
+    expect(aiwf.getCardState("jira-HAN", "HAN-999")).toBeNull();
+  });
+  it("round-trips state through the data dir", () => {
+    const state = { taskBranch: "feat/han-1", worktreePath: "/tmp/wt" };
+    aiwf.setCardState("jira-HAN", "HAN-1", state);
+    expect(aiwf.getCardState("jira-HAN", "HAN-1")).toEqual(state);
+    aiwf.clearCardState("jira-HAN", "HAN-1");
+  });
+  it("clearCardState is idempotent", () => {
+    expect(() => aiwf.clearCardState("jira-HAN", "HAN-NEVER")).not.toThrow();
   });
 });
 
