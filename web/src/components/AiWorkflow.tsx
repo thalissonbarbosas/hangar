@@ -891,7 +891,8 @@ function SpecCardsSection({
           {visible.length === 0 && q && <span className="aiwf-spec-empty">No specs match "{filter}"</span>}
           {totalPages > 1 && (
             <div className="aiwf-spec-pagination">
-              <button className="btn-ghost sm" disabled={safePage <= 1} onClick={() => setPage((p) => p - 1)}>
+              {/* Use safePage (not stale page) so Prev/Next always navigate relative to what's shown. */}
+              <button className="btn-ghost sm" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>
                 ‹ Prev
               </button>
               <span className="aiwf-spec-page">
@@ -900,7 +901,7 @@ function SpecCardsSection({
               <button
                 className="btn-ghost sm"
                 disabled={safePage >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
+                onClick={() => setPage(safePage + 1)}
               >
                 Next ›
               </button>

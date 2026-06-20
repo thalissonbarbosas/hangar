@@ -178,6 +178,14 @@ describe("listSpecCards / getSpecCard", () => {
     expect(aiwf.getSpecCard(project, "SPEC-999")).toBeNull();
     expect(aiwf.getSpecCard(project, "X-1")).toBeNull();
   });
+
+  it("returns specs sorted descending by numeric prefix (newest spec first)", () => {
+    fs.writeFileSync(path.join(specsDir, "001_alpha.md"), "# Alpha\n");
+    fs.writeFileSync(path.join(specsDir, "003_gamma.md"), "# Gamma\n");
+    fs.writeFileSync(path.join(specsDir, "002_beta.md"), "# Beta\n");
+    const cards = aiwf.listSpecCards(project);
+    expect(cards.map((c) => c.key)).toEqual(["SPEC-003", "SPEC-002", "SPEC-001"]);
+  });
 });
 
 describe("skillNeedsWorktree", () => {
