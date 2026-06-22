@@ -99,4 +99,6 @@ export interface Ticket {
   skill?: string; // aiwf: the most recent skill run on this card
   history?: AiwfHistoryEntry[]; // aiwf: sessions/tasks recorded against this card
   archived?: boolean; // aiwf: soft-hidden from the active board columns (reversible)
+  hasWorktree?: boolean; // aiwf: true when a task-scoped worktree exists for this card
+  taskBranch?: string; // aiwf: the task-branch name when hasWorktree is true
 }

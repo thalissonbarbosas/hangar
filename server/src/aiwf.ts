@@ -570,6 +570,23 @@ export function clearCardState(contextId: string, key: string): void {
   }
 }
 
+/** List all card states for a context (one entry per stored key). Returns [] if no state dir. */
+export function listCardStates(contextId: string): Array<{ key: string } & CardState> {
+  const dir = cardStateDir(contextId);
+  if (!fs.existsSync(dir)) return [];
+  const results: Array<{ key: string } & CardState> = [];
+  for (const file of fs.readdirSync(dir)) {
+    if (!file.endsWith(".json")) continue;
+    try {
+      const state = JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) as CardState;
+      results.push({ key: file.slice(0, -5), ...state }); // strip ".json"
+    } catch {
+      /* skip malformed files */
+    }
+  }
+  return results;
+}
+
 // Backward-compat aliases — kept so existing callers (index.ts transition handler, tests) don't break.
 export type SpecState = CardState;
 export const getSpecState = (projectId: string, key: string): CardState | null =>
