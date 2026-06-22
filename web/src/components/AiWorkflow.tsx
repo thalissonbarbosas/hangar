@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   FolderPlus,
   Download,
@@ -316,6 +317,12 @@ export function AiWorkflowView({
   const [specSidebar, setSpecSidebar] = useState<Ticket | null>(null); // spec card open in sidebar
   // Pending promote: spec dragged to a column — card not created yet, waiting for skill picker confirm
   const [pendingPromote, setPendingPromote] = useState<{ specKey: string; phase: string } | null>(null);
+  // Moving to Complete with an active worktree — prompt before transitioning
+  const [completeWorktreeModal, setCompleteWorktreeModal] = useState<{
+    key: string;
+    branch: string;
+    target: string;
+  } | null>(null);
 
   const loadCards = useCallback(
     (id: string) => {
@@ -393,7 +400,7 @@ export function AiWorkflowView({
       })
       .catch((e) => onError(String(e.message ?? e)));
   }
-  function moveCard(key: string, target: string) {
+  function doTransition(key: string, target: string) {
     const prev = cards;
     setCards((cs) => cs.map((c) => (c.key === key ? { ...c, status: target } : c)));
     api
@@ -408,6 +415,15 @@ export function AiWorkflowView({
         setCards(prev);
         onError(String(e.message ?? e));
       });
+  }
+  function moveCard(key: string, target: string) {
+    const lastColumn = allColumns[allColumns.length - 1];
+    const card = cards.find((c) => c.key === key);
+    if (target === lastColumn && card?.hasWorktree && card.taskBranch) {
+      setCompleteWorktreeModal({ key, branch: card.taskBranch, target });
+      return;
+    }
+    doTransition(key, target);
   }
   // Step 1 — just open the picker; the board card is NOT created yet.
   function promoteSpec(specKey: string, targetPhase: string) {
@@ -466,6 +482,7 @@ export function AiWorkflowView({
             onSeeData={setDataCard}
             onArchive={(key) => archiveCard(key, true)}
             onDelete={removeCard}
+            isComplete={i === allColumns.length - 1}
           />
         ))}
       </div>
@@ -556,6 +573,27 @@ export function AiWorkflowView({
 
       {dataCard && <CardDataModal card={dataCard} onClose={() => setDataCard(null)} />}
 
+      {completeWorktreeModal && (
+        <CompleteWorktreeModal
+          cardKey={completeWorktreeModal.key}
+          branch={completeWorktreeModal.branch}
+          onClose={() => setCompleteWorktreeModal(null)}
+          onMoveOnly={() => {
+            const { key, target } = completeWorktreeModal;
+            setCompleteWorktreeModal(null);
+            doTransition(key, target);
+          }}
+          onMoveAndCleanup={() => {
+            const { key, target } = completeWorktreeModal;
+            setCompleteWorktreeModal(null);
+            api
+              .deleteAiwfWorktree(project!.id, key)
+              .then(() => doTransition(key, target))
+              .catch((e) => onError(String(e.message ?? e)));
+          }}
+        />
+      )}
+
       {specSidebar && (
         <SpecSidebar
           card={specSidebar}
@@ -572,6 +610,119 @@ export function AiWorkflowView({
   );
 }
 
+// Modal listing all cards in the complete column with a live name filter and full card options.
+function CompleteCardsModal({
+  cards,
+  hasSkills,
+  runByTicket,
+  onRunPhase,
+  onOpenRun,
+  onSeeData,
+  onArchive,
+  onDelete,
+  onClose,
+}: {
+  cards: Ticket[]; // already sorted by summary desc
+  hasSkills: boolean;
+  runByTicket: Map<string, RunSummary>;
+  onRunPhase: (key: string) => void;
+  onOpenRun: (run: RunSummary) => void;
+  onSeeData: (card: Ticket) => void;
+  onArchive: (key: string) => void;
+  onDelete: (key: string) => void;
+  onClose: () => void;
+}) {
+  const [filter, setFilter] = useState("");
+  const q = filter.toLowerCase();
+  const visible = q ? cards.filter((c) => c.summary.toLowerCase().includes(q)) : cards;
+  return createPortal(
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <span className="modal-title">Complete ({cards.length})</span>
+          <button className="icon-btn" onClick={onClose} title="Close">
+            ×
+          </button>
+        </div>
+        <input
+          className="col-done-filter"
+          autoFocus
+          placeholder="Filter by name…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
+        <div className="col-done-list">
+          {visible.length === 0 ? (
+            <div className="col-done-empty">No complete cards match "{filter}"</div>
+          ) : (
+            visible.map((c) => (
+              <AiwfCard
+                key={c.key}
+                card={c}
+                hasSkills={hasSkills}
+                run={runByTicket.get(c.key)}
+                onRunPhase={() => onRunPhase(c.key)}
+                onOpenRun={onOpenRun}
+                onSeeData={() => onSeeData(c)}
+                onArchive={() => onArchive(c.key)}
+                onDelete={() => onDelete(c.key)}
+              />
+            ))
+          )}
+        </div>
+        <div className="modal-actions">
+          <button className="btn" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// Prompt shown when moving a card with an active task worktree to the Complete column.
+function CompleteWorktreeModal({
+  cardKey,
+  branch,
+  onClose,
+  onMoveOnly,
+  onMoveAndCleanup,
+}: {
+  cardKey: string;
+  branch: string;
+  onClose: () => void;
+  onMoveOnly: () => void;
+  onMoveAndCleanup: () => void;
+}) {
+  return createPortal(
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal aiwf-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <span className="modal-title">Move to Complete</span>
+          <button className="icon-btn" onClick={onClose}>
+            <X size={16} />
+          </button>
+        </div>
+        <p style={{ margin: "1rem 1.25rem" }}>
+          Card <strong>{cardKey}</strong> has an active task worktree on branch <code>{branch}</code>.
+        </p>
+        <div className="modal-actions">
+          <button className="btn-ghost" onClick={onMoveOnly}>
+            Move only
+          </button>
+          <button className="btn" onClick={onMoveAndCleanup}>
+            Move + clean up worktree
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+const COMPLETE_CAP = 5; // max cards shown in the complete column before "See more" kicks in
+
 function AiwfColumn({
   phase,
   color,
@@ -587,6 +738,7 @@ function AiwfColumn({
   onSeeData,
   onArchive,
   onDelete,
+  isComplete,
 }: {
   phase: string;
   color: string;
@@ -602,8 +754,16 @@ function AiwfColumn({
   onSeeData: (card: Ticket) => void;
   onArchive: (key: string) => void;
   onDelete: (key: string) => void;
+  isComplete?: boolean; // true for the last (complete) column
 }) {
   const [over, setOver] = useState(false);
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
+
+  // Sort complete-column cards by summary descending; leave other columns untouched.
+  const sorted = isComplete ? [...cards].sort((a, b) => b.summary.localeCompare(a.summary)) : cards;
+  const visible = isComplete ? sorted.slice(0, COMPLETE_CAP) : sorted;
+  const hidden = isComplete ? Math.max(0, sorted.length - COMPLETE_CAP) : 0;
+
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setOver(false);
@@ -646,7 +806,7 @@ function AiwfColumn({
         </button>
       </div>
       <div className="column-body">
-        {cards.map((c) => (
+        {visible.map((c) => (
           <AiwfCard
             key={c.key}
             card={c}
@@ -659,7 +819,25 @@ function AiwfColumn({
             onDelete={() => onDelete(c.key)}
           />
         ))}
+        {hidden > 0 && (
+          <button className="btn-ghost sm col-see-more" onClick={() => setCompleteModalOpen(true)}>
+            See {hidden} more ▾
+          </button>
+        )}
       </div>
+      {completeModalOpen && (
+        <CompleteCardsModal
+          cards={sorted}
+          hasSkills={hasSkills}
+          runByTicket={runByTicket}
+          onRunPhase={onRunPhase}
+          onOpenRun={onOpenRun}
+          onSeeData={onSeeData}
+          onArchive={onArchive}
+          onDelete={onDelete}
+          onClose={() => setCompleteModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
