@@ -585,6 +585,124 @@ describe("AI Workflow routes", () => {
     }
   });
 
+  describe("hasWorktree / taskBranch enrichment and worktree management routes", () => {
+    let pid: string;
+    let ctxId: string;
+
+    beforeAll(async () => {
+      const proj = await request(app)
+        .post("/api/aiwf/projects")
+        .send({ name: "Worktree Test", repoPath: REPO, mode: "adopt" });
+      pid = proj.body.project.id;
+      ctxId = `aiwf-${pid}`;
+    });
+
+    it("card listing includes hasWorktree:false and no taskBranch when no state exists", async () => {
+      const created = await request(app)
+        .post(`/api/aiwf/projects/${pid}/cards`)
+        .send({ title: "No worktree card" });
+      const key = created.body.ticket.key;
+      const list = await request(app).get(`/api/aiwf/projects/${pid}/cards`);
+      const ticket = list.body.tickets.find((t: { key: string }) => t.key === key);
+      expect(ticket.hasWorktree).toBe(false);
+      expect(ticket.taskBranch).toBeUndefined();
+    });
+
+    it("card listing includes hasWorktree:true and taskBranch when card state exists", async () => {
+      const created = await request(app)
+        .post(`/api/aiwf/projects/${pid}/cards`)
+        .send({ title: "Has worktree card" });
+      const key = created.body.ticket.key;
+      aiwf.setCardState(ctxId, key, { taskBranch: "feat/has-wt", worktreePath: "/tmp/haswt" });
+      try {
+        const list = await request(app).get(`/api/aiwf/projects/${pid}/cards`);
+        const ticket = list.body.tickets.find((t: { key: string }) => t.key === key);
+        expect(ticket.hasWorktree).toBe(true);
+        expect(ticket.taskBranch).toBe("feat/has-wt");
+      } finally {
+        aiwf.clearCardState(ctxId, key);
+      }
+    });
+
+    it("SPEC-* card listing includes hasWorktree:true and taskBranch when card state exists", async () => {
+      const specsDir = path.join(REPO, "docs", "specs");
+      fs.mkdirSync(specsDir, { recursive: true });
+      fs.writeFileSync(path.join(specsDir, "042_spec-wt.md"), "# Spec With Worktree\n\nBody.");
+      aiwf.setCardState(ctxId, "SPEC-042", { taskBranch: "feat/spec-42", worktreePath: "/tmp/spec42" });
+      try {
+        const list = await request(app).get(`/api/aiwf/projects/${pid}/cards`);
+        const spec = list.body.tickets.find((t: { key: string }) => t.key === "SPEC-042");
+        expect(spec).toBeDefined();
+        expect(spec.hasWorktree).toBe(true);
+        expect(spec.taskBranch).toBe("feat/spec-42");
+      } finally {
+        fs.rmSync(path.join(REPO, "docs"), { recursive: true, force: true });
+        aiwf.clearCardState(ctxId, "SPEC-042");
+      }
+    });
+
+    it("GET /worktrees returns empty list when no states exist", async () => {
+      const res = await request(app).get(`/api/aiwf/projects/${pid}/worktrees`);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.worktrees)).toBe(true);
+    });
+
+    it("GET /worktrees lists entries after state is written", async () => {
+      const created = await request(app)
+        .post(`/api/aiwf/projects/${pid}/cards`)
+        .send({ title: "Listed wt card" });
+      const cardKey = created.body.ticket.key;
+      aiwf.setCardState(ctxId, cardKey, { taskBranch: "feat/wt-test", worktreePath: "/tmp/wt" });
+      try {
+        const res = await request(app).get(`/api/aiwf/projects/${pid}/worktrees`);
+        expect(res.status).toBe(200);
+        const entry = res.body.worktrees.find((e: { key: string }) => e.key === cardKey);
+        expect(entry).toBeDefined();
+        expect(entry.taskBranch).toBe("feat/wt-test");
+      } finally {
+        aiwf.clearCardState(ctxId, cardKey);
+      }
+    });
+
+    it("DELETE /worktrees/:key clears card state (no-op when no state)", async () => {
+      const created = await request(app)
+        .post(`/api/aiwf/projects/${pid}/cards`)
+        .send({ title: "Del one card" });
+      const cardKey = created.body.ticket.key;
+
+      const noOp = await request(app).delete(`/api/aiwf/projects/${pid}/worktrees/${cardKey}`);
+      expect(noOp.status).toBe(200);
+      expect(noOp.body.ok).toBe(true);
+
+      aiwf.setCardState(ctxId, cardKey, { taskBranch: "feat/del-one", worktreePath: "/tmp/del" });
+      const del = await request(app).delete(`/api/aiwf/projects/${pid}/worktrees/${cardKey}`);
+      expect(del.status).toBe(200);
+      expect(del.body.ok).toBe(true);
+      expect(aiwf.getCardState(ctxId, cardKey)).toBeNull();
+    });
+
+    it("DELETE /worktrees clears all card states for the project", async () => {
+      const k1 = (await request(app).post(`/api/aiwf/projects/${pid}/cards`).send({ title: "Bulk wt 1" }))
+        .body.ticket.key;
+      const k2 = (await request(app).post(`/api/aiwf/projects/${pid}/cards`).send({ title: "Bulk wt 2" }))
+        .body.ticket.key;
+      aiwf.setCardState(ctxId, k1, { taskBranch: "feat/bulk1", worktreePath: "/tmp/b1" });
+      aiwf.setCardState(ctxId, k2, { taskBranch: "feat/bulk2", worktreePath: "/tmp/b2" });
+      const res = await request(app).delete(`/api/aiwf/projects/${pid}/worktrees`);
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(typeof res.body.removed).toBe("number");
+      expect(aiwf.getCardState(ctxId, k1)).toBeNull();
+      expect(aiwf.getCardState(ctxId, k2)).toBeNull();
+    });
+
+    it("returns 404 for routes targeting an unknown project", async () => {
+      expect((await request(app).get("/api/aiwf/projects/NOPE/worktrees")).status).toBe(404);
+      expect((await request(app).delete("/api/aiwf/projects/NOPE/worktrees/KEY-1")).status).toBe(404);
+      expect((await request(app).delete("/api/aiwf/projects/NOPE/worktrees")).status).toBe(404);
+    });
+  });
+
   it("archive and delete routes return success in demo mode without writing to disk", async () => {
     // Register a project before switching to demo mode (the project guard uses the real config list).
     const proj = await request(app)
