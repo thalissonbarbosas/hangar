@@ -519,6 +519,16 @@ function cardStateDir(contextId: string): string {
   return path.join(DATA_DIR, "card-state", contextId);
 }
 
+// Persistent task worktrees live under Hangar's data dir — NOT the OS temp dir — so untracked
+// working-tree files (e.g. a `/spec` spec not yet committed) survive and are reused by later runs
+// on the same task. The OS purges `$TMPDIR`, which previously dropped these artifacts. (HAN-11)
+// The worktree belongs to the *target* repo (project.repoPath), not Hangar's repo, so it normally
+// nests under no repo. If Hangar is ever pointed at its own repo, the worktree nests under Hangar's
+// gitignored `.hangar/` — git tolerates this because the dir is ignored in the main working tree.
+function taskWorktreeBaseDir(): string {
+  return path.join(DATA_DIR, "worktrees");
+}
+
 // @deprecated — kept so the old spec-state path is still readable (e.g. during server upgrades).
 function legacySpecStateDir(projectId: string): string {
   return path.join(DATA_DIR, "aiwf", projectId, "spec-state");
@@ -709,9 +719,16 @@ export async function resolveCardWorktree(
       setCardState(stateContextId, cardKey, { ...existing, worktreePath: gitPath });
       return { cwd: gitPath, branch: existing.taskBranch };
     }
-    // Re-create on the existing branch.
+    // Re-create on the existing branch. The prior worktree directory is gone, so any untracked or
+    // uncommitted files it held (e.g. a `/spec` spec) cannot be recovered — only the branch's
+    // committed tip is checked out. Warn so the operator knows artifacts may be missing. (HAN-11)
+    console.warn(
+      `[hangar] task worktree for ${stateContextId}/${cardKey} (${existing.taskBranch}) was gone; ` +
+        `recreating from the branch tip. Uncommitted/untracked files from the prior worktree are not carried over.`,
+    );
     const wt = await createWorktree(repoRoot, existing.taskBranch, randomUUID(), {
       existingBranch: existing.taskBranch,
+      baseDir: taskWorktreeBaseDir(),
     });
     if (!wt) return null;
     setCardState(stateContextId, cardKey, { taskBranch: wt.branch, worktreePath: wt.path });
@@ -723,6 +740,7 @@ export async function resolveCardWorktree(
   const wt = await createWorktree(repoRoot, taskBranch, randomUUID(), {
     branchName: taskBranch,
     baseBranch: "main",
+    baseDir: taskWorktreeBaseDir(),
   });
   if (!wt) return null;
   setCardState(stateContextId, cardKey, { taskBranch: wt.branch, worktreePath: wt.path });

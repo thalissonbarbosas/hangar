@@ -236,7 +236,10 @@ describe("AI Workflow routes", () => {
         expect.any(String),
         "feat/standardize-agent-skill-selects",
         expect.any(String),
-        { branchName: "feat/standardize-agent-skill-selects", baseBranch: "main" },
+        expect.objectContaining({
+          branchName: "feat/standardize-agent-skill-selects",
+          baseBranch: "main",
+        }),
       );
       // Spec state persisted
       const state = aiwf.getSpecState("p1", specKey);
@@ -274,7 +277,10 @@ describe("AI Workflow routes", () => {
         expect.any(String),
         "feat/standardize-agent-skill-selects",
         expect.any(String),
-        { branchName: "feat/standardize-agent-skill-selects", baseBranch: "main" },
+        expect.objectContaining({
+          branchName: "feat/standardize-agent-skill-selects",
+          baseBranch: "main",
+        }),
       );
       expect(aiwf.getCardState("aiwf-p1", specKey)?.taskBranch).toBe("feat/standardize-agent-skill-selects");
     });
@@ -301,7 +307,10 @@ describe("AI Workflow routes", () => {
         expect.any(String),
         "feat/standardize-agent-skill-selects",
         expect.any(String),
-        { branchName: "feat/standardize-agent-skill-selects", baseBranch: "main" },
+        expect.objectContaining({
+          branchName: "feat/standardize-agent-skill-selects",
+          baseBranch: "main",
+        }),
       );
       expect(aiwf.getCardState("aiwf-p1", cardKey)?.taskBranch).toBe("feat/standardize-agent-skill-selects");
     });
