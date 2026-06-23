@@ -46,6 +46,43 @@ export interface TestResult {
   error?: string;
 }
 
+// Structured error body returned by the checkout endpoints (active_sessions / dirty_tree / …).
+export interface CheckoutError {
+  error: string;
+  message?: string;
+  runIds?: string[];
+  titles?: string[];
+}
+
+// Thrown by the checkout wrappers on a non-2xx response so callers can inspect `.detail`
+// (e.g. to render the active-session blocking warning with session titles).
+export class CheckoutFailed extends Error {
+  detail: CheckoutError;
+  constructor(detail: CheckoutError) {
+    super(detail.message || detail.error);
+    this.name = "CheckoutFailed";
+    this.detail = detail;
+  }
+}
+
+async function postCheckout<T>(url: string, body: unknown = {}): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let detail: CheckoutError = { error: `${res.status} ${res.statusText}` };
+    try {
+      detail = (await res.json()) as CheckoutError;
+    } catch {
+      /* keep the status-line fallback */
+    }
+    throw new CheckoutFailed(detail);
+  }
+  return res.json() as Promise<T>;
+}
+
 export interface JiraSettingsInput {
   baseUrl?: string;
   email?: string;
@@ -118,6 +155,14 @@ export const api = {
     sendJson<{ ok: boolean }>("DELETE", `/api/aiwf/projects/${id}/worktrees/${encodeURIComponent(key)}`, {}),
   deleteAllAiwfWorktrees: (id: string) =>
     sendJson<{ ok: boolean; removed: number }>("DELETE", `/api/aiwf/projects/${id}/worktrees`, {}),
+  // ---- Branch checkout (run the task branch in the project root) ----
+  aiwfBranch: (id: string) => getJson<{ branch: string }>(`/api/aiwf/projects/${id}/branch`),
+  aiwfCheckoutCard: (id: string, key: string) =>
+    postCheckout<{ ok: boolean; branch: string; previousBranch: string }>(
+      `/api/aiwf/projects/${id}/cards/${encodeURIComponent(key)}/checkout`,
+    ),
+  aiwfCheckoutBranch: (id: string, branch: string) =>
+    postCheckout<{ ok: boolean; branch: string }>(`/api/aiwf/projects/${id}/checkout`, { branch }),
   listJiraWorktrees: (boardKey: string) =>
     getJson<{ worktrees: WorktreeEntry[] }>(`/api/jira/boards/${encodeURIComponent(boardKey)}/worktrees`),
   deleteJiraWorktree: (boardKey: string, cardKey: string) =>

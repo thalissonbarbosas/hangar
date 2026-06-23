@@ -25,8 +25,10 @@ import {
   BookOpen,
   Search,
   Wrench,
+  GitBranch,
+  CornerUpLeft,
 } from "lucide-react";
-import { api } from "../api";
+import { api, CheckoutFailed } from "../api";
 import {
   AiwfProject,
   AiwfSkillGroup,
@@ -643,6 +645,8 @@ export function AiWorkflowView({
       {dataCard && (
         <CardDataModal
           card={dataCard}
+          projectId={project.id}
+          onError={onError}
           onClose={() => setDataCard(null)}
           onViewSession={(runId, label) => setSessionTranscript({ runId, label })}
         />
@@ -1271,14 +1275,79 @@ function SpecSidebar({
 // stacked above the "See more" modal, so opening a card's data from inside that modal takes priority.
 function CardDataModal({
   card,
+  projectId,
+  onError,
   onClose,
   onViewSession,
 }: {
   card: Ticket;
+  projectId: string;
+  onError: (msg: string) => void;
   onClose: () => void;
   onViewSession: (runId: string, label: string) => void;
 }) {
   const history = card.history ?? [];
+  // The card's task branch is captured once on open; the worktree (and so card.taskBranch) is cleared
+  // by checkout, so we keep it locally to keep the "Back to main" control available afterwards.
+  const [taskBranch] = useState<string | undefined>(card.taskBranch);
+  const [rootBranch, setRootBranch] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  // Active-session warning surfaced when checkout is blocked (409 active_sessions).
+  const [blocked, setBlocked] = useState<{ message: string; titles: string[] } | null>(null);
+
+  // Reflect the project root's actual HEAD so the checkout state survives page refreshes.
+  useEffect(() => {
+    if (!taskBranch) return;
+    let alive = true;
+    api
+      .aiwfBranch(projectId)
+      .then((r) => alive && setRootBranch(r.branch))
+      .catch(() => alive && setRootBranch(null));
+    return () => {
+      alive = false;
+    };
+  }, [projectId, taskBranch]);
+
+  const onTaskBranch = !!taskBranch && rootBranch === taskBranch;
+
+  function checkoutTaskBranch() {
+    setBusy(true);
+    setBlocked(null);
+    api
+      .aiwfCheckoutCard(projectId, card.key)
+      .then((r) => setRootBranch(r.branch))
+      .catch((e) => {
+        if (e instanceof CheckoutFailed && e.detail.error === "active_sessions") {
+          setBlocked({
+            message: e.detail.message ?? "Sessions are still running.",
+            titles: e.detail.titles ?? [],
+          });
+        } else {
+          onError(e instanceof Error ? e.message : String(e));
+        }
+      })
+      .finally(() => setBusy(false));
+  }
+
+  function backToMain() {
+    setBusy(true);
+    setBlocked(null);
+    api
+      .aiwfCheckoutBranch(projectId, "main")
+      .then((r) => setRootBranch(r.branch))
+      .catch((e) => {
+        if (e instanceof CheckoutFailed && e.detail.error === "active_sessions") {
+          setBlocked({
+            message: e.detail.message ?? "Sessions are still running.",
+            titles: e.detail.titles ?? [],
+          });
+        } else {
+          onError(e instanceof Error ? e.message : String(e));
+        }
+      })
+      .finally(() => setBusy(false));
+  }
+
   return createPortal(
     <div className="aiwf-data-overlay" onClick={onClose}>
       <aside className="aiwf-data-panel" onClick={(e) => e.stopPropagation()}>
@@ -1316,6 +1385,45 @@ function CardDataModal({
               </a>
             )}
           </div>
+
+          {taskBranch && (
+            <div className="aiwf-data-section">
+              <strong>Task branch</strong>
+              <div className="aiwf-checkout-row">
+                <code className="aiwf-checkout-branch">{taskBranch}</code>
+                {onTaskBranch ? (
+                  <>
+                    <span className="aiwf-checkout-active">
+                      <GitBranch size={12} /> On this branch
+                    </span>
+                    <button className="aiwf-btn-secondary" onClick={backToMain} disabled={busy}>
+                      {busy ? <Loader2 size={12} className="spin" /> : <CornerUpLeft size={12} />} Back to
+                      main
+                    </button>
+                  </>
+                ) : (
+                  <button className="aiwf-btn-primary" onClick={checkoutTaskBranch} disabled={busy}>
+                    {busy ? <Loader2 size={12} className="spin" /> : <GitBranch size={12} />} Checkout
+                  </button>
+                )}
+              </div>
+              {blocked && (
+                <div className="aiwf-checkout-warning">
+                  <AlertTriangle size={13} />
+                  <div>
+                    <div>{blocked.message}</div>
+                    {blocked.titles.length > 0 && (
+                      <ul className="aiwf-checkout-warning-list">
+                        {blocked.titles.map((t, i) => (
+                          <li key={i}>{t}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="aiwf-data-section">
             <strong>Description</strong>

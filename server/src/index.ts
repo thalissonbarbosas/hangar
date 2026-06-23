@@ -69,6 +69,7 @@ import {
   clearRuns,
   loadPersistedRuns,
   seedDemoRuns,
+  activeRunsInDir,
 } from "./sessions";
 import { openInTerminal, TerminalError } from "./terminal";
 import { isDemo, demoTickets } from "./demo";
@@ -81,7 +82,7 @@ import {
   loadPersistedWorkflowRuns,
 } from "./workflows";
 import { HangarConfig, Ticket, AiwfProject } from "./types";
-import { pruneWorktrees, removeWorktree } from "./worktree";
+import { pruneWorktrees, removeWorktree, currentBranch, checkoutBranch } from "./worktree";
 
 const app = express();
 app.use(cors());
@@ -470,6 +471,111 @@ app.delete("/api/aiwf/projects/:id/worktrees", async (req, res) => {
     }
   }
   res.json({ ok: true, removed: states.length });
+});
+
+// ---- Branch checkout routes (run the task branch in the project root) ----
+
+// Branch names accepted by the generic checkout endpoint. Rejects path-traversal (`..`, leading `/`)
+// and shell-significant characters — the card-scoped endpoint uses the stored taskBranch and is
+// implicitly safe. The branch is always passed as a positional argv to execFile (no shell).
+const BRANCH_RE = /^[a-zA-Z0-9/_.-]{1,100}$/;
+
+/** Build the 409 active-sessions payload if any run is live in `repoPath`, else null. */
+function activeSessionGuard(
+  repoPath: string,
+): { error: string; message: string; runIds: string[]; titles: string[] } | null {
+  const active = activeRunsInDir(repoPath);
+  if (active.length === 0) return null;
+  return {
+    error: "active_sessions",
+    message: `${active.length} session(s) are still running in this project. Stop them before switching branches.`,
+    runIds: active.map((r) => r.id),
+    titles: active.map((r) => r.title),
+  };
+}
+
+/** Run `git checkout <branch>` in `repoPath`, sending the response. Translates a dirty-tree
+ *  failure into 409 dirty_tree (with raw git stderr); any other failure into 500.
+ *  Returns true on success so callers can run post-checkout cleanup only when it actually happened. */
+async function runCheckout(res: express.Response, repoPath: string, branch: string): Promise<boolean> {
+  let previousBranch = "";
+  try {
+    previousBranch = await currentBranch(repoPath);
+  } catch {
+    /* not fatal — proceed without a previousBranch value */
+  }
+  try {
+    await checkoutBranch(repoPath, branch);
+    res.json({ ok: true, branch, previousBranch });
+    return true;
+  } catch (err) {
+    const e = err as { stderr?: string; message?: string };
+    const detail = `${e.stderr ?? ""}${e.message ?? ""}`;
+    if (
+      /local changes|would be overwritten|commit your changes|stash|overwritten by checkout/i.test(detail)
+    ) {
+      res.status(409).json({ error: "dirty_tree", message: (e.stderr || e.message || "").trim() });
+    } else {
+      res.status(500).json({ error: String(e.message ?? err) });
+    }
+    return false;
+  }
+}
+
+// Current HEAD branch of the project root — lets the UI reflect actual state across refreshes.
+app.get("/api/aiwf/projects/:id/branch", async (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  try {
+    const branch = await currentBranch(expandHome(p.repoPath));
+    res.json({ branch });
+  } catch (err) {
+    res.status(500).json({ error: String(err instanceof Error ? err.message : err) });
+  }
+});
+
+// Check out a card's task branch in the project root (removing its worktree first to free the branch).
+app.post("/api/aiwf/projects/:id/cards/:key/checkout", async (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  const key = req.params.key;
+  const contextId = `aiwf-${p.id}`;
+  const state = getCardState(contextId, key);
+  // A card "exists" if it has a board/spec file or a stored task-branch (worktree state).
+  const card = getCard(p, key) ?? getSpecCard(p, key);
+  if (!card && !state) return res.status(404).json({ error: "No such card" });
+  if (!state?.taskBranch) return res.status(400).json({ error: "Card has no task branch" });
+
+  const repoPath = expandHome(p.repoPath);
+  const guard = activeSessionGuard(repoPath);
+  if (guard) return res.status(409).json(guard);
+
+  // Free the branch: git forbids checking out a branch already checked out in a worktree.
+  // Removing the worktree is best-effort and reversible (the branch is preserved); the card
+  // state is cleared only after a confirmed checkout so a failure (e.g. dirty tree) leaves the
+  // card's worktree state recoverable rather than orphaned.
+  if (state.worktreePath) {
+    await removeWorktree({ path: state.worktreePath, branch: state.taskBranch, repoRoot: repoPath });
+  }
+  const ok = await runCheckout(res, repoPath, state.taskBranch);
+  if (ok) clearCardState(contextId, key);
+});
+
+// Generic branch checkout on the project root (used by "Back to main").
+app.post("/api/aiwf/projects/:id/checkout", async (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  const branch = String(req.body?.branch ?? "").trim();
+  if (!branch) return res.status(400).json({ error: "branch is required" });
+  // Reject path traversal (`..`) and anything outside the strict charset before passing to git.
+  if (!BRANCH_RE.test(branch) || branch.includes("..")) {
+    return res.status(400).json({ error: "Invalid branch name" });
+  }
+
+  const repoPath = expandHome(p.repoPath);
+  const guard = activeSessionGuard(repoPath);
+  if (guard) return res.status(409).json(guard);
+  await runCheckout(res, repoPath, branch);
 });
 
 // ---- Jira worktree management routes ----
