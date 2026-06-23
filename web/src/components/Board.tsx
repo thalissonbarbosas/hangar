@@ -13,6 +13,7 @@ import {
   GitPullRequest,
   Workflow as WorkflowIcon,
   Wrench,
+  MessageSquare,
 } from "lucide-react";
 import {
   Agent,
@@ -125,10 +126,108 @@ function ItemRow({
   );
 }
 
+// A compact inline popover that starts a plain Claude session scoped to a repo path.
+// Reused by the Jira board header and each AI Workflow project pill, so it's exported.
+export function ClaudeSessionButton({
+  cwd,
+  title,
+  onStart,
+}: {
+  cwd: string;
+  title: string;
+  onStart: (model: string, note?: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [model, setModel] = useState<"haiku" | "sonnet" | "opus">("sonnet");
+  const [note, setNote] = useState("");
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+
+  function toggle() {
+    if (open) return setOpen(false);
+    const r = btnRef.current?.getBoundingClientRect();
+    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - 280)) });
+    setOpen(true);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (popRef.current?.contains(t) || btnRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    const close = () => setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
+
+  function start() {
+    onStart(model, note.trim() || undefined);
+    setOpen(false);
+    setNote("");
+  }
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        className="icon-btn has-tip board-title-btn"
+        data-tip="Start a Claude session"
+        onClick={toggle}
+      >
+        <MessageSquare size={14} />
+      </button>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            className="claude-session-pop"
+            ref={popRef}
+            style={{ position: "fixed", top: pos.top, left: pos.left }}
+          >
+            <div className="claude-session-title">{title}</div>
+            <div className="claude-session-cwd" title={cwd}>
+              {cwd}
+            </div>
+            <div className="seg">
+              {(["haiku", "sonnet", "opus"] as const).map((m) => (
+                <button key={m} className={model === m ? "on" : undefined} onClick={() => setModel(m)}>
+                  {m[0].toUpperCase() + m.slice(1)}
+                </button>
+              ))}
+            </div>
+            <textarea
+              className="claude-session-note"
+              placeholder="What would you like to work on?"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+            <button className="btn" onClick={start}>
+              Start session
+            </button>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
 function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCtx; skills: Skill[] }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const [pendingNote, setPendingNote] = useState<{ name: string; kind: RunKind } | null>(null);
+  // NoteModal is only reachable for agent/skill assignment — chat sessions never flow here.
+  const [pendingNote, setPendingNote] = useState<{ name: string; kind: "agent" | "skill" } | null>(null);
   const [activeSkillProj, setActiveSkillProj] = useState<string | null>(null);
 
   // Group skills by project key; each group sorted by name.
@@ -184,7 +283,7 @@ function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCt
     setOpen(false);
     ctx.onAssign(ticketKey, name, kind);
   }
-  function askNote(name: string, kind: RunKind) {
+  function askNote(name: string, kind: "agent" | "skill") {
     setOpen(false);
     setPendingNote({ name, kind });
   }
@@ -557,6 +656,7 @@ export function Board({
   onStartWorkflow,
   onMoveTicket,
   onOpenRun,
+  onStartClaude,
 }: {
   board: BoardConfig;
   tickets: Ticket[];
@@ -568,6 +668,7 @@ export function Board({
   onStartWorkflow: (ticketKey: string, workflowId: string) => void;
   onMoveTicket: (ticketKey: string, targetStatus: string) => void;
   onOpenRun: (run: RunSummary) => void;
+  onStartClaude: (cwd: string, title: string, model: string, note?: string) => void;
 }) {
   // Restrict the Assign menu to the board's enabled agents (empty/undefined = all).
   const boardAgents = board.agents?.length ? agents.filter((a) => board.agents!.includes(a.name)) : agents;
@@ -593,6 +694,9 @@ export function Board({
   };
   const [worktreeManagerOpen, setWorktreeManagerOpen] = useState(false);
 
+  // Primary repo path for a board-scoped Claude session (first resolved path, else raw repoPath).
+  const primaryCwd = board.resolvedPaths?.[0] ?? board.repoPath ?? "";
+
   const byStatus = (status: string) => tickets.filter((t) => t.status === status);
   const extra = [...new Set(tickets.map((t) => t.status))].filter((s) => !board.statuses.includes(s));
   const allColumns = [...board.statuses, ...extra.map((s) => `${s} (unmapped)`)];
@@ -609,6 +713,13 @@ export function Board({
         >
           <Wrench size={14} />
         </button>
+        {primaryCwd && (
+          <ClaudeSessionButton
+            cwd={primaryCwd}
+            title={`${board.name} — Claude`}
+            onStart={(model, note) => onStartClaude(primaryCwd, `${board.name} — Claude`, model, note)}
+          />
+        )}
       </h2>
       <div className="columns">
         {allColumns.map((label, i) => {

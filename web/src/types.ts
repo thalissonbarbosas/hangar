@@ -131,7 +131,7 @@ export interface TicketDragData {
   kind?: string; // "spec" when dragging a spec card to promote it to a board card
 }
 
-export type RunKind = "agent" | "skill";
+export type RunKind = "agent" | "skill" | "chat";
 
 export type RunState = "queued" | "starting" | "running" | "awaiting_input" | "done" | "error" | "stopped";
 
@@ -150,7 +150,7 @@ export interface RunSummary {
   ticketUrl?: string;
   prUrl?: string;
   agentName: string;
-  kind?: "agent" | "skill";
+  kind?: "agent" | "skill" | "chat";
   note?: string;
   model: string;
   cwd: string;
