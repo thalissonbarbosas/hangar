@@ -309,6 +309,9 @@ body {
   font-size: 12px;
   color: var(--text-faint);
   font-weight: 400;
+  /* Absorb the free space so the action icons group together at the right
+     (mirrors .aiwf-board-project-name's flex:1 on the AI Workflow board). */
+  margin-right: auto;
 }
 
 .columns {
@@ -3019,12 +3022,12 @@ a.session-ticket {
   flex: 1;
 }
 
-/* board-title wrench button — pushed to right via margin-left: auto */
+/* board-title action buttons — dimmed until hovered. The button group is
+   pushed to the right by .board-total's margin-right: auto, so these must NOT
+   carry their own margin-left: auto (multiple autos split the free space and
+   spread the icons apart instead of grouping them). */
 .board-title-btn {
-  margin-left: auto;
-  opacity: 0.45;
-}
-.board-title-btn:hover {
+  /* Render action icons at full strength (active), not dimmed/disabled-looking. */
   opacity: 1;
 }
 
