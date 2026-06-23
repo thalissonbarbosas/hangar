@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Running a skill on a spec (row button, sidebar, or drag) now creates a board task for it — or
+  reuses the existing one — and starts the session from that task, preserving the spec's semantic
+  git branch (HAN-10)
+
 ## [0.5.0] - 2026-06-18
 
 ### Added

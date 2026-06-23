@@ -279,6 +279,33 @@ describe("AI Workflow routes", () => {
       expect(aiwf.getCardState("aiwf-p1", specKey)?.taskBranch).toBe("feat/standardize-agent-skill-selects");
     });
 
+    it("promoted board card with a Spec: description runs on the semantic branch, not feat/<card-key>", async () => {
+      // Simulate the web's promote-then-run: a thread card copying the spec's "Spec: <path>" prefix.
+      const created = await request(app).post("/api/aiwf/projects/p1/cards").send({
+        title: "Standardize selects",
+        status: "Implementation",
+        kind: "thread",
+        description: "Spec: docs/specs/007_standardize-agent-skill-selects.md\n\nFull description.",
+      });
+      const cardKey = created.body.ticket.key;
+      expect(cardKey).not.toMatch(/^SPEC-/); // a real board card, not the read-only spec key
+
+      createWorktreeMock.mockClear();
+      const run = await request(app)
+        .post(`/api/aiwf/projects/p1/cards/${cardKey}/run`)
+        .send({ skill: "feature" });
+      expect(run.status).toBe(200);
+      await tick();
+      // Branch recovered from the Spec: line — semantic, not feat/<card-key>.
+      expect(createWorktreeMock).toHaveBeenCalledWith(
+        expect.any(String),
+        "feat/standardize-agent-skill-selects",
+        expect.any(String),
+        { branchName: "feat/standardize-agent-skill-selects", baseBranch: "main" },
+      );
+      expect(aiwf.getCardState("aiwf-p1", cardKey)?.taskBranch).toBe("feat/standardize-agent-skill-selects");
+    });
+
     it("runs a non-delivery skill on a spec card in the real repo", async () => {
       createWorktreeMock.mockClear();
       const run = await request(app)
