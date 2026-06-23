@@ -3567,6 +3567,67 @@ a.session-ticket {
   color: var(--text-dim);
   font-style: italic;
 }
+/* ---- Card task-branch checkout controls ---- */
+.aiwf-checkout-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.aiwf-checkout-branch {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  color: var(--text);
+}
+.aiwf-checkout-active {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--accent);
+}
+.aiwf-btn-primary,
+.aiwf-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 1px solid var(--border-strong);
+}
+.aiwf-btn-primary {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+}
+.aiwf-btn-secondary {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.aiwf-btn-primary:disabled,
+.aiwf-btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.aiwf-checkout-warning {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--danger);
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+}
+.aiwf-checkout-warning-list {
+  margin: 4px 0 0;
+  padding-left: 16px;
+}
 .aiwf-data-history {
   display: flex;
   flex-direction: column;
