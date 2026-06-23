@@ -2895,6 +2895,84 @@ a.session-ticket {
   overflow: auto;
   padding: 20px;
 }
+.aiwf-board-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.aiwf-board-project-name {
+  flex: 1;
+}
+
+/* board-title wrench button — pushed to right via margin-left: auto */
+.board-title-btn {
+  margin-left: auto;
+  opacity: 0.45;
+}
+.board-title-btn:hover {
+  opacity: 1;
+}
+
+/* Worktree manager modal */
+.wt-manager-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.wt-manager-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 0;
+}
+.wt-manager-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.wt-manager-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  vertical-align: middle;
+}
+.wt-manager-table tr:last-child td {
+  border-bottom: none;
+}
+.wt-branch {
+  font: 12px var(--mono);
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.wt-path {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-faint);
+  font: 12px var(--mono);
+}
+.wt-manager-error {
+  margin: 8px 20px 0;
+  padding: 8px 12px;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+  color: #ef4444;
+  font-size: 12px;
+}
+
 .column-header .col-add {
   margin-left: 4px;
   padding: 2px;
