@@ -40,6 +40,7 @@ import {
 } from "../types";
 import { Markdown } from "./Markdown";
 import { WorktreeManagerModal } from "./WorktreeManagerModal";
+import { ClaudeSessionButton } from "./Board";
 
 // ---------------------------------------------------------------------------
 // AI Workflow connection — phases ARE the columns. A card is a work thread that
@@ -78,7 +79,6 @@ export function AiWorkflowBar({
 }) {
   const [busy, setBusy] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [editing, setEditing] = useState<AiwfProject | null>(null);
   const [guidanceOpen, setGuidanceOpen] = useState(false);
 
   function install() {
@@ -105,28 +105,13 @@ export function AiWorkflowBar({
       .catch((e) => onError(String(e.message ?? e)))
       .finally(() => setBusy(false));
   }
-  function removeProject(p: AiwfProject) {
-    if (
-      !window.confirm(
-        `Remove project “${p.name}” from AI Workflow? This only unregisters it from Hangar — your repo ` +
-          "stays untouched and the project's board state is left on disk in Hangar's data dir.",
-      )
-    )
-      return;
-    setBusy(true);
-    api
-      .deleteAiwfProject(p.id)
-      .then(() => onReload())
-      .catch((e) => onError(String(e.message ?? e)))
-      .finally(() => setBusy(false));
-  }
 
   return (
     <div className="subbar aiwf-bar">
       {status && !status.installed ? (
         <>
           <span className="subbar-warn">
-            <AlertTriangle size={14} /> AI Workflow isn’t installed
+            <AlertTriangle size={14} /> AI Workflow isn't installed
           </span>
           <button className="btn" onClick={install} disabled={busy}>
             {busy ? <Loader2 size={14} className="spin" /> : <Download size={14} />} Install
@@ -139,22 +124,6 @@ export function AiWorkflowBar({
               <span key={p.id} className="aiwf-proj">
                 <button className={`pill${p.id === selectedId ? " on" : ""}`} onClick={() => onSelect(p.id)}>
                   {p.name}
-                </button>
-                <button
-                  className="aiwf-proj-edit has-tip"
-                  data-tip="Edit project"
-                  disabled={busy}
-                  onClick={() => setEditing(p)}
-                >
-                  <Pencil size={12} />
-                </button>
-                <button
-                  className="aiwf-proj-remove has-tip"
-                  data-tip="Remove project"
-                  disabled={busy}
-                  onClick={() => removeProject(p)}
-                >
-                  <X size={12} />
                 </button>
               </span>
             ))}
@@ -201,19 +170,6 @@ export function AiWorkflowBar({
             onSelect(project.id);
             if (runId)
               onOpenSession({ runId, ticketKey: `${project.name}: scaffold`, agentName: "new-project" });
-          }}
-        />
-      )}
-
-      {editing && (
-        <EditProjectModal
-          project={editing}
-          onClose={() => setEditing(null)}
-          onError={onError}
-          onSaved={(project) => {
-            setEditing(null);
-            onReload();
-            onSelect(project.id);
           }}
         />
       )}
@@ -293,6 +249,13 @@ function OptionsMenu({
 
 const COLUMN_COLORS = ["#4f7cff", "#8b5cf6", "#10b981", "#e08e0b", "#0ea5e9", "#22c55e"];
 
+// First line of a spec/promoted-card description, e.g. "Spec: docs/specs/014_foo.md".
+// Used to dedup a spec to its already-promoted board card.
+function specLine(desc?: string): string | null {
+  const first = (desc ?? "").split("\n", 1)[0];
+  return /^Spec:\s+\S/.test(first) ? first : null;
+}
+
 export function AiWorkflowView({
   project,
   status,
@@ -300,6 +263,8 @@ export function AiWorkflowView({
   runs,
   onOpenRun,
   onOpenSession,
+  onReload,
+  onStartClaude,
   onError,
 }: {
   project: AiwfProject | null;
@@ -308,6 +273,8 @@ export function AiWorkflowView({
   runs: RunSummary[];
   onOpenRun: (run: RunSummary) => void;
   onOpenSession: (a: OpenSession) => void;
+  onReload: () => void;
+  onStartClaude: (cwd: string, title: string, model: string, note?: string) => Promise<string>;
   onError: (msg: string) => void;
 }) {
   const [cards, setCards] = useState<Ticket[]>([]);
@@ -326,6 +293,35 @@ export function AiWorkflowView({
     target: string;
   } | null>(null);
   const [worktreeManagerOpen, setWorktreeManagerOpen] = useState(false);
+  const [editing, setEditing] = useState<AiwfProject | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [projMenuOpen, setProjMenuOpen] = useState(false);
+  const projMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!projMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!projMenuRef.current?.contains(e.target as Node)) setProjMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [projMenuOpen]);
+
+  function removeProject() {
+    if (
+      !window.confirm(
+        `Remove project "${project!.name}" from AI Workflow? This only unregisters it from Hangar — your repo ` +
+          "stays untouched and the project's board state is left on disk in Hangar's data dir.",
+      )
+    )
+      return;
+    setBusy(true);
+    api
+      .deleteAiwfProject(project!.id)
+      .then(() => onReload())
+      .catch((e) => onError(String(e.message ?? e)))
+      .finally(() => setBusy(false));
+  }
 
   const loadCards = useCallback(
     (id: string) => {
@@ -432,25 +428,41 @@ export function AiWorkflowView({
   function promoteSpec(specKey: string, targetPhase: string) {
     setPendingPromote({ specKey, phase: targetPhase });
   }
-  // Step 2 — user confirmed a skill; create the card then run the skill on it.
-  function confirmPromote(skill: string, note?: string) {
-    if (!pendingPromote) return;
-    const { specKey, phase } = pendingPromote;
+  // Create-or-reuse a board task for a spec, then run the skill on it. Single entry point shared by
+  // the spec row button, the SpecSidebar, and drag-to-promote — so every spec run lands a task on
+  // the board and starts the session from it (HAN-10).
+  function promoteSpecAndRun(specKey: string, phase: string, skill: string, note?: string) {
     const specCard = specCards.find((c) => c.key === specKey);
-    setPendingPromote(null);
     if (!specCard) return;
+    const line = specLine(specCard.description);
+    // Dedup: reuse an existing non-archived board card promoted from the same spec, so history
+    // accumulates in one place instead of spawning a card per run.
+    const existing = line
+      ? cards.find((c) => c.kind !== "spec" && !c.archived && specLine(c.description) === line)
+      : undefined;
+    if (existing) {
+      runCard(existing.key, skill, note);
+      return;
+    }
     api
       .createAiwfCard(project!.id, {
         title: specCard.summary,
         status: phase,
         kind: "thread",
-        description: specCard.description,
+        description: specCard.description, // includes the "Spec: <path>" prefix
       })
       .then((r) => {
         loadCards(project!.id);
         runCard(r.ticket.key, skill, note);
       })
       .catch((e) => onError(String(e.message ?? e)));
+  }
+  // Step 2 — user confirmed a skill from the drag-to-promote picker; create/reuse then run.
+  function confirmPromote(skill: string, note?: string) {
+    if (!pendingPromote) return;
+    const { specKey, phase } = pendingPromote;
+    setPendingPromote(null);
+    promoteSpecAndRun(specKey, phase, skill, note);
   }
   function archiveCard(key: string, archived: boolean) {
     api
@@ -469,6 +481,13 @@ export function AiWorkflowView({
     <div className="aiwf-board-area">
       <div className="aiwf-board-header">
         <span className="aiwf-board-project-name">{project.name}</span>
+        <ClaudeSessionButton
+          cwd={project.repoPath}
+          title={`${project.name} — Claude`}
+          runs={runs}
+          onOpenRun={onOpenRun}
+          onStart={(model, note) => onStartClaude(project.repoPath, `${project.name} — Claude`, model, note)}
+        />
         <button
           className="icon-btn has-tip"
           data-tip="Manage task worktrees"
@@ -476,6 +495,39 @@ export function AiWorkflowView({
         >
           <Wrench size={15} />
         </button>
+        <div className="aiwf-options" ref={projMenuRef}>
+          <button
+            className="icon-btn has-tip"
+            data-tip="Project options"
+            disabled={busy}
+            onClick={() => setProjMenuOpen((v) => !v)}
+          >
+            <MoreVertical size={15} />
+          </button>
+          {projMenuOpen && (
+            <div className="aiwf-options-pop">
+              <button
+                className="aiwf-opt"
+                onClick={() => {
+                  setProjMenuOpen(false);
+                  setEditing(project);
+                }}
+              >
+                <Pencil size={13} /> Edit project
+              </button>
+              <div className="aiwf-opt-sep" />
+              <button
+                className="aiwf-opt danger"
+                onClick={() => {
+                  setProjMenuOpen(false);
+                  removeProject();
+                }}
+              >
+                <X size={13} /> Remove project
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       <div className="columns">
         {allColumns.map((phase, i) => (
@@ -568,7 +620,9 @@ export function AiWorkflowView({
           skillsByName={skillsByName}
           onCancel={() => setPicker(null)}
           onRun={(skill, note) => {
-            runCard(picker.key, skill, note);
+            // Spec rows promote-then-run; existing board cards run in place.
+            if (picker.key.startsWith("SPEC-")) promoteSpecAndRun(picker.key, picker.phase, skill, note);
+            else runCard(picker.key, skill, note);
             setPicker(null);
           }}
         />
@@ -615,13 +669,25 @@ export function AiWorkflowView({
         />
       )}
 
+      {editing && (
+        <EditProjectModal
+          project={editing}
+          onClose={() => setEditing(null)}
+          onError={onError}
+          onSaved={() => {
+            setEditing(null);
+            onReload();
+          }}
+        />
+      )}
+
       {specSidebar && (
         <SpecSidebar
           card={specSidebar}
           implSkills={phaseSkills["Implementation"] ?? []}
           skillsByName={skillsByName}
           onRun={(skill, note) => {
-            runCard(specSidebar.key, skill, note);
+            promoteSpecAndRun(specSidebar.key, "Implementation", skill, note);
             setSpecSidebar(null);
           }}
           onClose={() => setSpecSidebar(null)}

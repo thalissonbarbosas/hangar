@@ -605,7 +605,7 @@ app.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, async (req, 
   let taskBranch: string | undefined;
 
   if ((cfg.isolateRuns ?? true) && DELIVERY_SKILLS.has(skill)) {
-    const taskWt = await resolveTaskWorktree(p, card.key, skill);
+    const taskWt = await resolveTaskWorktree(p, card.key, skill, card.description);
     if (taskWt) {
       cwdOverride = taskWt.cwd;
       skipWorktree = true;
@@ -641,10 +641,11 @@ app.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, async (req, 
 app.post("/api/runs", runCreateLimiter, async (req, res) => {
   const ticket = req.body?.ticket as Ticket | undefined;
   const name = String(req.body?.name ?? req.body?.agentName ?? "");
-  const kind = req.body?.kind === "skill" ? "skill" : "agent";
+  const kind = req.body?.kind === "skill" ? "skill" : req.body?.kind === "chat" ? "chat" : "agent";
   const note = typeof req.body?.note === "string" ? req.body.note : undefined;
   const cwd = typeof req.body?.cwd === "string" ? req.body.cwd : undefined;
   const title = typeof req.body?.title === "string" ? req.body.title : undefined;
+  const model = typeof req.body?.model === "string" ? req.body.model : undefined;
   const parentRunId = typeof req.body?.parentRunId === "string" ? req.body.parentRunId : undefined;
   const cfg = getConfig();
 
@@ -657,9 +658,12 @@ app.post("/api/runs", runCreateLimiter, async (req, res) => {
   if (parentRunId && !getRun(parentRunId)) {
     return res.status(404).json({ error: "Parent run not found" });
   }
+  // kind === "chat": no name validation — the display name is always "claude".
+  const resolvedName = kind === "chat" ? "claude" : name;
 
   const hasTicket = !!(ticket?.key && ticket.boardKey);
-  if (!hasTicket && !parentRunId && !note?.trim()) {
+  // Chat sessions don't require a note (an empty note → "(no instructions provided)" server-side).
+  if (!hasTicket && !parentRunId && kind !== "chat" && !note?.trim()) {
     return res.status(400).json({ error: "Provide a ticket, or a note describing the standalone task." });
   }
 
@@ -687,11 +691,11 @@ app.post("/api/runs", runCreateLimiter, async (req, res) => {
 
   const skillSource = kind === "skill" ? findSkill(cfg, name)?.source : undefined;
   const run = parentRunId
-    ? startRun({ kind, name, note, parentRunId, skillSource })
+    ? startRun({ kind, name: resolvedName, note, parentRunId, skillSource })
     : hasTicket
       ? startRun({
           kind,
-          name,
+          name: resolvedName,
           note,
           ticket,
           skillSource,
@@ -699,7 +703,16 @@ app.post("/api/runs", runCreateLimiter, async (req, res) => {
             ? { cwdOverride: jiraTaskCwd, skipWorktree: jiraSkipWorktree, branch: jiraTaskBranch }
             : {}),
         })
-      : startRun({ kind, name, note, cwd, title, skillSource });
+      : startRun({
+          kind,
+          name: resolvedName,
+          note,
+          cwd,
+          title,
+          modelOverride: model,
+          skillSource,
+          skipWorktree: kind === "chat" ? true : undefined,
+        });
   res.json({ runId: run.id });
 });
 
