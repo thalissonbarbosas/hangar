@@ -121,3 +121,6 @@ its own key.
 - No automated tests exist yet — verify changes with `npm run typecheck` and, where it matters, by
   running `npm run dev` and exercising the flow in the UI. Run **`/smoke`** before merging any
   server change — it boots demo mode and exercises the critical API paths end-to-end.
+- **Never bump `package.json` version in a feature branch.** Version changes belong only in
+  `release/<version>` branches created by the **`/release`** skill. Feature commits that touch
+  `package.json` for any other reason (deps, scripts) must leave the `"version"` field unchanged.

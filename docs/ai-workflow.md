@@ -121,13 +121,19 @@ that directory and surfaces matching files as **read-only spec cards** in a coll
   (e.g. `006_aiwf-spec-tasks.md` → `SPEC-006`).
 - **Title** — the first `# ` heading in the file, with common skill-generated prefixes stripped
   (`Spec NNN — `, `Feature: `, `Phase NNN: `).
-- **Run skill** — clicking "▶ Run skill" on a spec card opens the Implementation-phase skill
-  picker (same picker used when moving a card into Implementation). After picking a skill, a
-  normal Hangar session starts with the spec's full content as context.
+- **Run skill** — running a skill on a spec (the row "▶ Run skill" button, the spec sidebar, or
+  dragging the spec onto a phase column) **creates a board task** for it: a `thread` card copying
+  the spec's title and description (including the `Spec: <path>` line) in the chosen phase
+  (Implementation for the row/sidebar; the dropped column for a drag). The session then starts from
+  that card, so the work has a visible home and accruing history. Running a skill on the same spec
+  again **reuses** the existing (non-archived) board task rather than creating a duplicate, so all
+  history accumulates on one card. The read-only `SPEC-NNN` card stays visible.
 - **Task isolation** — when a code, delivery, or review skill (`feature`, `fix`, `commit`, `pr`,
-  `review`, `sec-review`) is run on a spec card, Hangar creates a shared worktree on a semantic
-  branch derived from the spec's filename and type (e.g. `feat/standardize-agent-skill-selects`,
-  always based on `main`). Every skill run on that card reuses the same branch, so `/commit` and
+  `review`, `sec-review`) is run on a spec-derived task, Hangar creates a shared worktree on a
+  semantic branch derived from the spec's filename and type (e.g. `feat/standardize-agent-skill-selects`,
+  always based on `main`). The promoted board card preserves this semantic branch — the server
+  recovers the source spec from the card's `Spec: <path>` description line — so it does not regress
+  to `feat/<card-key>`. Every skill run on that card reuses the same branch, so `/commit` and
   `/pr` deliver from the task's actual worktree even when started as a new run rather than a
   handoff. The state persists until the card is transitioned to Complete.
 - **Read-only guarantee** — spec files are never modified by Hangar. Transition and archive/delete

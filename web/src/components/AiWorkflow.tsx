@@ -249,6 +249,13 @@ function OptionsMenu({
 
 const COLUMN_COLORS = ["#4f7cff", "#8b5cf6", "#10b981", "#e08e0b", "#0ea5e9", "#22c55e"];
 
+// First line of a spec/promoted-card description, e.g. "Spec: docs/specs/014_foo.md".
+// Used to dedup a spec to its already-promoted board card.
+function specLine(desc?: string): string | null {
+  const first = (desc ?? "").split("\n", 1)[0];
+  return /^Spec:\s+\S/.test(first) ? first : null;
+}
+
 export function AiWorkflowView({
   project,
   status,
@@ -421,25 +428,41 @@ export function AiWorkflowView({
   function promoteSpec(specKey: string, targetPhase: string) {
     setPendingPromote({ specKey, phase: targetPhase });
   }
-  // Step 2 — user confirmed a skill; create the card then run the skill on it.
-  function confirmPromote(skill: string, note?: string) {
-    if (!pendingPromote) return;
-    const { specKey, phase } = pendingPromote;
+  // Create-or-reuse a board task for a spec, then run the skill on it. Single entry point shared by
+  // the spec row button, the SpecSidebar, and drag-to-promote — so every spec run lands a task on
+  // the board and starts the session from it (HAN-10).
+  function promoteSpecAndRun(specKey: string, phase: string, skill: string, note?: string) {
     const specCard = specCards.find((c) => c.key === specKey);
-    setPendingPromote(null);
     if (!specCard) return;
+    const line = specLine(specCard.description);
+    // Dedup: reuse an existing non-archived board card promoted from the same spec, so history
+    // accumulates in one place instead of spawning a card per run.
+    const existing = line
+      ? cards.find((c) => c.kind !== "spec" && !c.archived && specLine(c.description) === line)
+      : undefined;
+    if (existing) {
+      runCard(existing.key, skill, note);
+      return;
+    }
     api
       .createAiwfCard(project!.id, {
         title: specCard.summary,
         status: phase,
         kind: "thread",
-        description: specCard.description,
+        description: specCard.description, // includes the "Spec: <path>" prefix
       })
       .then((r) => {
         loadCards(project!.id);
         runCard(r.ticket.key, skill, note);
       })
       .catch((e) => onError(String(e.message ?? e)));
+  }
+  // Step 2 — user confirmed a skill from the drag-to-promote picker; create/reuse then run.
+  function confirmPromote(skill: string, note?: string) {
+    if (!pendingPromote) return;
+    const { specKey, phase } = pendingPromote;
+    setPendingPromote(null);
+    promoteSpecAndRun(specKey, phase, skill, note);
   }
   function archiveCard(key: string, archived: boolean) {
     api
@@ -597,7 +620,9 @@ export function AiWorkflowView({
           skillsByName={skillsByName}
           onCancel={() => setPicker(null)}
           onRun={(skill, note) => {
-            runCard(picker.key, skill, note);
+            // Spec rows promote-then-run; existing board cards run in place.
+            if (picker.key.startsWith("SPEC-")) promoteSpecAndRun(picker.key, picker.phase, skill, note);
+            else runCard(picker.key, skill, note);
             setPicker(null);
           }}
         />
@@ -662,7 +687,7 @@ export function AiWorkflowView({
           implSkills={phaseSkills["Implementation"] ?? []}
           skillsByName={skillsByName}
           onRun={(skill, note) => {
-            runCard(specSidebar.key, skill, note);
+            promoteSpecAndRun(specSidebar.key, "Implementation", skill, note);
             setSpecSidebar(null);
           }}
           onClose={() => setSpecSidebar(null)}
