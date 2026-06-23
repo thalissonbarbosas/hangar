@@ -3591,7 +3591,29 @@ a.session-ticket {
 .aiwf-data-hist-summary {
   font-size: 12px;
   color: var(--text);
-  margin-top: 2px;
+  margin-top: 4px;
+  line-height: 1.55;
+}
+/* keep prose compact inside the small history rows */
+.aiwf-data-hist-summary p {
+  margin: 0 0 4px;
+}
+.aiwf-data-hist-summary p:last-child {
+  margin-bottom: 0;
+}
+.aiwf-data-hist-summary ul,
+.aiwf-data-hist-summary ol {
+  margin: 2px 0 4px 16px;
+  padding: 0;
+}
+.aiwf-data-hist-summary li {
+  margin-bottom: 2px;
+}
+.aiwf-data-hist-summary code {
+  font: 500 11px var(--mono);
+  background: var(--surface-3);
+  padding: 1px 4px;
+  border-radius: 3px;
 }
 
 /* ---- AI Workflow skills guide modal ---- */
@@ -3764,10 +3786,83 @@ a.session-ticket {
   padding-right: 2px;
 }
 
+/* One-line clickable row in the completed tasks modal */
+.col-done-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background var(--t);
+}
+.col-done-row:hover {
+  background: var(--surface-2);
+}
+.col-done-key {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+.col-done-title {
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Empty-state message when filter matches nothing */
 .col-done-empty {
   color: var(--text-faint);
   font-size: 13px;
   text-align: center;
   padding: 20px 0;
+}
+
+/* ---- Session transcript sidebar ---- */
+
+/* Dark overlay behind the transcript panel — above the card data overlay (z 70) */
+.session-transcript-overlay {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, #000 38%, transparent);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 80;
+  animation: fade 140ms ease;
+}
+
+/* Wider panel variant for the transcript (inherits aiwf-data-panel slide-in) */
+.session-transcript-panel {
+  width: min(600px, 92vw);
+}
+
+/* Transcript message blocks */
+.session-transcript-body {
+  overflow-y: auto;
+}
+.session-transcript-msg {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.session-transcript-msg:last-child {
+  border-bottom: none;
+}
+
+/* "View session" button on each history row */
+.aiwf-data-hist-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 2px;
+}
+.aiwf-data-hist-view-btn:hover {
+  text-decoration: underline;
 }
