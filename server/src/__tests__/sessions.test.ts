@@ -703,3 +703,46 @@ describe("loadPersistedRuns", () => {
     expect(sessions.getRun("persisted-done")!.state).toBe("done");
   });
 });
+
+describe("activeRunsInDir", () => {
+  it("includes active runs inside the dir, excluding done and out-of-dir runs", async () => {
+    // Active run inside /repo/proj, kept open so it stays in a live state.
+    holdOpen = true;
+    sdkScript = [{ type: "system", subtype: "init", session_id: "s", model: "m" }];
+    const live = sessions.startRun({
+      kind: "chat",
+      name: "claude",
+      title: "Live one",
+      cwdOverride: "/repo/proj/sub",
+      skipWorktree: true,
+    });
+    await waitForState(live, "running", "awaiting_input");
+
+    // Active run OUTSIDE the dir.
+    const outside = sessions.startRun({
+      kind: "chat",
+      name: "claude",
+      cwdOverride: "/other/place",
+      skipWorktree: true,
+    });
+    await waitForState(outside, "running", "awaiting_input");
+
+    const hits = sessions.activeRunsInDir("/repo/proj");
+    const ids = hits.map((h) => h.id);
+    expect(ids).toContain(live.id);
+    expect(ids).not.toContain(outside.id);
+    expect(hits.find((h) => h.id === live.id)?.title).toBe("Live one");
+
+    // A finished (done) run inside the dir is excluded — guard scans only ACTIVE_STATES.
+    holdOpen = false;
+    sdkScript = [...successScript];
+    const done = sessions.startRun({
+      kind: "chat",
+      name: "claude",
+      cwdOverride: "/repo/proj",
+      skipWorktree: true,
+    });
+    await waitForState(done, "done");
+    expect(sessions.activeRunsInDir("/repo/proj").map((h) => h.id)).not.toContain(done.id);
+  });
+});

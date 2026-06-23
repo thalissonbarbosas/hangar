@@ -104,6 +104,22 @@ export async function findWorktreePath(repoRoot: string, branch: string): Promis
   }
 }
 
+/** Current HEAD branch of the git repo at `repoRoot`. Throws if it isn't a git repo or git fails. */
+export async function currentBranch(repoRoot: string): Promise<string> {
+  const { stdout } = await exec("git", ["-C", repoRoot, "rev-parse", "--abbrev-ref", "HEAD"]);
+  return stdout.trim();
+}
+
+/**
+ * Check out `branch` in `repoRoot` (the project root, not a worktree).
+ * Throws on failure — callers inspect the rejection's `stderr` to distinguish a dirty tree
+ * (uncommitted changes) from other git errors. The branch is passed as a positional argument
+ * to execFile, so there is no shell interpolation.
+ */
+export async function checkoutBranch(repoRoot: string, branch: string): Promise<void> {
+  await exec("git", ["-C", repoRoot, "checkout", branch]);
+}
+
 export async function removeWorktree(wt: Worktree): Promise<void> {
   try {
     await exec("git", ["-C", wt.repoRoot, "worktree", "remove", "--force", wt.path]);

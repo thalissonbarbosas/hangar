@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { existsSync } from "fs";
+import path from "path";
 import { expandHome, getConfig, boardPaths, getAiwfProjects } from "./config";
 import { loadAgent, AgentDetail } from "./agents";
 import { createWorktree, removeWorktree, Worktree } from "./worktree";
@@ -323,6 +324,22 @@ export function listRuns() {
       return aa - bb || b.startedAt - a.startedAt;
     })
     .map((r) => runToJson(r));
+}
+
+/**
+ * Active runs (state in {queued,starting,running,awaiting_input}) whose `cwd` is inside `dir`.
+ * Used by the branch-checkout guard to block switching the project root while sessions are live.
+ * Returns `{ id, title }` per run — title falls back to the ticket key, then the agent/skill name.
+ */
+export function activeRunsInDir(dir: string): { id: string; title: string }[] {
+  const root = path.resolve(dir);
+  return [...runs.values()]
+    .filter((r) => ACTIVE.includes(r.state))
+    .filter((r) => {
+      const c = path.resolve(r.cwd);
+      return c === root || c.startsWith(root + path.sep);
+    })
+    .map((r) => ({ id: r.id, title: r.title || r.ticketKey || r.agentName }));
 }
 
 /**
