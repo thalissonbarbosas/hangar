@@ -63,15 +63,23 @@ let holdOpen = false; // when true, the generator yields the script then waits (
 let sdkThrow = false; // when true, the generator throws (simulates an SDK failure)
 let lastQueryOptions: Record<string, unknown> | null = null;
 let lastCanUseTool: ((tool: string, input: Record<string, unknown>) => Promise<unknown>) | null = null;
+let lastSeedText: string | null = null; // first user message pushed into the turn (the built prompt)
 let releaseHold: (() => void) | null = null;
 const interrupt = jest.fn(async () => {
   releaseHold?.();
 });
 
 jest.mock("@anthropic-ai/claude-agent-sdk", () => ({
-  query: ({ options }: { prompt: AsyncIterable<unknown>; options: Record<string, unknown> }) => {
+  query: ({ prompt, options }: { prompt: AsyncIterable<unknown>; options: Record<string, unknown> }) => {
     lastQueryOptions = options;
     lastCanUseTool = options.canUseTool as typeof lastCanUseTool;
+    // Capture the seed prompt (first pushed user message) so tests can assert buildPrompt output.
+    void (async () => {
+      for await (const m of prompt) {
+        lastSeedText = (m as { message?: { content?: string } })?.message?.content ?? null;
+        break;
+      }
+    })();
     const hold = holdOpen;
     const shouldThrow = sdkThrow;
     async function* gen() {
@@ -152,6 +160,7 @@ beforeEach(() => {
   releaseHold = null;
   lastQueryOptions = null;
   lastCanUseTool = null;
+  lastSeedText = null;
   existsSyncMock.mockReset().mockReturnValue(true); // fake paths don't exist on disk — assume valid
   createWorktree.mockReset().mockResolvedValue(null); // default: not a git repo → run in place
   removeWorktree.mockReset().mockResolvedValue(undefined);
@@ -235,6 +244,64 @@ describe("startRun — standalone (no ticket)", () => {
     expect(run.title).toBe("skill: deploy");
     // skill runs set settingSources
     expect(lastQueryOptions!.settingSources).toEqual(["user"]);
+  });
+});
+
+describe("startRun — chat session (modelOverride)", () => {
+  it("maps modelOverride 'sonnet' to the sonnet model id", async () => {
+    const run = sessions.startRun({
+      kind: "chat",
+      name: "claude",
+      cwd: "/tmp/chat",
+      title: "PP — Claude",
+      modelOverride: "sonnet",
+    });
+    await waitForState(run, "done");
+    expect(run.kind).toBe("chat");
+    expect(run.model).toBe("claude-sonnet-4-6");
+    // chat runs carry no agent system prompt
+    expect(lastQueryOptions!.systemPrompt).toBeUndefined();
+  });
+
+  it("maps modelOverride 'opus' to the opus model id", async () => {
+    const run = sessions.startRun({
+      kind: "chat",
+      name: "claude",
+      cwd: "/tmp/chat",
+      modelOverride: "opus",
+    });
+    await waitForState(run, "done");
+    expect(run.model).toBe("claude-opus-4-8");
+  });
+
+  it("falls back to '(default)' with no modelOverride and no agent", async () => {
+    const run = sessions.startRun({ kind: "chat", name: "claude", cwd: "/tmp/chat" });
+    await waitForState(run, "done");
+    expect(run.model).toBe("(default)");
+    // no model option passed to the SDK → it uses its own default
+    expect(lastQueryOptions!.model).toBeUndefined();
+  });
+
+  it("treats an empty note as '(no instructions provided)' in the seed prompt", async () => {
+    const run = sessions.startRun({ kind: "chat", name: "claude", cwd: "/tmp/chat", note: "" });
+    await waitForState(run, "done");
+    expect(run.note).toBe("");
+    expect(run.ticketKey).toBe("");
+    // The built seed prompt falls back to the placeholder and carries the working directory.
+    expect(lastSeedText).toContain("(no instructions provided)");
+    expect(lastSeedText).toContain("Working directory: /tmp/chat");
+  });
+
+  it("uses the note as the seed prompt when one is provided", async () => {
+    const run = sessions.startRun({
+      kind: "chat",
+      name: "claude",
+      cwd: "/tmp/chat",
+      note: "What tests are failing?",
+    });
+    await waitForState(run, "done");
+    expect(lastSeedText).toContain("What tests are failing?");
+    expect(lastSeedText).not.toContain("(no instructions provided)");
   });
 });
 

@@ -2667,6 +2667,111 @@ a.session-ticket {
 .seg.wrap button {
   flex: 0 1 auto;
 }
+/* Inline "Start Claude session" popover (board header + AIWF project pill) */
+.claude-session-pop {
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 260px;
+  padding: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow);
+}
+.claude-session-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.claude-session-cwd {
+  font-size: 10px;
+  font-family: var(--mono, monospace);
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl; /* keep the most specific (trailing) path segment visible when truncated */
+  text-align: left;
+}
+.claude-session-pop .seg button {
+  padding: 5px 8px;
+  font-size: 12px;
+}
+.claude-session-note {
+  width: 100%;
+  min-height: 64px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.claude-session-last {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.claude-session-last-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-faint);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.claude-session-last-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: 13px var(--font);
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.claude-session-last-btn:hover {
+  color: var(--accent);
+}
+.run-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  flex-shrink: 0;
+}
+.run-dot.running,
+.run-dot.starting,
+.run-dot.queued,
+.run-dot.awaiting_input {
+  background: var(--accent);
+}
+.run-dot.done {
+  background: var(--success);
+}
+.run-dot.error,
+.run-dot.stopped {
+  background: var(--danger);
+}
 .field-warn {
   font-size: 11px;
   color: #ef4444;
