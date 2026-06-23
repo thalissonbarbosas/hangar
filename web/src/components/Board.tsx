@@ -13,6 +13,8 @@ import {
   GitPullRequest,
   Workflow as WorkflowIcon,
   Wrench,
+  MessageSquare,
+  X,
 } from "lucide-react";
 import {
   Agent,
@@ -125,10 +127,131 @@ function ItemRow({
   );
 }
 
+// A compact inline popover that starts a plain Claude session scoped to a repo path.
+const LS_KEY = (cwd: string) => `hangar-chat:${cwd}`;
+
+// Reused by the Jira board header and each AI Workflow project pill, so it's exported.
+export function ClaudeSessionButton({
+  cwd,
+  title,
+  runs,
+  onStart,
+  onOpenRun,
+}: {
+  cwd: string;
+  title: string;
+  runs: RunSummary[];
+  onStart: (model: string, note?: string) => Promise<string>;
+  onOpenRun: (run: RunSummary) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [model, setModel] = useState<"haiku" | "sonnet" | "opus">("sonnet");
+  const [note, setNote] = useState("");
+
+  // Find the last session started from this button (stored by runId in localStorage).
+  const lastRun = useMemo(() => {
+    const stored = localStorage.getItem(LS_KEY(cwd));
+    if (!stored) return null;
+    return runs.find((r) => r.id === stored) ?? null;
+  }, [cwd, runs, open]); // re-evaluate when modal opens
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  function start() {
+    onStart(model, note.trim() || undefined).then((runId) => {
+      localStorage.setItem(LS_KEY(cwd), runId);
+    });
+    setOpen(false);
+    setNote("");
+  }
+
+  return (
+    <>
+      <button
+        className="icon-btn has-tip board-title-btn"
+        data-tip="Start a Claude session"
+        onClick={() => setOpen(true)}
+      >
+        <MessageSquare size={14} />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            className="modal-overlay"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setOpen(false);
+            }}
+          >
+            <div className="modal">
+              <div className="modal-head">
+                <span className="modal-title">
+                  <MessageSquare size={14} />
+                  {title}
+                </span>
+                <button className="icon-btn" onClick={() => setOpen(false)}>
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="claude-session-cwd" title={cwd}>
+                {cwd}
+              </div>
+              {lastRun && (
+                <div className="claude-session-last">
+                  <span className="claude-session-last-label">Last session</span>
+                  <button
+                    className="claude-session-last-btn"
+                    onClick={() => {
+                      setOpen(false);
+                      onOpenRun(lastRun);
+                    }}
+                  >
+                    <span className={`run-dot ${lastRun.state}`} />
+                    {lastRun.title ?? lastRun.ticketKey}
+                  </button>
+                </div>
+              )}
+              <div className="seg" style={{ marginTop: 10 }}>
+                {(["haiku", "sonnet", "opus"] as const).map((m) => (
+                  <button key={m} className={model === m ? "on" : undefined} onClick={() => setModel(m)}>
+                    {m[0].toUpperCase() + m.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                className="claude-session-note"
+                placeholder="What would you like to work on?"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                style={{ marginTop: 10 }}
+              />
+              <div className="modal-actions">
+                <button className="btn-ghost" onClick={() => setOpen(false)}>
+                  Cancel
+                </button>
+                <button className="btn" onClick={start}>
+                  Start session
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
 function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCtx; skills: Skill[] }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const [pendingNote, setPendingNote] = useState<{ name: string; kind: RunKind } | null>(null);
+  // NoteModal is only reachable for agent/skill assignment — chat sessions never flow here.
+  const [pendingNote, setPendingNote] = useState<{ name: string; kind: "agent" | "skill" } | null>(null);
   const [activeSkillProj, setActiveSkillProj] = useState<string | null>(null);
 
   // Group skills by project key; each group sorted by name.
@@ -184,7 +307,7 @@ function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCt
     setOpen(false);
     ctx.onAssign(ticketKey, name, kind);
   }
-  function askNote(name: string, kind: RunKind) {
+  function askNote(name: string, kind: "agent" | "skill") {
     setOpen(false);
     setPendingNote({ name, kind });
   }
@@ -552,22 +675,26 @@ export function Board({
   agents,
   skills,
   columnSkills,
+  runs,
   runByTicket,
   onAssign,
   onStartWorkflow,
   onMoveTicket,
   onOpenRun,
+  onStartClaude,
 }: {
   board: BoardConfig;
   tickets: Ticket[];
   agents: Agent[];
   skills: Skill[];
   columnSkills?: Record<string, string[]>; // aiwf: stage-aware skill filter per column
+  runs: RunSummary[];
   runByTicket: Map<string, RunSummary>;
   onAssign: (ticketKey: string, name: string, kind: RunKind, note?: string) => void;
   onStartWorkflow: (ticketKey: string, workflowId: string) => void;
   onMoveTicket: (ticketKey: string, targetStatus: string) => void;
   onOpenRun: (run: RunSummary) => void;
+  onStartClaude: (cwd: string, title: string, model: string, note?: string) => Promise<string>;
 }) {
   // Restrict the Assign menu to the board's enabled agents (empty/undefined = all).
   const boardAgents = board.agents?.length ? agents.filter((a) => board.agents!.includes(a.name)) : agents;
@@ -593,6 +720,9 @@ export function Board({
   };
   const [worktreeManagerOpen, setWorktreeManagerOpen] = useState(false);
 
+  // Primary repo path for a board-scoped Claude session (first resolved path, else raw repoPath).
+  const primaryCwd = board.resolvedPaths?.[0] ?? board.repoPath ?? "";
+
   const byStatus = (status: string) => tickets.filter((t) => t.status === status);
   const extra = [...new Set(tickets.map((t) => t.status))].filter((s) => !board.statuses.includes(s));
   const allColumns = [...board.statuses, ...extra.map((s) => `${s} (unmapped)`)];
@@ -609,6 +739,15 @@ export function Board({
         >
           <Wrench size={14} />
         </button>
+        {primaryCwd && (
+          <ClaudeSessionButton
+            cwd={primaryCwd}
+            title={`${board.name} — Claude`}
+            runs={runs}
+            onOpenRun={onOpenRun}
+            onStart={(model, note) => onStartClaude(primaryCwd, `${board.name} — Claude`, model, note)}
+          />
+        )}
       </h2>
       <div className="columns">
         {allColumns.map((label, i) => {

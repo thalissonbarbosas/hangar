@@ -201,6 +201,27 @@ describe("runs lifecycle", () => {
     expect(res.status).toBe(400);
   });
 
+  it("starts a chat session with no name, resolving the agent to 'claude' (200)", async () => {
+    const res = await request(app)
+      .post("/api/runs")
+      .send({ kind: "chat", cwd: "/tmp", title: "Demo — Claude", model: "opus" });
+    expect(res.status).toBe(200);
+    const runId = res.body.runId;
+    expect(runId).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 20));
+    const one = await request(app).get(`/api/runs/${runId}`);
+    expect(one.body.agentName).toBe("claude");
+    expect(one.body.kind).toBe("chat");
+    expect(one.body.model).toBe("claude-opus-4-8");
+  });
+
+  it("accepts a chat session with an empty note (no 400)", async () => {
+    const res = await request(app)
+      .post("/api/runs")
+      .send({ kind: "chat", cwd: "/tmp", title: "Demo — Claude", note: "" });
+    expect(res.status).toBe(200);
+  });
+
   it("starts a ticket run, lists it, fetches it, and streams it", async () => {
     const start = await request(app)
       .post("/api/runs")
