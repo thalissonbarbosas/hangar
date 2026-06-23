@@ -45,8 +45,8 @@ export interface Run {
   title?: string; // label for standalone runs (no ticket)
   ticketUrl?: string;
   prUrl?: string;
-  agentName: string; // agent or skill name
-  kind: "agent" | "skill";
+  agentName: string; // agent or skill name ("claude" for a plain chat session)
+  kind: "agent" | "skill" | "chat";
   note?: string;
   parentRunId?: string; // set when this run was handed off from another
   model: string;
@@ -446,12 +446,13 @@ export async function stopRun(run: Run): Promise<void> {
 }
 
 export interface StartOpts {
-  kind: "agent" | "skill";
+  kind: "agent" | "skill" | "chat";
   name: string;
   note?: string;
   ticket?: Ticket; // omit for a standalone (task-less) run
   cwd?: string; // standalone working directory
   title?: string; // standalone label
+  modelOverride?: string; // explicit model for kind:"chat" sessions (mapped same as agent models)
   parentRunId?: string; // hand off from a finished run (inherit its repo/context)
   // Workflow engine: run in an explicit, already-prepared working tree.
   cwdOverride?: string; // explicit cwd (bypasses board/parent resolution)
@@ -520,7 +521,7 @@ export function startRun(opts: StartOpts): Run {
 
   const agent = opts.kind === "agent" ? loadAgent(cfg.agentsDir, opts.name) : null;
   const skillName = opts.kind === "skill" ? opts.name : undefined;
-  const model = mapModel(agent?.model);
+  const model = mapModel(opts.modelOverride) ?? mapModel(agent?.model);
 
   const run: Run = {
     id: randomUUID(),

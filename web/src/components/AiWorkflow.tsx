@@ -40,6 +40,7 @@ import {
 } from "../types";
 import { Markdown } from "./Markdown";
 import { WorktreeManagerModal } from "./WorktreeManagerModal";
+import { ClaudeSessionButton } from "./Board";
 
 // ---------------------------------------------------------------------------
 // AI Workflow connection — phases ARE the columns. A card is a work thread that
@@ -66,6 +67,7 @@ export function AiWorkflowBar({
   onReload,
   onError,
   onOpenSession,
+  onStartClaude,
 }: {
   status: AiwfStatus | null;
   projects: AiwfProject[];
@@ -75,6 +77,7 @@ export function AiWorkflowBar({
   onReload: () => void;
   onError: (msg: string) => void;
   onOpenSession: (a: OpenSession) => void;
+  onStartClaude: (cwd: string, title: string, model: string, note?: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -140,6 +143,11 @@ export function AiWorkflowBar({
                 <button className={`pill${p.id === selectedId ? " on" : ""}`} onClick={() => onSelect(p.id)}>
                   {p.name}
                 </button>
+                <ClaudeSessionButton
+                  cwd={p.repoPath}
+                  title={`${p.name} — Claude`}
+                  onStart={(model, note) => onStartClaude(p.repoPath, `${p.name} — Claude`, model, note)}
+                />
                 <button
                   className="aiwf-proj-edit has-tip"
                   data-tip="Edit project"
