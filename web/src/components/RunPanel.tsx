@@ -70,18 +70,29 @@ export function RunPanel({
   const [composer, setComposer] = useState("");
   const [sending, setSending] = useState(false);
   const [terminalWarning, setTerminalWarning] = useState(false);
+  const [streamError, setStreamError] = useState<"not_found" | "error" | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   // Reconnecting (bumped after sending a follow-up) re-opens the SSE so a resumed/steered
   // turn streams in. The endpoint replays the full transcript first, so resetting is lossless.
   useEffect(() => {
     setEvents([]);
+    setStreamError(null);
     const es = new EventSource(`/api/runs/${runId}/stream`);
     es.onmessage = (e) => {
       try {
         setEvents((prev) => [...prev, JSON.parse(e.data) as RunEvent]);
       } catch {
         /* ignore */
+      }
+    };
+    // EventSource.CLOSED means the server rejected the connection (e.g. 404) — no retry.
+    // CONNECTING means a transient drop and the browser is retrying; leave it alone.
+    es.onerror = () => {
+      if (es.readyState === EventSource.CLOSED) {
+        fetch(`/api/runs/${runId}`)
+          .then((r) => setStreamError(r.status === 404 ? "not_found" : "error"))
+          .catch(() => setStreamError("error"));
       }
     };
     es.addEventListener("end", () => es.close());
@@ -227,6 +238,15 @@ export function RunPanel({
           <div className="banner warn">
             <AlertCircle size={14} /> No terminal configured. Set your default terminal in{" "}
             <b>Settings → Terminal</b> to use "Open in terminal".
+          </div>
+        )}
+
+        {streamError && (
+          <div className="banner error">
+            <AlertCircle size={14} />
+            {streamError === "not_found"
+              ? "This run no longer exists — it may have been deleted."
+              : "Could not load the session stream. The server may be unavailable."}
           </div>
         )}
 

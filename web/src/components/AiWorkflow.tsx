@@ -31,6 +31,7 @@ import {
   AiwfProject,
   AiwfSkillGroup,
   AiwfStatus,
+  RunEvent,
   RunSummary,
   Skill,
   Ticket,
@@ -281,6 +282,7 @@ export function AiWorkflowView({
   const [newItem, setNewItem] = useState<string | null>(null); // phase for the New-item modal
   const [picker, setPicker] = useState<{ key: string; phase: string } | null>(null); // phase skill picker
   const [dataCard, setDataCard] = useState<Ticket | null>(null); // card shown in the See Data modal
+  const [sessionTranscript, setSessionTranscript] = useState<{ runId: string; label: string } | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false); // archived section collapsed state
   const [specCardsOpen, setSpecCardsOpen] = useState(true); // spec cards section collapsed state
   const [specSidebar, setSpecSidebar] = useState<Ticket | null>(null); // spec card open in sidebar
@@ -638,7 +640,21 @@ export function AiWorkflowView({
         />
       )}
 
-      {dataCard && <CardDataModal card={dataCard} onClose={() => setDataCard(null)} />}
+      {dataCard && (
+        <CardDataModal
+          card={dataCard}
+          onClose={() => setDataCard(null)}
+          onViewSession={(runId, label) => setSessionTranscript({ runId, label })}
+        />
+      )}
+
+      {sessionTranscript && (
+        <SessionTranscriptSidebar
+          runId={sessionTranscript.runId}
+          label={sessionTranscript.label}
+          onClose={() => setSessionTranscript(null)}
+        />
+      )}
 
       {completeWorktreeModal && (
         <CompleteWorktreeModal
@@ -697,26 +713,15 @@ export function AiWorkflowView({
   );
 }
 
-// Modal listing all cards in the complete column with a live name filter and full card options.
+// Modal listing all cards in the complete column with a live name filter.
+// Rows are one-line and clickable — clicking opens the card data sidebar.
 function CompleteCardsModal({
   cards,
-  hasSkills,
-  runByTicket,
-  onRunPhase,
-  onOpenRun,
   onSeeData,
-  onArchive,
-  onDelete,
   onClose,
 }: {
-  cards: Ticket[]; // already sorted by summary desc
-  hasSkills: boolean;
-  runByTicket: Map<string, RunSummary>;
-  onRunPhase: (key: string) => void;
-  onOpenRun: (run: RunSummary) => void;
+  cards: Ticket[];
   onSeeData: (card: Ticket) => void;
-  onArchive: (key: string) => void;
-  onDelete: (key: string) => void;
   onClose: () => void;
 }) {
   const [filter, setFilter] = useState("");
@@ -724,7 +729,7 @@ function CompleteCardsModal({
   const visible = q ? cards.filter((c) => c.summary.toLowerCase().includes(q)) : cards;
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
+      <div className="modal modal-xl" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <span className="modal-title">Complete ({cards.length})</span>
           <button className="icon-btn" onClick={onClose} title="Close">
@@ -743,17 +748,17 @@ function CompleteCardsModal({
             <div className="col-done-empty">No complete cards match "{filter}"</div>
           ) : (
             visible.map((c) => (
-              <AiwfCard
+              <div
                 key={c.key}
-                card={c}
-                hasSkills={hasSkills}
-                run={runByTicket.get(c.key)}
-                onRunPhase={() => onRunPhase(c.key)}
-                onOpenRun={onOpenRun}
-                onSeeData={() => onSeeData(c)}
-                onArchive={() => onArchive(c.key)}
-                onDelete={() => onDelete(c.key)}
-              />
+                className="col-done-row"
+                onClick={() => {
+                  onSeeData(c);
+                  onClose();
+                }}
+              >
+                <span className="card-key col-done-key">{c.key}</span>
+                <span className="col-done-title">{c.summary}</span>
+              </div>
             ))
           )}
         </div>
@@ -915,13 +920,7 @@ function AiwfColumn({
       {completeModalOpen && (
         <CompleteCardsModal
           cards={sorted}
-          hasSkills={hasSkills}
-          runByTicket={runByTicket}
-          onRunPhase={onRunPhase}
-          onOpenRun={onOpenRun}
           onSeeData={onSeeData}
-          onArchive={onArchive}
-          onDelete={onDelete}
           onClose={() => setCompleteModalOpen(false)}
         />
       )}
@@ -1267,80 +1266,193 @@ function SpecSidebar({
   );
 }
 
-// Read-only modal showing a card's full data — key, title, status, kind, skill, PR, description, history.
-function CardDataModal({ card, onClose }: { card: Ticket; onClose: () => void }) {
+// Read-only sidebar showing a card's full data — key, title, status, kind, skill, PR, description, history.
+// Rendered as a right-side sidebar (like the session/spec sidebar) and portaled to <body> with an overlay
+// stacked above the "See more" modal, so opening a card's data from inside that modal takes priority.
+function CardDataModal({
+  card,
+  onClose,
+  onViewSession,
+}: {
+  card: Ticket;
+  onClose: () => void;
+  onViewSession: (runId: string, label: string) => void;
+}) {
   const history = card.history ?? [];
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal aiwf-modal aiwf-data-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-head">
-          <span className="modal-title">
-            <span className="card-key">{card.key}</span> {card.summary}
-          </span>
+  return createPortal(
+    <div className="aiwf-data-overlay" onClick={onClose}>
+      <aside className="aiwf-data-panel" onClick={(e) => e.stopPropagation()}>
+        <header className="spec-head">
+          <div className="spec-head-main">
+            <span className="card-key">{card.key}</span>
+            <span className="spec-head-title">{card.summary}</span>
+          </div>
           <button className="icon-btn" onClick={onClose}>
             <X size={16} />
           </button>
-        </div>
+        </header>
 
-        <div className="aiwf-data-meta">
-          <span>
-            <strong>Status</strong> {card.status}
-          </span>
-          <span>
-            <strong>Kind</strong> {card.kind ?? "thread"}
-          </span>
-          {card.skill && (
+        <div className="spec-body">
+          <div className="aiwf-data-meta">
             <span>
-              <strong>Skill</strong> /{card.skill}
+              <strong>Status</strong> {card.status}
             </span>
-          )}
-          {card.archived && (
-            <span className="aiwf-data-archived">
-              <Archive size={12} /> Archived
+            <span>
+              <strong>Kind</strong> {card.kind ?? "thread"}
             </span>
-          )}
-          {card.prUrl && (
-            <a href={card.prUrl} target="_blank" rel="noreferrer" className="aiwf-opt aiwf-data-pr">
-              <ExternalLink size={12} /> PR
-            </a>
-          )}
-        </div>
+            {card.skill && (
+              <span>
+                <strong>Skill</strong> /{card.skill}
+              </span>
+            )}
+            {card.archived && (
+              <span className="aiwf-data-archived">
+                <Archive size={12} /> Archived
+              </span>
+            )}
+            {card.prUrl && (
+              <a href={card.prUrl} target="_blank" rel="noreferrer" className="aiwf-opt aiwf-data-pr">
+                <ExternalLink size={12} /> PR
+              </a>
+            )}
+          </div>
 
-        <div className="aiwf-data-section">
-          <strong>Description</strong>
-          {card.description ? (
-            <pre className="aiwf-data-body">{card.description}</pre>
-          ) : (
-            <span className="aiwf-data-muted">No description</span>
-          )}
-        </div>
+          <div className="aiwf-data-section">
+            <strong>Description</strong>
+            {card.description ? (
+              <Markdown>{card.description}</Markdown>
+            ) : (
+              <span className="aiwf-data-muted">No description</span>
+            )}
+          </div>
 
-        <div className="aiwf-data-section">
-          <strong>History</strong>
-          {history.length === 0 ? (
-            <span className="aiwf-data-muted">No runs yet</span>
-          ) : (
-            <div className="aiwf-data-history">
-              {history.map((h, idx) => (
-                <div key={idx} className="aiwf-data-hist-row">
-                  <span className="aiwf-data-hist-trail">
-                    {h.phase} · /{h.skill}
-                  </span>
-                  <span className="aiwf-data-hist-time">{new Date(h.at).toLocaleString()}</span>
-                  {h.summary && <span className="aiwf-data-hist-summary">{h.summary}</span>}
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="aiwf-data-section">
+            <strong>History</strong>
+            {history.length === 0 ? (
+              <span className="aiwf-data-muted">No runs yet</span>
+            ) : (
+              <div className="aiwf-data-history">
+                {history.map((h, idx) => (
+                  <div key={idx} className="aiwf-data-hist-row">
+                    <span className="aiwf-data-hist-trail">
+                      {h.phase} · /{h.skill}
+                    </span>
+                    <span className="aiwf-data-hist-time">{new Date(h.at).toLocaleString()}</span>
+                    {h.summary && (
+                      <div className="aiwf-data-hist-summary">
+                        <Markdown>{h.summary}</Markdown>
+                      </div>
+                    )}
+                    {h.runId && (
+                      <button
+                        className="aiwf-data-hist-view-btn"
+                        onClick={() => onViewSession(h.runId!, `${h.phase} · /${h.skill}`)}
+                      >
+                        <Activity size={11} /> View session
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+      </aside>
+    </div>,
+    document.body,
+  );
+}
 
-        <div className="modal-actions">
-          <button className="btn" onClick={onClose}>
-            Close
+// Transcript sidebar — replays a run's assistant_text events from the SSE stream.
+// Stacked above the card data panel (z-index 80 vs 70) so both can be open at once.
+function SessionTranscriptSidebar({
+  runId,
+  label,
+  onClose,
+}: {
+  runId: string;
+  label: string;
+  onClose: () => void;
+}) {
+  const [events, setEvents] = useState<RunEvent[]>([]);
+  const [done, setDone] = useState(false);
+  const [streamError, setStreamError] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setEvents([]);
+    setDone(false);
+    setStreamError(false);
+    const es = new EventSource(`/api/runs/${runId}/stream`);
+    es.onmessage = (e) => {
+      try {
+        setEvents((prev) => [...prev, JSON.parse(e.data) as RunEvent]);
+      } catch {
+        /* ignore */
+      }
+    };
+    es.addEventListener("end", () => {
+      setDone(true);
+      es.close();
+    });
+    // CLOSED means the server rejected or dropped the connection (e.g. 404).
+    // CONNECTING means the browser is retrying — leave it alone.
+    es.onerror = () => {
+      if (es.readyState === EventSource.CLOSED) {
+        setStreamError(true);
+      }
+    };
+    return () => es.close();
+  }, [runId]);
+
+  // Exit loading state as soon as any event arrives, stream ends, or connection fails.
+  const loaded = events.length > 0 || done || streamError;
+
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight });
+  }, [events]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const messages = events.filter((e) => e.kind === "assistant_text");
+
+  return createPortal(
+    <div className="session-transcript-overlay" onClick={onClose}>
+      <aside className="aiwf-data-panel session-transcript-panel" onClick={(e) => e.stopPropagation()}>
+        <header className="spec-head">
+          <div className="spec-head-main">
+            <Activity size={14} />
+            <span className="spec-head-title">{label}</span>
+          </div>
+          <button className="icon-btn" onClick={onClose}>
+            <X size={16} />
           </button>
+        </header>
+        <div className="spec-body session-transcript-body" ref={bodyRef}>
+          {!loaded && (
+            <span className="aiwf-data-muted">
+              <Loader2 size={13} className="spin" /> Loading transcript…
+            </span>
+          )}
+          {streamError && <span className="aiwf-data-muted">Session transcript unavailable.</span>}
+          {loaded && !streamError && messages.length === 0 && (
+            <span className="aiwf-data-muted">No assistant messages in this session.</span>
+          )}
+          {messages.map((e, idx) => (
+            <div key={idx} className="session-transcript-msg">
+              <Markdown>{String(e.text ?? "")}</Markdown>
+            </div>
+          ))}
         </div>
-      </div>
-    </div>
+      </aside>
+    </div>,
+    document.body,
   );
 }
 
@@ -1363,8 +1475,10 @@ function NewItemModal({
   const [note, setNote] = useState("");
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal modal-lg aiwf-modal" onClick={(e) => e.stopPropagation()}>
+    // Intentionally no overlay onClick — the New item modal must not close on outside click,
+    // so an in-progress title/note isn't lost by a stray click.
+    <div className="modal-overlay">
+      <div className="modal modal-lg aiwf-modal">
         <div className="modal-head">
           <span className="modal-title">New item in {phase}</span>
           <button className="icon-btn" onClick={onCancel}>
