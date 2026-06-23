@@ -275,3 +275,59 @@ describe("POST /api/runs — delivery skill task worktrees for Jira tickets", ()
     expect(aiwf.getCardState("jira-PP", "PP-1")).toBeNull();
   });
 });
+
+describe("Jira worktree management routes", () => {
+  const boardKey = "PP";
+  const cardKey = "PP-42";
+  const ctxId = `jira-${boardKey}`;
+  afterEach(() => aiwf.clearCardState(ctxId, cardKey));
+
+  it("GET /api/jira/boards/:boardKey/worktrees returns empty list when no state exists", async () => {
+    const res = await request(app).get(`/api/jira/boards/${boardKey}/worktrees`);
+    expect(res.status).toBe(200);
+    expect(res.body.worktrees).toEqual([]);
+  });
+
+  it("GET /api/jira/boards/:boardKey/worktrees lists entries after state is written", async () => {
+    aiwf.setCardState(ctxId, cardKey, { taskBranch: "feat/pp-42", worktreePath: "/tmp/wt42" });
+    const res = await request(app).get(`/api/jira/boards/${boardKey}/worktrees`);
+    expect(res.status).toBe(200);
+    const entry = res.body.worktrees.find((e: { key: string }) => e.key === cardKey);
+    expect(entry).toBeDefined();
+    expect(entry.taskBranch).toBe("feat/pp-42");
+  });
+
+  it("DELETE /api/jira/boards/:boardKey/worktrees/:cardKey clears card state (no-op when absent)", async () => {
+    const noOp = await request(app).delete(`/api/jira/boards/${boardKey}/worktrees/${cardKey}`);
+    expect(noOp.status).toBe(200);
+    expect(noOp.body.ok).toBe(true);
+
+    aiwf.setCardState(ctxId, cardKey, { taskBranch: "feat/del-pp", worktreePath: "/tmp/dpp" });
+    const del = await request(app).delete(`/api/jira/boards/${boardKey}/worktrees/${cardKey}`);
+    expect(del.status).toBe(200);
+    expect(del.body.ok).toBe(true);
+    expect(aiwf.getCardState(ctxId, cardKey)).toBeNull();
+  });
+
+  it("DELETE /api/jira/boards/:boardKey/worktrees clears all states for the board", async () => {
+    const key2 = "PP-43";
+    aiwf.setCardState(ctxId, cardKey, { taskBranch: "feat/b1", worktreePath: "/tmp/b1" });
+    aiwf.setCardState(ctxId, key2, { taskBranch: "feat/b2", worktreePath: "/tmp/b2" });
+    try {
+      const res = await request(app).delete(`/api/jira/boards/${boardKey}/worktrees`);
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.removed).toBeGreaterThanOrEqual(2);
+      expect(aiwf.getCardState(ctxId, cardKey)).toBeNull();
+      expect(aiwf.getCardState(ctxId, key2)).toBeNull();
+    } finally {
+      aiwf.clearCardState(ctxId, key2);
+    }
+  });
+
+  it("returns 404 for an unknown board key", async () => {
+    expect((await request(app).get("/api/jira/boards/NOPE/worktrees")).status).toBe(404);
+    expect((await request(app).delete("/api/jira/boards/NOPE/worktrees/KEY-1")).status).toBe(404);
+    expect((await request(app).delete("/api/jira/boards/NOPE/worktrees")).status).toBe(404);
+  });
+});

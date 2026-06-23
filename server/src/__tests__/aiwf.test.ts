@@ -435,6 +435,37 @@ describe("getCardState / setCardState / clearCardState", () => {
   });
 });
 
+describe("listCardStates", () => {
+  const ctxId = "aiwf-list-test";
+  afterEach(() => {
+    aiwf.clearCardState(ctxId, "KEY-1");
+    aiwf.clearCardState(ctxId, "KEY-2");
+    aiwf.clearCardState(ctxId, "KEY-3");
+  });
+
+  it("returns empty array when no state files exist", () => {
+    expect(aiwf.listCardStates(ctxId)).toEqual([]);
+  });
+
+  it("lists all card states with their keys", () => {
+    aiwf.setCardState(ctxId, "KEY-1", { taskBranch: "feat/key-1", worktreePath: "/tmp/wt1" });
+    aiwf.setCardState(ctxId, "KEY-2", { taskBranch: "fix/key-2", worktreePath: "/tmp/wt2" });
+    const entries = aiwf.listCardStates(ctxId);
+    expect(entries).toHaveLength(2);
+    const e1 = entries.find((e) => e.key === "KEY-1");
+    const e2 = entries.find((e) => e.key === "KEY-2");
+    expect(e1).toEqual({ key: "KEY-1", taskBranch: "feat/key-1", worktreePath: "/tmp/wt1" });
+    expect(e2).toEqual({ key: "KEY-2", taskBranch: "fix/key-2", worktreePath: "/tmp/wt2" });
+  });
+
+  it("excludes keys cleared after listing", () => {
+    aiwf.setCardState(ctxId, "KEY-3", { taskBranch: "feat/k3", worktreePath: "/tmp/wt3" });
+    expect(aiwf.listCardStates(ctxId)).toHaveLength(1);
+    aiwf.clearCardState(ctxId, "KEY-3");
+    expect(aiwf.listCardStates(ctxId)).toHaveLength(0);
+  });
+});
+
 describe("projectRunNote", () => {
   it("returns undefined with no note and a non-roadmap skill", () => {
     expect(aiwf.projectRunNote("feature", project)).toBeUndefined();
