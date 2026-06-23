@@ -267,7 +267,7 @@ export function AiWorkflowView({
   onOpenRun: (run: RunSummary) => void;
   onOpenSession: (a: OpenSession) => void;
   onReload: () => void;
-  onStartClaude: (cwd: string, title: string, model: string, note?: string) => void;
+  onStartClaude: (cwd: string, title: string, model: string, note?: string) => Promise<string>;
   onError: (msg: string) => void;
 }) {
   const [cards, setCards] = useState<Ticket[]>([]);
@@ -461,6 +461,8 @@ export function AiWorkflowView({
         <ClaudeSessionButton
           cwd={project.repoPath}
           title={`${project.name} — Claude`}
+          runs={runs}
+          onOpenRun={onOpenRun}
           onStart={(model, note) => onStartClaude(project.repoPath, `${project.name} — Claude`, model, note)}
         />
         <button

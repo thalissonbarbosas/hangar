@@ -128,19 +128,32 @@ function ItemRow({
 }
 
 // A compact inline popover that starts a plain Claude session scoped to a repo path.
+const LS_KEY = (cwd: string) => `hangar-chat:${cwd}`;
+
 // Reused by the Jira board header and each AI Workflow project pill, so it's exported.
 export function ClaudeSessionButton({
   cwd,
   title,
+  runs,
   onStart,
+  onOpenRun,
 }: {
   cwd: string;
   title: string;
-  onStart: (model: string, note?: string) => void;
+  runs: RunSummary[];
+  onStart: (model: string, note?: string) => Promise<string>;
+  onOpenRun: (run: RunSummary) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [model, setModel] = useState<"haiku" | "sonnet" | "opus">("sonnet");
   const [note, setNote] = useState("");
+
+  // Find the last session started from this button (stored by runId in localStorage).
+  const lastRun = useMemo(() => {
+    const stored = localStorage.getItem(LS_KEY(cwd));
+    if (!stored) return null;
+    return runs.find((r) => r.id === stored) ?? null;
+  }, [cwd, runs, open]); // re-evaluate when modal opens
 
   useEffect(() => {
     if (!open) return;
@@ -152,7 +165,9 @@ export function ClaudeSessionButton({
   }, [open]);
 
   function start() {
-    onStart(model, note.trim() || undefined);
+    onStart(model, note.trim() || undefined).then((runId) => {
+      localStorage.setItem(LS_KEY(cwd), runId);
+    });
     setOpen(false);
     setNote("");
   }
@@ -187,6 +202,21 @@ export function ClaudeSessionButton({
               <div className="claude-session-cwd" title={cwd}>
                 {cwd}
               </div>
+              {lastRun && (
+                <div className="claude-session-last">
+                  <span className="claude-session-last-label">Last session</span>
+                  <button
+                    className="claude-session-last-btn"
+                    onClick={() => {
+                      setOpen(false);
+                      onOpenRun(lastRun);
+                    }}
+                  >
+                    <span className={`run-dot ${lastRun.state}`} />
+                    {lastRun.title ?? lastRun.ticketKey}
+                  </button>
+                </div>
+              )}
               <div className="seg" style={{ marginTop: 10 }}>
                 {(["haiku", "sonnet", "opus"] as const).map((m) => (
                   <button key={m} className={model === m ? "on" : undefined} onClick={() => setModel(m)}>
@@ -645,6 +675,7 @@ export function Board({
   agents,
   skills,
   columnSkills,
+  runs,
   runByTicket,
   onAssign,
   onStartWorkflow,
@@ -657,12 +688,13 @@ export function Board({
   agents: Agent[];
   skills: Skill[];
   columnSkills?: Record<string, string[]>; // aiwf: stage-aware skill filter per column
+  runs: RunSummary[];
   runByTicket: Map<string, RunSummary>;
   onAssign: (ticketKey: string, name: string, kind: RunKind, note?: string) => void;
   onStartWorkflow: (ticketKey: string, workflowId: string) => void;
   onMoveTicket: (ticketKey: string, targetStatus: string) => void;
   onOpenRun: (run: RunSummary) => void;
-  onStartClaude: (cwd: string, title: string, model: string, note?: string) => void;
+  onStartClaude: (cwd: string, title: string, model: string, note?: string) => Promise<string>;
 }) {
   // Restrict the Assign menu to the board's enabled agents (empty/undefined = all).
   const boardAgents = board.agents?.length ? agents.filter((a) => board.agents!.includes(a.name)) : agents;
@@ -711,6 +743,8 @@ export function Board({
           <ClaudeSessionButton
             cwd={primaryCwd}
             title={`${board.name} — Claude`}
+            runs={runs}
+            onOpenRun={onOpenRun}
             onStart={(model, note) => onStartClaude(primaryCwd, `${board.name} — Claude`, model, note)}
           />
         )}

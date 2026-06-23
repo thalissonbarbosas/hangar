@@ -703,7 +703,16 @@ app.post("/api/runs", runCreateLimiter, async (req, res) => {
             ? { cwdOverride: jiraTaskCwd, skipWorktree: jiraSkipWorktree, branch: jiraTaskBranch }
             : {}),
         })
-      : startRun({ kind, name: resolvedName, note, cwd, title, modelOverride: model, skillSource });
+      : startRun({
+          kind,
+          name: resolvedName,
+          note,
+          cwd,
+          title,
+          modelOverride: model,
+          skillSource,
+          skipWorktree: kind === "chat" ? true : undefined,
+        });
   res.json({ runId: run.id });
 });
 
