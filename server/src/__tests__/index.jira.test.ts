@@ -201,10 +201,12 @@ describe("POST /api/runs — delivery skill task worktrees for Jira tickets", ()
     const res = await request(app).post("/api/runs").send({ ticket, name: "feature", kind: "skill" });
     expect(res.status).toBe(200);
     expect(typeof res.body.runId).toBe("string");
-    expect(createWorktreeMock).toHaveBeenCalledWith("/repo/a", "feat/pp-1", expect.any(String), {
-      branchName: "feat/pp-1",
-      baseBranch: "main",
-    });
+    expect(createWorktreeMock).toHaveBeenCalledWith(
+      "/repo/a",
+      "feat/pp-1",
+      expect.any(String),
+      expect.objectContaining({ branchName: "feat/pp-1", baseBranch: "main" }),
+    );
     expect(aiwf.getCardState("jira-PP", "PP-1")?.taskBranch).toBe("feat/pp-1");
   });
 

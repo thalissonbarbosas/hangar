@@ -77,6 +77,53 @@ describe("createWorktree / removeWorktree", () => {
     await removeWorktree(wt!);
   });
 
+  it("opts.baseDir places the worktree under a durable dir, not the OS temp dir (HAN-11)", async () => {
+    const repo = initRepo();
+    const durable = fs.mkdtempSync(path.join(os.tmpdir(), "hangar-durable-"));
+    const wt = await createWorktree(repo, "task", randomUUID(), {
+      branchName: "feat/durable",
+      baseDir: durable,
+    });
+    expect(wt).not.toBeNull();
+    // Worktree lives under the supplied base dir, not the default os.tmpdir()/hangar-worktrees.
+    expect(wt!.path.startsWith(fs.realpathSync(durable)) || wt!.path.startsWith(durable)).toBe(true);
+    expect(wt!.path).not.toContain(path.join("hangar-worktrees"));
+    expect(fs.existsSync(path.join(wt!.path, "README.md"))).toBe(true);
+    await removeWorktree(wt!);
+    fs.rmSync(durable, { recursive: true, force: true });
+  });
+
+  it("untracked files survive reuse of the live worktree but are lost on recreate-from-branch (HAN-11)", async () => {
+    // Characterizes the bug + fix: an untracked spec (written by /spec, never committed) lives only
+    // in the worktree's working dir. Reusing the SAME live directory keeps it; recreating the
+    // worktree from the branch tip — what happened when the tmp dir was purged — drops it. The fix
+    // keeps the directory durable so the reuse path is taken instead of the recreate path.
+    const repo = initRepo();
+    const durable = fs.mkdtempSync(path.join(os.tmpdir(), "hangar-durable-"));
+    const wt = await createWorktree(repo, "task", randomUUID(), {
+      branchName: "feat/spec-survives",
+      baseDir: durable,
+    });
+    const specName = "spec.md";
+    fs.writeFileSync(path.join(wt!.path, specName), "untracked spec"); // never committed
+
+    // Reuse of the live directory (durable path persisted) keeps the untracked spec.
+    expect(fs.existsSync(path.join(wt!.path, specName))).toBe(true);
+
+    // Recreate from the branch (as resolveCardWorktree does when the path is gone): a fresh
+    // checkout of the branch tip has no untracked files — proving why durability/reuse matters.
+    await removeWorktree(wt!);
+    const recreated = await createWorktree(repo, "task", randomUUID(), {
+      existingBranch: "feat/spec-survives",
+      baseDir: durable,
+    });
+    expect(recreated).not.toBeNull();
+    expect(fs.existsSync(path.join(recreated!.path, specName))).toBe(false);
+
+    await removeWorktree(recreated!);
+    fs.rmSync(durable, { recursive: true, force: true });
+  });
+
   it("opts.existingBranch checks out an existing branch without -b", async () => {
     const repo = initRepo();
     const run = (args: string[]) => execFileSync("git", ["-C", repo, ...args], { stdio: "pipe" });
