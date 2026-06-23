@@ -422,6 +422,15 @@ app.get("/api/aiwf/projects/:id/cards", (req, res) => {
   res.json({ tickets: [...listCards(p).map(enrich), ...listSpecCards(p).map(enrich)] });
 });
 
+app.get("/api/aiwf/projects/:id/cards/:key", (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  const card = getCard(p, req.params.key);
+  if (!card) return res.status(404).json({ error: "Card not found" });
+  const state = getCardState(`aiwf-${p.id}`, card.key);
+  res.json({ ticket: { ...card, hasWorktree: state !== null, taskBranch: state?.taskBranch } });
+});
+
 // ---- AIWF worktree management routes ----
 
 app.get("/api/aiwf/projects/:id/worktrees", (req, res) => {

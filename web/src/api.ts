@@ -83,6 +83,8 @@ export const api = {
     sendJson<{ project: AiwfProject }>("PATCH", `/api/aiwf/projects/${id}`, fields),
   deleteAiwfProject: (id: string) => sendJson<{ ok: boolean }>("DELETE", `/api/aiwf/projects/${id}`, {}),
   aiwfCards: (id: string) => getJson<{ tickets: Ticket[] }>(`/api/aiwf/projects/${id}/cards`),
+  getAiwfCard: (id: string, key: string) =>
+    getJson<{ ticket: Ticket }>(`/api/aiwf/projects/${id}/cards/${encodeURIComponent(key)}`),
   createAiwfCard: (
     id: string,
     fields: {
