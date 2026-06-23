@@ -350,6 +350,78 @@ describe("resolveTaskWorktree", () => {
   });
 });
 
+describe("resolveTaskWorktree — promoted board card branch preservation", () => {
+  let specsDir: string;
+  const cardKey = "DC-7";
+  beforeEach(() => {
+    specsDir = path.join(REPO, "docs", "specs");
+    fs.mkdirSync(specsDir, { recursive: true });
+    aiwf.clearCardState("aiwf-p1", cardKey);
+  });
+  afterEach(() => {
+    fs.rmSync(path.join(REPO, "docs"), { recursive: true, force: true });
+    aiwf.clearCardState("aiwf-p1", cardKey);
+  });
+
+  it("recovers the semantic branch from a promoted card's Spec: line (not feat/<card-key>)", async () => {
+    const file = path.join(specsDir, "014_foo.md");
+    fs.writeFileSync(file, "## Trunk Metadata\n\n- **Type:** feat\n");
+    const result = await aiwf.resolveTaskWorktree(
+      project,
+      cardKey,
+      "feature",
+      "Spec: docs/specs/014_foo.md\n\nFull description here.",
+    );
+    expect(result).not.toBeNull();
+    expect(result!.branch).toBe("feat/foo");
+  });
+
+  it("normalizes a sliced-spec README.md to the directory slug", async () => {
+    const dir = path.join(specsDir, "006_bar");
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, "README.md"), "## Trunk Metadata\n\n- **Type:** feat\n");
+    const result = await aiwf.resolveTaskWorktree(
+      project,
+      cardKey,
+      "feature",
+      "Spec: docs/specs/006_bar/README.md\nmore",
+    );
+    expect(result).not.toBeNull();
+    expect(result!.branch).toBe("feat/bar");
+  });
+
+  it("falls back to feat/<card-key> for a delivery skill when the description has no Spec: line", async () => {
+    const result = await aiwf.resolveTaskWorktree(project, cardKey, "feature", "Just a thread, no spec.");
+    expect(result).not.toBeNull();
+    expect(result!.branch).toBe("feat/dc-7");
+  });
+
+  it("falls back to fix/<card-key> for the fix skill when the description has no Spec: line", async () => {
+    const result = await aiwf.resolveTaskWorktree(project, cardKey, "fix", undefined);
+    expect(result).not.toBeNull();
+    expect(result!.branch).toBe("fix/dc-7");
+  });
+
+  it("ignores a Spec: line that escapes the repo root (path traversal), falling back to feat/<card-key>", async () => {
+    // A traversal target outside REPO must not be resolved; branch falls back to the card key.
+    const result = await aiwf.resolveTaskWorktree(
+      project,
+      cardKey,
+      "feature",
+      "Spec: ../../../../../../etc/hosts.md\n",
+    );
+    expect(result).not.toBeNull();
+    expect(result!.branch).toBe("feat/dc-7"); // not derived from the escaped path
+  });
+
+  it("returns null for a non-delivery skill even with a Spec: line", async () => {
+    // Short-circuits on DELIVERY_SKILLS before any filesystem lookup — no spec file needed.
+    expect(
+      await aiwf.resolveTaskWorktree(project, cardKey, "prd", "Spec: docs/specs/014_foo.md\n"),
+    ).toBeNull();
+  });
+});
+
 describe("resolveCardWorktree", () => {
   const contextId = "jira-HAN";
   const cardKey = "HAN-8";
