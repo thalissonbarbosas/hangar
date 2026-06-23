@@ -297,15 +297,19 @@ export function App() {
   }
 
   // Plain Claude session scoped to a project's repo (Jira board header / AIWF project pill).
-  function openClaudeSession(cwd: string, title: string, model: string, note?: string) {
+  function openClaudeSession(cwd: string, title: string, model: string, note?: string): Promise<string> {
     setError(null);
-    api
+    return api
       .startClaude(cwd, title, model, note || undefined)
       .then((r) => {
         setActiveRun({ runId: r.runId, ticketKey: title, agentName: "claude" });
         refreshRuns();
+        return r.runId;
       })
-      .catch((e) => setError(String(e.message ?? e)));
+      .catch((e) => {
+        setError(String(e.message ?? e));
+        throw e;
+      });
   }
 
   function handoff(name: string, kind: RunKind, note: string) {
@@ -613,6 +617,7 @@ export function App() {
                 tickets={tickets.filter((t) => t.boardKey === b.key && visible(t))}
                 agents={agents}
                 skills={enrichedSkills}
+                runs={runs}
                 runByTicket={runByTicket}
                 onAssign={assign}
                 onStartWorkflow={startWorkflow}
