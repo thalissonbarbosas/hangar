@@ -1297,8 +1297,10 @@ function NewItemModal({
   const [note, setNote] = useState("");
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal modal-lg aiwf-modal" onClick={(e) => e.stopPropagation()}>
+    // Intentionally no overlay onClick — the New item modal must not close on outside click,
+    // so an in-progress title/note isn't lost by a stray click.
+    <div className="modal-overlay">
+      <div className="modal modal-lg aiwf-modal">
         <div className="modal-head">
           <span className="modal-title">New item in {phase}</span>
           <button className="icon-btn" onClick={onCancel}>
