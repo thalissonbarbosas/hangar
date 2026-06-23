@@ -344,9 +344,12 @@ describe("resolveTaskWorktree", () => {
     const result = await aiwf.resolveTaskWorktree(project, "SPEC-007", "commit");
     expect(result).not.toBeNull();
     expect(result!.branch).toBe("feat/stale");
-    expect(mockCreate).toHaveBeenCalledWith(expect.any(String), "feat/stale", expect.any(String), {
-      existingBranch: "feat/stale",
-    });
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.any(String),
+      "feat/stale",
+      expect.any(String),
+      expect.objectContaining({ existingBranch: "feat/stale" }),
+    );
   });
 });
 
@@ -464,6 +467,32 @@ describe("resolveCardWorktree", () => {
     const result = await aiwf.resolveCardWorktree(contextId, cardKey, "commit", REPO);
     expect(result!.cwd).toBe(DATA);
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it("creates the task worktree under a durable data-dir location, not the OS temp dir (HAN-11)", async () => {
+    const { createWorktree: mockCreate } = jest.requireMock("../worktree");
+    mockCreate.mockClear();
+    await aiwf.resolveCardWorktree(contextId, cardKey, "feature", REPO);
+    const opts = mockCreate.mock.calls[0][3];
+    expect(opts.baseDir).toBe(path.join(DATA, "worktrees"));
+  });
+
+  it("warns and recreates from the branch under the durable dir when the prior worktree is gone (HAN-11)", async () => {
+    // Stored path is gone and git has no registered worktree (findWorktreePath mock returns null).
+    aiwf.setCardState(contextId, cardKey, {
+      taskBranch: "feat/han-8",
+      worktreePath: "/tmp/hangar-gone-xyz",
+    });
+    const { createWorktree: mockCreate } = jest.requireMock("../worktree");
+    mockCreate.mockClear();
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await aiwf.resolveCardWorktree(contextId, cardKey, "commit", REPO);
+    expect(result!.branch).toBe("feat/han-8");
+    const opts = mockCreate.mock.calls[0][3];
+    expect(opts.existingBranch).toBe("feat/han-8");
+    expect(opts.baseDir).toBe(path.join(DATA, "worktrees"));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("not carried over"));
+    warn.mockRestore();
   });
 
   it("reads old spec-state path as backward compat for aiwf context", async () => {
