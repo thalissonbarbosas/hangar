@@ -658,7 +658,7 @@ function CompleteCardsModal({
   const visible = q ? cards.filter((c) => c.summary.toLowerCase().includes(q)) : cards;
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
+      <div className="modal modal-xl" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <span className="modal-title">Complete ({cards.length})</span>
           <button className="icon-btn" onClick={onClose} title="Close">
@@ -1201,80 +1201,80 @@ function SpecSidebar({
   );
 }
 
-// Read-only modal showing a card's full data — key, title, status, kind, skill, PR, description, history.
+// Read-only sidebar showing a card's full data — key, title, status, kind, skill, PR, description, history.
+// Rendered as a right-side sidebar (like the session/spec sidebar) and portaled to <body> with an overlay
+// stacked above the "See more" modal, so opening a card's data from inside that modal takes priority.
 function CardDataModal({ card, onClose }: { card: Ticket; onClose: () => void }) {
   const history = card.history ?? [];
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal aiwf-modal aiwf-data-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-head">
-          <span className="modal-title">
-            <span className="card-key">{card.key}</span> {card.summary}
-          </span>
+  return createPortal(
+    <div className="aiwf-data-overlay" onClick={onClose}>
+      <aside className="aiwf-data-panel" onClick={(e) => e.stopPropagation()}>
+        <header className="spec-head">
+          <div className="spec-head-main">
+            <span className="card-key">{card.key}</span>
+            <span className="spec-head-title">{card.summary}</span>
+          </div>
           <button className="icon-btn" onClick={onClose}>
             <X size={16} />
           </button>
-        </div>
+        </header>
 
-        <div className="aiwf-data-meta">
-          <span>
-            <strong>Status</strong> {card.status}
-          </span>
-          <span>
-            <strong>Kind</strong> {card.kind ?? "thread"}
-          </span>
-          {card.skill && (
+        <div className="spec-body">
+          <div className="aiwf-data-meta">
             <span>
-              <strong>Skill</strong> /{card.skill}
+              <strong>Status</strong> {card.status}
             </span>
-          )}
-          {card.archived && (
-            <span className="aiwf-data-archived">
-              <Archive size={12} /> Archived
+            <span>
+              <strong>Kind</strong> {card.kind ?? "thread"}
             </span>
-          )}
-          {card.prUrl && (
-            <a href={card.prUrl} target="_blank" rel="noreferrer" className="aiwf-opt aiwf-data-pr">
-              <ExternalLink size={12} /> PR
-            </a>
-          )}
-        </div>
+            {card.skill && (
+              <span>
+                <strong>Skill</strong> /{card.skill}
+              </span>
+            )}
+            {card.archived && (
+              <span className="aiwf-data-archived">
+                <Archive size={12} /> Archived
+              </span>
+            )}
+            {card.prUrl && (
+              <a href={card.prUrl} target="_blank" rel="noreferrer" className="aiwf-opt aiwf-data-pr">
+                <ExternalLink size={12} /> PR
+              </a>
+            )}
+          </div>
 
-        <div className="aiwf-data-section">
-          <strong>Description</strong>
-          {card.description ? (
-            <pre className="aiwf-data-body">{card.description}</pre>
-          ) : (
-            <span className="aiwf-data-muted">No description</span>
-          )}
-        </div>
+          <div className="aiwf-data-section">
+            <strong>Description</strong>
+            {card.description ? (
+              <Markdown>{card.description}</Markdown>
+            ) : (
+              <span className="aiwf-data-muted">No description</span>
+            )}
+          </div>
 
-        <div className="aiwf-data-section">
-          <strong>History</strong>
-          {history.length === 0 ? (
-            <span className="aiwf-data-muted">No runs yet</span>
-          ) : (
-            <div className="aiwf-data-history">
-              {history.map((h, idx) => (
-                <div key={idx} className="aiwf-data-hist-row">
-                  <span className="aiwf-data-hist-trail">
-                    {h.phase} · /{h.skill}
-                  </span>
-                  <span className="aiwf-data-hist-time">{new Date(h.at).toLocaleString()}</span>
-                  {h.summary && <span className="aiwf-data-hist-summary">{h.summary}</span>}
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="aiwf-data-section">
+            <strong>History</strong>
+            {history.length === 0 ? (
+              <span className="aiwf-data-muted">No runs yet</span>
+            ) : (
+              <div className="aiwf-data-history">
+                {history.map((h, idx) => (
+                  <div key={idx} className="aiwf-data-hist-row">
+                    <span className="aiwf-data-hist-trail">
+                      {h.phase} · /{h.skill}
+                    </span>
+                    <span className="aiwf-data-hist-time">{new Date(h.at).toLocaleString()}</span>
+                    {h.summary && <span className="aiwf-data-hist-summary">{h.summary}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-
-        <div className="modal-actions">
-          <button className="btn" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
+      </aside>
+    </div>,
+    document.body,
   );
 }
 
