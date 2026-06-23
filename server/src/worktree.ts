@@ -38,6 +38,15 @@ export interface CreateWorktreeOpts {
   existingBranch?: string;
   /** Override the auto-generated hangar/<label>-<id> branch name. Ignored when existingBranch is set. */
   branchName?: string;
+  /**
+   * Root directory the worktree is created under (as `<baseDir>/<runId>/<repo>`).
+   * Defaults to the OS temp dir, which is fine for ephemeral per-run worktrees but gets
+   * purged by the OS (e.g. macOS `$TMPDIR` cleanup). Persistent task worktrees must pass a
+   * durable location (under Hangar's data dir) so untracked working-tree files — e.g. a spec
+   * written by `/spec` but not yet committed — survive and are reused by later runs on the
+   * same task instead of being lost when the worktree is recreated from the branch. (HAN-11)
+   */
+  baseDir?: string;
 }
 
 /**
@@ -53,7 +62,8 @@ export async function createWorktree(
 ): Promise<Worktree | null> {
   const root = await gitRoot(dir);
   if (!root) return null;
-  const wtPath = path.join(os.tmpdir(), "hangar-worktrees", runId, path.basename(root));
+  const baseDir = opts?.baseDir ?? path.join(os.tmpdir(), "hangar-worktrees");
+  const wtPath = path.join(baseDir, runId, path.basename(root));
 
   let branch: string;
   let gitArgs: string[];
