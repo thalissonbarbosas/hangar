@@ -537,7 +537,6 @@ export function App() {
           onReload={loadAiwf}
           onError={setError}
           onOpenSession={openSession}
-          onStartClaude={openClaudeSession}
         />
       )}
 
@@ -584,6 +583,8 @@ export function App() {
           runs={runs}
           onOpenRun={openRun}
           onOpenSession={openSession}
+          onReload={loadAiwf}
+          onStartClaude={openClaudeSession}
           onError={setError}
         />
       ) : (
