@@ -12,6 +12,7 @@ import {
   StickyNote,
   GitPullRequest,
   Workflow as WorkflowIcon,
+  Wrench,
 } from "lucide-react";
 import {
   Agent,
@@ -29,6 +30,7 @@ import {
 import { api } from "../api";
 import { Avatar } from "./Avatar";
 import { NoteModal } from "./NoteModal";
+import { WorktreeManagerModal } from "./WorktreeManagerModal";
 import { projectColor, skillProject } from "../utils";
 
 const COLUMN_COLORS = [
@@ -589,6 +591,8 @@ export function Board({
     onMoveTicket,
     onOpenRun,
   };
+  const [worktreeManagerOpen, setWorktreeManagerOpen] = useState(false);
+
   const byStatus = (status: string) => tickets.filter((t) => t.status === status);
   const extra = [...new Set(tickets.map((t) => t.status))].filter((s) => !board.statuses.includes(s));
   const allColumns = [...board.statuses, ...extra.map((s) => `${s} (unmapped)`)];
@@ -598,6 +602,13 @@ export function Board({
       <h2 className="board-title">
         {board.name} <span className="board-key">{board.key}</span>
         <span className="board-total">{tickets.length} tickets</span>
+        <button
+          className="icon-btn has-tip board-title-btn"
+          data-tip="Manage task worktrees"
+          onClick={() => setWorktreeManagerOpen(true)}
+        >
+          <Wrench size={14} />
+        </button>
       </h2>
       <div className="columns">
         {allColumns.map((label, i) => {
@@ -617,6 +628,13 @@ export function Board({
           );
         })}
       </div>
+      {worktreeManagerOpen && (
+        <WorktreeManagerModal
+          contextId={`jira-${board.key}`}
+          title={board.name}
+          onClose={() => setWorktreeManagerOpen(false)}
+        />
+      )}
     </section>
   );
 }
