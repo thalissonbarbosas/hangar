@@ -404,12 +404,28 @@ export function setCardArchived(project: AiwfProject, key: string, archived: boo
 // Hangar surfaces them as read-only kind:"spec" Tickets so skills can be delegated
 // to them from the board — no write operations ever touch the spec file itself.
 
-/** Parse a spec file and return a Ticket. relPath is relative to the project root. */
-function parseSpecFile(content: string, entryName: string, relPath: string, project: AiwfProject): Ticket {
-  // Key from the 3-digit numeric prefix: "006_aiwf-spec-tasks.md" / "006_aiwf-spec-tasks/" → SPEC-006
+/** The compact key for a spec, from its 3-digit numeric prefix: "006_aiwf-spec-tasks.md" → SPEC-006.
+ *  Falls back to the (truncated) filename slug when there's no numeric prefix. */
+function baseSpecKey(entryName: string): string {
   const m = entryName.match(/^(\d{3})_/);
-  const key = m ? `SPEC-${m[1]}` : `SPEC-${entryName.replace(/\.md$/, "").slice(0, 20)}`;
+  return m ? `SPEC-${m[1]}` : `SPEC-${entryName.replace(/\.md$/, "").slice(0, 20)}`;
+}
 
+/** Numeric value of a spec key's 3-digit prefix, for sorting. Non-numeric keys sort as 0. */
+function specNum(key: string): number {
+  const m = key.match(/^SPEC-(\d{3})/);
+  return m ? Number(m[1]) : 0;
+}
+
+/** Parse a spec file and return a Ticket. relPath is relative to the project root.
+ *  The caller supplies the (already disambiguated) key — see listSpecCards. */
+function parseSpecFile(
+  content: string,
+  entryName: string,
+  relPath: string,
+  project: AiwfProject,
+  key: string,
+): Ticket {
   // Title: first "# " heading; strip common skill-generated prefixes so the summary is clean.
   const headingLine = content.split(/\r?\n/).find((l) => l.startsWith("# "));
   let summary = headingLine ? headingLine.slice(2).trim() : entryName.replace(/\.md$/, "");
@@ -441,26 +457,41 @@ export function listSpecCards(project: AiwfProject): Ticket[] {
   const specsDir = path.join(expandHome(project.repoPath), "docs", "specs");
   if (!fs.existsSync(specsDir)) return [];
 
-  const cards: Ticket[] = [];
+  // Collect raw spec sources first so we can detect numeric-prefix collisions before keying.
+  const sources: { entryName: string; relPath: string; content: string }[] = [];
   for (const entry of fs.readdirSync(specsDir, { withFileTypes: true })) {
     if (entry.isFile() && /^\d{3}_.*\.md$/.test(entry.name)) {
       // Single-file spec: docs/specs/NNN_slug.md
-      const absPath = path.join(specsDir, entry.name);
       const relPath = path.join("docs", "specs", entry.name);
-      const content = fs.readFileSync(absPath, "utf8");
-      cards.push(parseSpecFile(content, entry.name, relPath, project));
+      const content = fs.readFileSync(path.join(specsDir, entry.name), "utf8");
+      sources.push({ entryName: entry.name, relPath, content });
     } else if (entry.isDirectory() && /^\d{3}_/.test(entry.name)) {
       // Sliced spec directory: docs/specs/NNN_slug/README.md
       const readme = path.join(specsDir, entry.name, "README.md");
       if (fs.existsSync(readme)) {
         const relPath = path.join("docs", "specs", entry.name, "README.md");
         const content = fs.readFileSync(readme, "utf8");
-        cards.push(parseSpecFile(content, entry.name, relPath, project));
+        sources.push({ entryName: entry.name, relPath, content });
       }
     }
   }
-  // Sort descending by numeric prefix so the most recently added specs appear first.
-  return cards.sort((a, b) => keyNum(b.key) - keyNum(a.key));
+
+  // Two spec files can share a numeric prefix (e.g. 014_a.md and 014_b.md). They'd both key to
+  // SPEC-014 and collide — duplicate React keys make the board render duplicate/stale spec rows.
+  // Keep the compact SPEC-NNN key when a prefix is unique; otherwise fall back to the full filename
+  // slug (SPEC-014_claude-session-ux) so every spec gets a stable, unique key.
+  const baseCounts = new Map<string, number>();
+  for (const s of sources)
+    baseCounts.set(baseSpecKey(s.entryName), (baseCounts.get(baseSpecKey(s.entryName)) ?? 0) + 1);
+
+  const cards = sources.map((s) => {
+    const base = baseSpecKey(s.entryName);
+    const key = (baseCounts.get(base) ?? 0) > 1 ? `SPEC-${s.entryName.replace(/\.md$/, "")}` : base;
+    return parseSpecFile(s.content, s.entryName, s.relPath, project, key);
+  });
+
+  // Sort descending by numeric prefix (newest first); break ties by key so order is deterministic.
+  return cards.sort((a, b) => specNum(b.key) - specNum(a.key) || a.key.localeCompare(b.key));
 }
 
 /** Find a single spec card by SPEC-NNN key. Returns null if not found. */
