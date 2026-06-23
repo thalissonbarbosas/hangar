@@ -3027,9 +3027,7 @@ a.session-ticket {
    carry their own margin-left: auto (multiple autos split the free space and
    spread the icons apart instead of grouping them). */
 .board-title-btn {
-  opacity: 0.45;
-}
-.board-title-btn:hover {
+  /* Render action icons at full strength (active), not dimmed/disabled-looking. */
   opacity: 1;
 }
 
