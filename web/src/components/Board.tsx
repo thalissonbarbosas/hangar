@@ -14,6 +14,7 @@ import {
   Workflow as WorkflowIcon,
   Wrench,
   MessageSquare,
+  X,
 } from "lucide-react";
 import {
   Agent,
@@ -138,38 +139,16 @@ export function ClaudeSessionButton({
   onStart: (model: string, note?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const [model, setModel] = useState<"haiku" | "sonnet" | "opus">("sonnet");
   const [note, setNote] = useState("");
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-
-  function toggle() {
-    if (open) return setOpen(false);
-    const r = btnRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - 280)) });
-    setOpen(true);
-  }
 
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (popRef.current?.contains(t) || btnRef.current?.contains(t)) return;
-      setOpen(false);
-    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    const close = () => setOpen(false);
-    document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
-    window.addEventListener("resize", close);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-      window.removeEventListener("resize", close);
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
   function start() {
@@ -181,41 +160,56 @@ export function ClaudeSessionButton({
   return (
     <>
       <button
-        ref={btnRef}
         className="icon-btn has-tip board-title-btn"
         data-tip="Start a Claude session"
-        onClick={toggle}
+        onClick={() => setOpen(true)}
       >
         <MessageSquare size={14} />
       </button>
       {open &&
-        pos &&
         createPortal(
           <div
-            className="claude-session-pop"
-            ref={popRef}
-            style={{ position: "fixed", top: pos.top, left: pos.left }}
+            className="modal-overlay"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setOpen(false);
+            }}
           >
-            <div className="claude-session-title">{title}</div>
-            <div className="claude-session-cwd" title={cwd}>
-              {cwd}
-            </div>
-            <div className="seg">
-              {(["haiku", "sonnet", "opus"] as const).map((m) => (
-                <button key={m} className={model === m ? "on" : undefined} onClick={() => setModel(m)}>
-                  {m[0].toUpperCase() + m.slice(1)}
+            <div className="modal">
+              <div className="modal-head">
+                <span className="modal-title">
+                  <MessageSquare size={14} />
+                  {title}
+                </span>
+                <button className="icon-btn" onClick={() => setOpen(false)}>
+                  <X size={14} />
                 </button>
-              ))}
+              </div>
+              <div className="claude-session-cwd" title={cwd}>
+                {cwd}
+              </div>
+              <div className="seg" style={{ marginTop: 10 }}>
+                {(["haiku", "sonnet", "opus"] as const).map((m) => (
+                  <button key={m} className={model === m ? "on" : undefined} onClick={() => setModel(m)}>
+                    {m[0].toUpperCase() + m.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                className="claude-session-note"
+                placeholder="What would you like to work on?"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                style={{ marginTop: 10 }}
+              />
+              <div className="modal-actions">
+                <button className="btn-ghost" onClick={() => setOpen(false)}>
+                  Cancel
+                </button>
+                <button className="btn" onClick={start}>
+                  Start session
+                </button>
+              </div>
             </div>
-            <textarea
-              className="claude-session-note"
-              placeholder="What would you like to work on?"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-            <button className="btn" onClick={start}>
-              Start session
-            </button>
           </div>,
           document.body,
         )}
