@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reuses the existing one — and starts the session from that task, preserving the spec's semantic
   git branch (HAN-10)
 
+### Fixed
+
+- Two spec files sharing a numeric prefix (e.g. `014_a.md` and `014_b.md`) no longer collide on the
+  same `SPEC-014` key and render as duplicate rows in the Specs list; the colliding specs now get
+  unique keys (HAN-13)
+
 ## [0.5.0] - 2026-06-18
 
 ### Added

@@ -186,6 +186,26 @@ describe("listSpecCards / getSpecCard", () => {
     const cards = aiwf.listSpecCards(project);
     expect(cards.map((c) => c.key)).toEqual(["SPEC-003", "SPEC-002", "SPEC-001"]);
   });
+
+  it("disambiguates two specs sharing a numeric prefix so keys stay unique", () => {
+    fs.writeFileSync(path.join(specsDir, "014_alpha.md"), "# Alpha\n");
+    fs.writeFileSync(path.join(specsDir, "014_beta.md"), "# Beta\n");
+    const cards = aiwf.listSpecCards(project);
+    const keys = cards.map((c) => c.key);
+    // Both belong to prefix 014 but must be distinct (no duplicate React keys on the board).
+    expect(new Set(keys).size).toBe(2);
+    expect(keys).toEqual(["SPEC-014_alpha", "SPEC-014_beta"]);
+    // Each disambiguated key still resolves back to its own card.
+    expect(aiwf.getSpecCard(project, "SPEC-014_alpha")?.summary).toBe("Alpha");
+    expect(aiwf.getSpecCard(project, "SPEC-014_beta")?.summary).toBe("Beta");
+  });
+
+  it("keeps the compact SPEC-NNN key when a numeric prefix is unique", () => {
+    fs.writeFileSync(path.join(specsDir, "014_alpha.md"), "# Alpha\n");
+    fs.writeFileSync(path.join(specsDir, "015_beta.md"), "# Beta\n");
+    const cards = aiwf.listSpecCards(project);
+    expect(cards.map((c) => c.key)).toEqual(["SPEC-015", "SPEC-014"]);
+  });
 });
 
 describe("skillNeedsWorktree", () => {
