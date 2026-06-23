@@ -93,6 +93,14 @@ export interface Ticket {
   skill?: string;
   history?: AiwfHistoryEntry[];
   archived?: boolean; // aiwf: soft-hidden from active board columns (reversible)
+  hasWorktree?: boolean; // aiwf: true when a task-scoped worktree exists for this card
+  taskBranch?: string; // aiwf: the task-branch name when hasWorktree is true
+}
+
+export interface WorktreeEntry {
+  key: string;
+  taskBranch: string;
+  worktreePath: string;
 }
 
 export interface AiwfHistoryEntry {

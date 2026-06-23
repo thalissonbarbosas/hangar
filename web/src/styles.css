@@ -3400,3 +3400,55 @@ a.session-ticket {
 .aiwf-guide-footer a:hover {
   text-decoration: underline;
 }
+
+/* ---- Completed / Complete column cap (HAN-8) ---- */
+
+/* "See N more" button pinned at the bottom of a capped column body */
+.col-see-more {
+  width: 100%;
+  margin-top: 2px;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.col-see-more:hover {
+  color: var(--text);
+}
+
+/* Name filter input inside the done/complete modal */
+.col-done-filter {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--text);
+  font: 400 13px var(--font);
+  margin-bottom: 12px;
+  transition:
+    border-color var(--t),
+    box-shadow var(--t);
+}
+.col-done-filter:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Scrollable card list inside the done/complete modal */
+.col-done-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+/* Empty-state message when filter matches nothing */
+.col-done-empty {
+  color: var(--text-faint);
+  font-size: 13px;
+  text-align: center;
+  padding: 20px 0;
+}

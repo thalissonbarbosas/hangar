@@ -9,6 +9,7 @@ import {
   Skill,
   Ticket,
   WorkflowRunSummary,
+  WorktreeEntry,
 } from "./types";
 
 export interface StartRunResult {
@@ -109,6 +110,26 @@ export const api = {
       skill,
       note,
     }),
+  listAiwfWorktrees: (id: string) =>
+    getJson<{ worktrees: WorktreeEntry[] }>(`/api/aiwf/projects/${id}/worktrees`),
+  deleteAiwfWorktree: (id: string, key: string) =>
+    sendJson<{ ok: boolean }>("DELETE", `/api/aiwf/projects/${id}/worktrees/${encodeURIComponent(key)}`, {}),
+  deleteAllAiwfWorktrees: (id: string) =>
+    sendJson<{ ok: boolean; removed: number }>("DELETE", `/api/aiwf/projects/${id}/worktrees`, {}),
+  listJiraWorktrees: (boardKey: string) =>
+    getJson<{ worktrees: WorktreeEntry[] }>(`/api/jira/boards/${encodeURIComponent(boardKey)}/worktrees`),
+  deleteJiraWorktree: (boardKey: string, cardKey: string) =>
+    sendJson<{ ok: boolean }>(
+      "DELETE",
+      `/api/jira/boards/${encodeURIComponent(boardKey)}/worktrees/${encodeURIComponent(cardKey)}`,
+      {},
+    ),
+  deleteAllJiraWorktrees: (boardKey: string) =>
+    sendJson<{ ok: boolean; removed: number }>(
+      "DELETE",
+      `/api/jira/boards/${encodeURIComponent(boardKey)}/worktrees`,
+      {},
+    ),
   ticketPr: (key: string) => getJson<{ prUrl: string | null }>(`/api/tickets/${encodeURIComponent(key)}/pr`),
   checkPath: (path: string) =>
     getJson<{ exists: boolean }>(`/api/fs/exists?path=${encodeURIComponent(path)}`),

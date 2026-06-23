@@ -36,6 +36,9 @@ import {
   resolveTaskWorktree,
   resolveCardWorktree,
   clearSpecState,
+  getCardState,
+  clearCardState,
+  listCardStates,
   DELIVERY_SKILLS,
   DEFAULT_COLUMNS,
   COLUMN_SKILLS,
@@ -78,7 +81,7 @@ import {
   loadPersistedWorkflowRuns,
 } from "./workflows";
 import { HangarConfig, Ticket, AiwfProject } from "./types";
-import { pruneWorktrees } from "./worktree";
+import { pruneWorktrees, removeWorktree } from "./worktree";
 
 const app = express();
 app.use(cors());
@@ -411,7 +414,92 @@ function requireAiwfProject(res: express.Response, id: string): AiwfProject | nu
 app.get("/api/aiwf/projects/:id/cards", (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
-  res.json({ tickets: [...listCards(p), ...listSpecCards(p)] });
+  const ctxId = `aiwf-${p.id}`;
+  const enrich = (c: ReturnType<typeof listCards>[number]) => {
+    const state = getCardState(ctxId, c.key);
+    return { ...c, hasWorktree: state !== null, taskBranch: state?.taskBranch };
+  };
+  res.json({ tickets: [...listCards(p).map(enrich), ...listSpecCards(p).map(enrich)] });
+});
+
+// ---- AIWF worktree management routes ----
+
+app.get("/api/aiwf/projects/:id/worktrees", (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  res.json({ worktrees: listCardStates(`aiwf-${p.id}`) });
+});
+
+app.delete("/api/aiwf/projects/:id/worktrees/:key", async (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  const contextId = `aiwf-${p.id}`;
+  const state = getCardState(contextId, req.params.key);
+  if (state) {
+    await removeWorktree({
+      path: state.worktreePath,
+      branch: state.taskBranch,
+      repoRoot: expandHome(p.repoPath),
+    });
+    clearCardState(contextId, req.params.key);
+  }
+  res.json({ ok: true });
+});
+
+app.delete("/api/aiwf/projects/:id/worktrees", async (req, res) => {
+  const p = requireAiwfProject(res, req.params.id);
+  if (!p) return;
+  const contextId = `aiwf-${p.id}`;
+  const states = listCardStates(contextId);
+  // Best-effort: attempt each entry independently; continue on per-item failure.
+  for (const s of states) {
+    try {
+      await removeWorktree({ path: s.worktreePath, branch: s.taskBranch, repoRoot: expandHome(p.repoPath) });
+      clearCardState(contextId, s.key);
+    } catch {
+      /* ignore per-item errors */
+    }
+  }
+  res.json({ ok: true, removed: states.length });
+});
+
+// ---- Jira worktree management routes ----
+
+app.get("/api/jira/boards/:boardKey/worktrees", (req, res) => {
+  const board = getConfig().boards.find((b) => b.key === req.params.boardKey);
+  if (!board) return res.status(404).json({ error: `Board not found: ${req.params.boardKey}` });
+  res.json({ worktrees: listCardStates(`jira-${board.key}`) });
+});
+
+app.delete("/api/jira/boards/:boardKey/worktrees/:cardKey", async (req, res) => {
+  const board = getConfig().boards.find((b) => b.key === req.params.boardKey);
+  if (!board) return res.status(404).json({ error: `Board not found: ${req.params.boardKey}` });
+  const contextId = `jira-${board.key}`;
+  const state = getCardState(contextId, req.params.cardKey);
+  if (state) {
+    const repoRoot = boardPaths(board)[0];
+    if (repoRoot) await removeWorktree({ path: state.worktreePath, branch: state.taskBranch, repoRoot });
+    clearCardState(contextId, req.params.cardKey);
+  }
+  res.json({ ok: true });
+});
+
+app.delete("/api/jira/boards/:boardKey/worktrees", async (req, res) => {
+  const board = getConfig().boards.find((b) => b.key === req.params.boardKey);
+  if (!board) return res.status(404).json({ error: `Board not found: ${req.params.boardKey}` });
+  const contextId = `jira-${board.key}`;
+  const states = listCardStates(contextId);
+  const repoRoot = boardPaths(board)[0];
+  // Best-effort: attempt each entry independently; continue on per-item failure.
+  for (const s of states) {
+    try {
+      if (repoRoot) await removeWorktree({ path: s.worktreePath, branch: s.taskBranch, repoRoot });
+      clearCardState(contextId, s.key);
+    } catch {
+      /* ignore per-item errors */
+    }
+  }
+  res.json({ ok: true, removed: states.length });
 });
 
 app.post("/api/aiwf/projects/:id/cards", (req, res) => {
