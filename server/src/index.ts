@@ -605,7 +605,7 @@ app.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, async (req, 
   let taskBranch: string | undefined;
 
   if ((cfg.isolateRuns ?? true) && DELIVERY_SKILLS.has(skill)) {
-    const taskWt = await resolveTaskWorktree(p, card.key, skill);
+    const taskWt = await resolveTaskWorktree(p, card.key, skill, card.description);
     if (taskWt) {
       cwdOverride = taskWt.cwd;
       skipWorktree = true;
