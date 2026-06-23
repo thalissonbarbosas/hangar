@@ -655,6 +655,23 @@ function specAbsPath(project: AiwfProject, key: string): string | null {
   return null;
 }
 
+/** Resolve the absolute spec path from a promoted card's "Spec: <relPath>" description line.
+ *  For sliced specs the relPath points at README.md; return the parent directory so
+ *  branchFromSpec derives the directory slug (matching specAbsPath's sliced-spec behavior).
+ *  Returns null when the line is absent, malformed, escapes repoPath, or does not exist. */
+function specPathFromDescription(project: AiwfProject, description?: string): string | null {
+  const m = (description ?? "").split("\n", 1)[0].match(/^Spec:\s+(.+\.md)\s*$/);
+  if (!m) return null;
+  const root = path.resolve(expandHome(project.repoPath));
+  let abs = path.resolve(root, m[1].trim());
+  // Containment guard: a crafted "Spec: ../../x.md" line must not escape the project repo.
+  // (Card descriptions are operator-supplied via the create-card route — validate the boundary.)
+  if (abs !== root && !abs.startsWith(root + path.sep)) return null;
+  if (path.basename(abs) === "README.md") abs = path.dirname(abs); // sliced spec → directory
+  if (!fs.existsSync(abs)) return null;
+  return abs;
+}
+
 /** Derive a branch name for a non-SPEC card from the skill and card key.
  *  fix/sec-review → fix/<key>, everything else → feat/<key>. */
 function branchForCard(skill: string, cardKey: string): string {
@@ -720,9 +737,14 @@ export async function resolveTaskWorktree(
   project: AiwfProject,
   cardKey: string,
   skill: string,
+  description?: string,
 ): Promise<{ cwd: string; branch: string } | null> {
   if (!DELIVERY_SKILLS.has(skill)) return null;
   const repoRoot = expandHome(project.repoPath);
-  const specPath = cardKey.startsWith("SPEC-") ? specAbsPath(project, cardKey) : null;
+  // SPEC-* cards resolve their spec by key; promoted board cards recover the source spec from
+  // their "Spec: <relPath>" description line so they keep the semantic feat/<spec-slug> branch.
+  const specPath = cardKey.startsWith("SPEC-")
+    ? specAbsPath(project, cardKey)
+    : specPathFromDescription(project, description);
   return resolveCardWorktree(`aiwf-${project.id}`, cardKey, skill, repoRoot, specPath);
 }
