@@ -24,6 +24,7 @@ import {
   ChevronRight,
   BookOpen,
   Search,
+  Wrench,
 } from "lucide-react";
 import { api } from "../api";
 import {
@@ -38,6 +39,7 @@ import {
   isActive,
 } from "../types";
 import { Markdown } from "./Markdown";
+import { WorktreeManagerModal } from "./WorktreeManagerModal";
 
 // ---------------------------------------------------------------------------
 // AI Workflow connection — phases ARE the columns. A card is a work thread that
@@ -323,6 +325,7 @@ export function AiWorkflowView({
     branch: string;
     target: string;
   } | null>(null);
+  const [worktreeManagerOpen, setWorktreeManagerOpen] = useState(false);
 
   const loadCards = useCallback(
     (id: string) => {
@@ -464,6 +467,16 @@ export function AiWorkflowView({
 
   return (
     <div className="aiwf-board-area">
+      <div className="aiwf-board-header">
+        <span className="aiwf-board-project-name">{project.name}</span>
+        <button
+          className="icon-btn has-tip"
+          data-tip="Manage task worktrees"
+          onClick={() => setWorktreeManagerOpen(true)}
+        >
+          <Wrench size={15} />
+        </button>
+      </div>
       <div className="columns">
         {allColumns.map((phase, i) => (
           <AiwfColumn
@@ -591,6 +604,14 @@ export function AiWorkflowView({
               .then(() => doTransition(key, target))
               .catch((e) => onError(String(e.message ?? e)));
           }}
+        />
+      )}
+
+      {worktreeManagerOpen && (
+        <WorktreeManagerModal
+          contextId={`aiwf-${project.id}`}
+          title={project.name}
+          onClose={() => setWorktreeManagerOpen(false)}
         />
       )}
 
