@@ -1,3 +1,14 @@
+export interface AiwfDoc {
+  slug: string;
+  title: string;
+}
+
+export interface SpecSlice {
+  filename: string;
+  title: string;
+  content: string;
+}
+
 export interface WorkflowStep {
   name: string;
   kind: "agent" | "skill";
@@ -95,6 +106,7 @@ export interface Ticket {
   archived?: boolean; // aiwf: soft-hidden from active board columns (reversible)
   hasWorktree?: boolean; // aiwf: true when a task-scoped worktree exists for this card
   taskBranch?: string; // aiwf: the task-branch name when hasWorktree is true
+  specChildren?: SpecSlice[]; // aiwf: slice files for directory specs
 }
 
 export interface WorktreeEntry {

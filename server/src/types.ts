@@ -1,3 +1,14 @@
+export interface AiwfDoc {
+  slug: string; // filename without .md, e.g. "REFERENCE"
+  title: string; // first # heading or formatSpecName fallback
+}
+
+export interface SpecSlice {
+  filename: string; // e.g. "001_remove-spec-section.md"
+  title: string; // parsed from first # heading
+  content: string; // full markdown
+}
+
 export interface WorkflowStep {
   name: string; // agent or skill name
   kind: "agent" | "skill";
@@ -101,4 +112,5 @@ export interface Ticket {
   archived?: boolean; // aiwf: soft-hidden from the active board columns (reversible)
   hasWorktree?: boolean; // aiwf: true when a task-scoped worktree exists for this card
   taskBranch?: string; // aiwf: the task-branch name when hasWorktree is true
+  specChildren?: SpecSlice[]; // aiwf: slice files inside a directory spec (undefined for single-file specs)
 }
