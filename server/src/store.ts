@@ -17,6 +17,13 @@ export const DATA_DIR = process.env.HANGAR_DATA_DIR
 const RUNS_DIR = path.join(DATA_DIR, "runs");
 const WORKFLOWS_DIR = path.join(DATA_DIR, "workflows");
 
+// Create the data dir and known subdirs upfront with restricted permissions (0700) so
+// other OS users and backup tools cannot read transcript files (Threat 14). Existing
+// installs are not retroactively changed — operators can run `chmod 700 .hangar/` manually.
+fs.mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
+fs.mkdirSync(RUNS_DIR, { recursive: true, mode: 0o700 });
+fs.mkdirSync(WORKFLOWS_DIR, { recursive: true, mode: 0o700 });
+
 /** The serializable shape of a Run (drops the live-only handles). */
 export type RunRecord = Omit<Run, "listeners" | "pending" | "query" | "input" | "onState" | "questions">;
 /** A WorkflowRun is already fully serializable (no live handles). */
@@ -25,7 +32,7 @@ export type WorkflowRecord = WorkflowRun;
 /** Atomically write JSON (tmp file + rename) so a crash mid-write can't corrupt it. */
 function writeRecord(dir: string, id: string, record: unknown): void {
   try {
-    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
     const file = path.join(dir, `${id}.json`);
     const tmp = `${file}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(record));
