@@ -287,8 +287,12 @@ export function SessionsView({
                 <ExternalLink size={13} /> Open
               </button>
               {!isActive(r.state) && (
-                <button className="icon-btn sm" onClick={() => onDelete(r.id)} title="Delete session">
-                  <Trash2 size={14} />
+                <button
+                  className="btn-ghost danger sm"
+                  onClick={() => onDelete(r.id)}
+                  title="Delete transcript"
+                >
+                  <Trash2 size={13} /> Delete
                 </button>
               )}
             </span>

@@ -7,6 +7,7 @@ import { runsRouter } from "./routes/runs";
 import { workflowsRouter } from "./routes/workflows";
 import { aiwfRouter } from "./routes/aiwf";
 import { clearRuns, loadPersistedRuns, seedDemoRuns } from "./sessions";
+import { sweepOldRuns } from "./store";
 import { isDemo } from "./demo";
 import { clearWorkflowRuns, loadPersistedWorkflowRuns } from "./workflows";
 import { pruneWorktrees } from "./worktree";
@@ -27,6 +28,10 @@ loadConfig(); // initialize (throws early if the config file is invalid)
 loadPersistedRuns(); // restore runs saved before the last restart
 loadPersistedWorkflowRuns(); // restore workflow runs too
 if (isDemo()) seedDemoRuns(); // HANGAR_DEMO=1: fictional sessions for a credential-free demo
+
+// Sweep expired runs at startup when the operator has configured a retention policy.
+const retention = getConfig().runRetentionDays;
+if (retention) sweepOldRuns(retention);
 
 app.use(configRouter);
 app.use(jiraRouter);
