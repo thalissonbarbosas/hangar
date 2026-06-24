@@ -80,7 +80,27 @@ computed version, skip ahead to tagging; otherwise start at the changelog PR.
    git switch -c release/<version>
    ```
 
-6. **Update `CHANGELOG.md`** (create it if missing) in [Keep a Changelog](https://keepachangelog.com)
+6. **Refresh README screenshots.** Run the screenshots script so the release PR ships
+   up-to-date visuals alongside the changelog:
+
+   ```
+   npm run screenshots
+   ```
+
+   This starts the demo server, drives Playwright through the 8 key UI states, and saves PNGs
+   to `docs/screenshots/`. If it fails (Playwright not installed, port conflict, etc.) print the
+   error, skip this step, and continue — screenshots are best-effort; they do not block the
+   release. If Playwright's Chromium browser has never been installed, the error message will say
+   so; the user can run `npx playwright install chromium` and re-run `npm run screenshots`
+   manually.
+
+   Stage screenshots only if the script succeeded:
+
+   ```
+   git add docs/screenshots/
+   ```
+
+7. **Update `CHANGELOG.md`** (create it if missing) in [Keep a Changelog](https://keepachangelog.com)
    format. Insert a new section directly under the header, newest first. Get the date from
    `date +%F`. Group entries by category and write them as human-readable lines (rephrase terse
    commit subjects into clear past-tense changes; drop noise like `chore: retrigger CI`,
@@ -109,9 +129,9 @@ computed version, skip ahead to tagging; otherwise start at the changelog PR.
    and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
    ```
 
-7. **Bump the version** in the root `package.json` to `<version>` (edit the `"version"` field only).
+8. **Bump the version** in the root `package.json` to `<version>` (edit the `"version"` field only).
 
-8. **Commit, push, open the PR.** Use a conventional commit but a plain PR title:
+9. **Commit, push, open the PR.** Use a conventional commit but a plain PR title:
    ```
    git add CHANGELOG.md package.json
    git commit -m "chore(release): v<version>"
