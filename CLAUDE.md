@@ -5,7 +5,7 @@ shows Jira tickets as Kanban columns; assigning an agent/skill to a card spawns 
 session via `@anthropic-ai/claude-agent-sdk` and streams it back live.
 
 See `README.md` for the user-facing feature tour, `docs/` for detailed guides (e.g.
-`docs/ai-workflow.md`), and `../Hangar-SPEC.md` for the full plan.
+`docs/AI_WORKFLOW.md`), and `../Hangar-SPEC.md` for the full plan.
 
 ## Layout
 
@@ -98,7 +98,8 @@ its own key.
 ## Conventions & gotchas
 
 - **Match the existing style**: 2-space indent, double quotes, terse explanatory comments that
-  state the _why_. No formatter/linter is configured — mirror surrounding code.
+  state the _why_. Prettier and ESLint are configured (`.prettierrc.json`, `eslint.config.mjs`)
+  and run via husky on commit — let them reformat; don't fight them.
 - **Naming**: the product is **Hangar**. The old name was FleetView — do not reintroduce it.
   The folder is `hangar/`, config is `hangar.config.json`, data dir `.hangar/`, injected env is
   `HANGAR_*`, and worktree branches are `hangar/…`.
@@ -116,7 +117,7 @@ its own key.
   `README.md`. Keep `README.md` a lean overview that links into `docs/`; don't add
   new standalone doc files to the repo root.
 - **AI Workflow doc (required)**: whenever you change the AI Workflow connection — its routes, board
-  model, phases/skills, config shape, install flow, or card format — update `docs/ai-workflow.md` in
+  model, phases/skills, config shape, install flow, or card format — update `docs/AI_WORKFLOW.md` in
   the same change. Run **`/aiwf-sync`** after any such change to verify the doc is in sync.
 - No automated tests exist yet — verify changes with `npm run typecheck` and, where it matters, by
   running `npm run dev` and exercising the flow in the UI. Run **`/smoke`** before merging any
