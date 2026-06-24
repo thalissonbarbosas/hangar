@@ -240,6 +240,7 @@ aiwfRouter.get("/api/aiwf/projects/:id/worktrees", (req, res) => {
 aiwfRouter.delete("/api/aiwf/projects/:id/worktrees/:key", async (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
+  if (!CARD_KEY_RE.test(req.params.key)) return res.status(400).json({ error: "Invalid card key" });
   const contextId = `aiwf-${p.id}`;
   const state = getCardState(contextId, req.params.key);
   if (state) {
@@ -276,6 +277,10 @@ aiwfRouter.delete("/api/aiwf/projects/:id/worktrees", async (req, res) => {
 // and shell-significant characters — the card-scoped endpoint uses the stored taskBranch and is
 // implicitly safe. The branch is always passed as a positional argv to execFile (no shell).
 const BRANCH_RE = /^[a-zA-Z0-9/_.-]{1,100}$/;
+
+// Card keys are `<PREFIX>-<number>` (e.g. "TP-1", "SPEC-42"). Reject anything else before the
+// key reaches path.join() in getCardState/clearCardState — prevents path-traversal in state files.
+const CARD_KEY_RE = /^[A-Za-z0-9]+-\d+$/;
 
 /** Build the 409 active-sessions payload if any run is live in `repoPath`, else null. */
 function activeSessionGuard(
@@ -336,6 +341,7 @@ aiwfRouter.post("/api/aiwf/projects/:id/cards/:key/checkout", async (req, res) =
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
   const key = req.params.key;
+  if (!CARD_KEY_RE.test(key)) return res.status(400).json({ error: "Invalid card key" });
   const contextId = `aiwf-${p.id}`;
   const state = getCardState(contextId, key);
   // A card "exists" if it has a board/spec file or a stored task-branch (worktree state).

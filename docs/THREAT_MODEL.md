@@ -137,6 +137,7 @@ request — and state-changing endpoints (POST/PUT) don't require a response bod
 |---|--------|--------|------------|---------|
 | 11 | `PUT /api/config` accepts `req.body as HangarConfig` with no schema validation beyond `validateConfig` in `config.ts` — a crafted payload could set `repoPaths` to sensitive dirs | Agent sessions execute in unintended directories, reading secrets | Low (requires API access first) | `validateConfig` enforces basic structure; no path allow-list |
 | 12 | `GET /api/fs/exists?path=...` accepts any filesystem path and returns whether it exists | Host filesystem enumeration (e.g. `/etc/passwd`, `~/.ssh/id_rsa`) | Low (localhost only) | None |
+| 16 | `DELETE /api/aiwf/projects/:id/worktrees/:key` and `POST /api/aiwf/projects/:id/cards/:key/checkout` passed `req.params.key` directly into `path.join(cardStateDir, key + ".json")` — a key of `../../runs/abc` would read or delete `DATA_DIR/runs/abc.json` (run transcript) | Deletion of run transcripts; limited to `.hangar/` subtree | Very Low (local process only; CORS blocks browser) | `CARD_KEY_RE` allowlist (`/^[A-Za-z0-9]+-\d+$/`) added to both routes |
 
 ---
 
@@ -180,6 +181,7 @@ request — and state-changing endpoints (POST/PUT) don't require a response bod
 - **`execFileSync`/`execFileAsync` with array args in `aiwf.ts`** — eliminates shell injection surface from `aiwfBin` path (Threat 10).
 - **Zod schema validation on `PUT /api/config`** — `validateConfig` uses `safeParse`; invalid payloads receive a 400 before any disk write (Threat 11).
 - **`/api/fs/exists` restricted to configured repoPaths** — paths outside configured repos return 400 (Threat 12).
+- **`CARD_KEY_RE` allowlist on worktree/checkout routes** — `req.params.key` validated against `/^[A-Za-z0-9]+-\d+$/` before reaching `path.join()`; prevents state-file path traversal (Threat 16).
 - **`.hangar/` and subdirs created with mode `0700`** — prevents other OS users and backup tools from reading transcripts (Threat 14).
 - **`runRetentionDays` config + `sweepOldRuns` startup sweep** — auto-deletes terminal runs older than N days; "Delete" button in Sessions view for manual erasure (Threat 15).
 
