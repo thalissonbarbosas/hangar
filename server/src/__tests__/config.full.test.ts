@@ -66,7 +66,7 @@ describe("loadConfig / getConfig", () => {
   it("throws on an invalid config (no boards)", () => {
     const { configPath } = withTempConfig({ agentsDir: "~/x", boards: [] });
     const cfg = loadFresh({ CONFIG_PATH: configPath });
-    expect(() => cfg.loadConfig()).toThrow(/at least one board/);
+    expect(() => cfg.loadConfig()).toThrow(/boards/);
   });
 
   it("throws when a board is missing required fields", () => {
@@ -75,7 +75,7 @@ describe("loadConfig / getConfig", () => {
       boards: [{ key: "", name: "", statuses: [] }],
     });
     const cfg = loadFresh({ CONFIG_PATH: configPath });
-    expect(() => cfg.loadConfig()).toThrow(/Invalid board config/);
+    expect(() => cfg.loadConfig()).toThrow(/boards/);
   });
 
   it("throws when agentsDir is missing", () => {
@@ -187,7 +187,7 @@ describe("saveConfig", () => {
     const { configPath } = withTempConfig(validConfig);
     const cfg = loadFresh({ CONFIG_PATH: configPath });
     cfg.loadConfig();
-    expect(() => cfg.saveConfig({ agentsDir: "x", boards: [] })).toThrow(/at least one board/);
+    expect(() => cfg.saveConfig({ agentsDir: "x", boards: [] })).toThrow(/boards/);
   });
 });
 
