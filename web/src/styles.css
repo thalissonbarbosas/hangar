@@ -1068,15 +1068,22 @@ html[data-theme="light"] .model-haiku {
 }
 
 /* ---- card: active background + actions + run tag + agent menu ---- */
+/* Left-border strip signals run state at a glance; faster than border-color cycling. */
 .card.active {
   background: var(--accent-soft);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  animation: cardpulse 2.4s ease-in-out infinite;
+  border-left: 3px solid var(--accent);
+  padding-left: 9px; /* compensate for the extra 3px left border (12px - 3px) */
 }
-@keyframes cardpulse {
-  50% {
-    border-color: var(--accent);
-  }
+.card.awaiting-input {
+  border-left: 3px solid var(--warning);
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+  padding-left: 9px;
+}
+.card.done {
+  border-left: 3px solid var(--success);
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+  padding-left: 9px;
 }
 .card-actions {
   margin-top: 9px;
