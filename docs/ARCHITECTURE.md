@@ -263,6 +263,8 @@ and four overlays (board, settings, sessions, run panel).
 - `SessionsView` — tabbed run list grouped by project.
 - `AiWorkflow` — aiwf board (cards as columns), project switcher, install/uninstall flow,
   skills guide modal, worktree management, branch checkout.
+- `AiwfDocsModal` — multi-tab docs browser (📖 Docs & Specs); serves aiwf toolkit docs and
+  per-project spec/doc files.
 - `Settings` — Jira connection, boards config, permission toggle, terminal command.
 
 **Theme:** CSS custom properties (`--bg`, `--fg`, `--accent`, …). `useTheme.ts` toggles

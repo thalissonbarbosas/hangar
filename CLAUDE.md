@@ -98,7 +98,8 @@ its own key.
 ## Conventions & gotchas
 
 - **Match the existing style**: 2-space indent, double quotes, terse explanatory comments that
-  state the _why_. No formatter/linter is configured — mirror surrounding code.
+  state the _why_. Prettier and ESLint are configured (`.prettierrc.json`, `eslint.config.mjs`)
+  and run via husky on commit — let them reformat; don't fight them.
 - **Naming**: the product is **Hangar**. The old name was FleetView — do not reintroduce it.
   The folder is `hangar/`, config is `hangar.config.json`, data dir `.hangar/`, injected env is
   `HANGAR_*`, and worktree branches are `hangar/…`.
