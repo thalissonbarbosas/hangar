@@ -89,7 +89,15 @@ import { HangarConfig, Ticket, AiwfProject } from "./types";
 import { pruneWorktrees, removeWorktree, currentBranch, checkoutBranch } from "./worktree";
 
 const app = express();
-app.use(cors());
+// Restrict CORS to the local web dev server only — rejects cross-origin requests from any
+// other origin, mitigating CSRF (Threats 1–3) and accidental LAN exposure (Threat 6).
+const WEB_ORIGIN = `http://localhost:${process.env.WEB_PORT ?? 5180}`;
+app.use(
+  cors({
+    origin: [WEB_ORIGIN, "http://127.0.0.1:5180"],
+    credentials: false,
+  }),
+);
 app.use(express.json());
 
 // Limit session-spawning endpoints: 30 requests per minute per IP.
@@ -1015,9 +1023,9 @@ if (require.main === module) {
     console.error("[hangar] uncaughtException:", err);
   });
 
-  app.listen(PORT, () => {
+  app.listen(PORT, "127.0.0.1", () => {
     const jira = loadJiraEnv();
-    console.log(`Hangar server on http://localhost:${PORT}`);
+    console.log(`Hangar server on http://127.0.0.1:${PORT}`);
     console.log(
       `  boards: ${getConfig()
         .boards.map((b) => b.key)
