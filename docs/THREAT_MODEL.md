@@ -68,11 +68,15 @@ Non-negotiable invariants that must always hold:
 | `GET /api/runs/:id/stream` (SSE) | Any client reaching :3001 | None |
 | `POST /api/runs/:id/message` | Any client reaching :3001 | None |
 | `POST /api/runs/:id/permissions/:requestId` | Any client reaching :3001 | None |
-| `GET /api/check-path?path=` | Any client reaching :3001 | None (arbitrary path existence check) |
+| `GET /api/fs/exists?path=` | Any client reaching :3001 | None (arbitrary path existence check) |
 | `POST /api/aiwf/projects` | Any client reaching :3001 | repoPath existence check |
 | `POST /api/aiwf/install` | Any client reaching :3001 | None |
 | `POST /api/runs/:id/terminal` | Any client reaching :3001 | Session ID validation; dir shell-quoted |
 | `GET /api/aiwf/projects/:id/docs/:slug` | Any client reaching :3001 | Slug: `/^[A-Za-z0-9_-]+$/` |
+| `POST /api/aiwf/projects/:id/cards/:key/checkout` | Any client reaching :3001 | None (git branch checkout in live project root) |
+| `DELETE /api/aiwf/projects/:id/worktrees/:key` | Any client reaching :3001 | None (forced worktree removal) |
+| `DELETE /api/aiwf/projects/:id/worktrees` | Any client reaching :3001 | None (bulk forced worktree removal) |
+| `DELETE /api/jira/boards/:boardKey/worktrees/:cardKey` | Any client reaching :3001 | None (forced worktree removal) |
 | Agent filesystem access | Full OS access when unrestricted | `bypassPermissions: false` (gated mode) |
 | `.hangar/` transcript files | OS file system | `.gitignore`; OS user permissions |
 
@@ -132,7 +136,7 @@ request — and state-changing endpoints (POST/PUT) don't require a response bod
 | # | Attack | Impact | Likelihood | Defense |
 |---|--------|--------|------------|---------|
 | 11 | `PUT /api/config` accepts `req.body as HangarConfig` with no schema validation beyond `validateConfig` in `config.ts` — a crafted payload could set `repoPaths` to sensitive dirs | Agent sessions execute in unintended directories, reading secrets | Low (requires API access first) | `validateConfig` enforces basic structure; no path allow-list |
-| 12 | `GET /api/check-path?path=...` accepts any filesystem path and returns whether it exists | Host filesystem enumeration (e.g. `/etc/passwd`, `~/.ssh/id_rsa`) | Low (localhost only) | None |
+| 12 | `GET /api/fs/exists?path=...` accepts any filesystem path and returns whether it exists | Host filesystem enumeration (e.g. `/etc/passwd`, `~/.ssh/id_rsa`) | Low (localhost only) | None |
 
 ---
 
@@ -184,7 +188,7 @@ Priority order:
 
 4. **[MEDIUM] Config schema validation** — add a Zod (or equivalent) schema to `validateConfig` that rejects unexpected fields and validates path shapes before `saveConfig`. Reduces config injection risk (Threat 11).
 
-5. **[MEDIUM] Restrict `/api/check-path`** — validate that `req.query.path` resolves under one of the configured `repoPaths` before returning existence status. Stops filesystem enumeration (Threat 12).
+5. **[MEDIUM] Restrict `/api/fs/exists`** — validate that `req.query.path` resolves under one of the configured `repoPaths` before returning existence status. Stops filesystem enumeration (Threat 12).
 
 6. **[MEDIUM] Default `bypassPermissions: false`** — change the default in `HangarConfig` and `hangar.config.example.json` to `false`. Add a prominent UI warning when unrestricted mode is enabled. Reduces blast radius for all agent-scope threats (Threats 7, 8, 13).
 

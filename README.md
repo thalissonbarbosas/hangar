@@ -139,8 +139,10 @@ instead of a tracker: Hangar detects/installs the toolkit, sets up a project, an
 phase-lifecycle board (`Planning → Design → Implementation → Review → Delivery → Complete`) whose cards
 are work threads stored in the repo. Runs are executed by Claude (the existing engine). Each project
 chip can be edited to change its name or location (the repo path) in place. Cards support per-card
-**archive**, **delete**, and **see data** actions via a `⋯` menu. A **📖 Skills guide** button in
-the sub-bar shows every aiwf skill by phase tab, with install status and descriptions.
+**archive**, **delete**, and **see data** actions via a `⋯` menu; a **checkout** action switches
+the project root to the card's task branch. A **Worktrees** button in the board header lists and
+removes stale task branches. A **📖 Skills guide** button in the sub-bar shows every aiwf skill
+by phase tab, with install status and descriptions.
 
 **→ Full guide: [`docs/AI_WORKFLOW.md`](docs/AI_WORKFLOW.md).**
 
@@ -165,10 +167,11 @@ Environment (`.env`, see [`.env.example`](.env.example)): `JIRA_BASE_URL`, `JIRA
 ## Scripts
 
 ```sh
-npm run dev         # server + web together
-npm run dev:server  # server only (:3001)
-npm run dev:web     # web only (:5180)
-npm run typecheck   # tsc --noEmit across server + web
+npm run dev          # server + web together
+npm run dev:server   # server only (:3001)
+npm run dev:web      # web only (:5180)
+npm run typecheck    # tsc --noEmit across server + web
+npm run screenshots  # capture README screenshots from demo mode (requires: npx playwright install chromium)
 ```
 
 The UI port defaults to **5180** and is configurable — set `WEB_PORT` in `.env` (the proxy to the
