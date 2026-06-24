@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { existsSync, mkdirSync } from "fs";
+import path from "path";
 import { randomUUID } from "crypto";
 import {
   loadConfig,
@@ -277,10 +278,14 @@ app.get("/api/tickets/:key/pr", async (req, res) => {
 });
 
 // Check whether a filesystem path exists (used by the Settings UI to validate codebase paths).
+// Restricted to configured repoPaths to prevent filesystem enumeration (Threat 12).
 app.get("/api/fs/exists", (req, res) => {
   const raw = String(req.query.path ?? "").trim();
   if (!raw) return res.status(400).json({ error: "path query param required" });
   const expanded = expandHome(raw);
+  const repoPaths = getConfig().boards.flatMap((b) => boardPaths(b));
+  const allowed = repoPaths.some((root) => path.resolve(expanded).startsWith(path.resolve(root)));
+  if (!allowed) return res.status(400).json({ error: "path outside configured repos" });
   res.json({ exists: existsSync(expanded) });
 });
 

@@ -160,12 +160,23 @@ describe("ticket PR lookup", () => {
 });
 
 describe("filesystem path check", () => {
-  it("GET /api/fs/exists returns true for a real path and false for a missing one", async () => {
-    const real = await request(app).get("/api/fs/exists?path=/tmp");
-    expect(real.status).toBe(200);
-    expect(real.body.exists).toBe(true);
+  it("GET /api/fs/exists returns 400 for paths outside configured repos", async () => {
+    // /tmp is not under the demo board's repoPath (~/demo/acme-web) — must be rejected.
+    const res = await request(app).get("/api/fs/exists?path=/tmp");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/outside configured repos/);
+  });
 
-    const missing = await request(app).get("/api/fs/exists?path=/this/does/not/exist/at/all");
+  it("GET /api/fs/exists returns exists:true/false for paths inside a configured repo", async () => {
+    // Demo board repoPaths = ["~/demo/acme-web"]; use home-expanded path.
+    const demoRoot = path.join(os.homedir(), "demo", "acme-web");
+    const real = await request(app).get(`/api/fs/exists?path=${encodeURIComponent(demoRoot)}`);
+    // Path is under the configured repo — may or may not exist on disk, but must not be 400.
+    expect(real.status).toBe(200);
+    expect(typeof real.body.exists).toBe("boolean");
+
+    const subPath = path.join(demoRoot, "this", "does", "not", "exist");
+    const missing = await request(app).get(`/api/fs/exists?path=${encodeURIComponent(subPath)}`);
     expect(missing.status).toBe(200);
     expect(missing.body.exists).toBe(false);
   });
