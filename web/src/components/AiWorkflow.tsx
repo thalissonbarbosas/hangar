@@ -23,7 +23,6 @@ import {
   ChevronDown,
   ChevronRight,
   BookOpen,
-  Search,
   Wrench,
   GitBranch,
   CornerUpLeft,
@@ -286,8 +285,6 @@ export function AiWorkflowView({
   const [dataCard, setDataCard] = useState<Ticket | null>(null); // card shown in the See Data modal
   const [sessionTranscript, setSessionTranscript] = useState<{ runId: string; label: string } | null>(null);
   const [archivedOpen, setArchivedOpen] = useState(false); // archived section collapsed state
-  const [specCardsOpen, setSpecCardsOpen] = useState(true); // spec cards section collapsed state
-  const [specSidebar, setSpecSidebar] = useState<Ticket | null>(null); // spec card open in sidebar
   // Pending promote: spec dragged to a column — card not created yet, waiting for skill picker confirm
   const [pendingPromote, setPendingPromote] = useState<{ specKey: string; phase: string } | null>(null);
   // Moving to Complete with an active worktree — prompt before transitioning
@@ -373,8 +370,6 @@ export function AiWorkflowView({
 
   const phaseSkills = status?.columnSkills ?? {};
   const columns = project.columns?.length ? project.columns : (status?.defaultColumns ?? []);
-  // Spec cards (kind:"spec") are read-only and rendered in their own section below the board.
-  const specCards = cards.filter((c) => c.kind === "spec");
   const activeCards = cards.filter((c) => !c.archived && c.kind !== "spec");
   const archivedCards = cards.filter((c) => c.archived);
   const extra = [...new Set(activeCards.map((c) => c.status))].filter((s) => !columns.includes(s));
@@ -436,7 +431,7 @@ export function AiWorkflowView({
   // the spec row button, the SpecSidebar, and drag-to-promote — so every spec run lands a task on
   // the board and starts the session from it (HAN-10).
   function promoteSpecAndRun(specKey: string, phase: string, skill: string, note?: string) {
-    const specCard = specCards.find((c) => c.key === specKey);
+    const specCard = cards.find((c) => c.kind === "spec" && c.key === specKey);
     if (!specCard) return;
     const line = specLine(specCard.description);
     // Dedup: reuse an existing non-archived board card promoted from the same spec, so history
@@ -594,16 +589,6 @@ export function AiWorkflowView({
         </div>
       )}
 
-      {specCards.length > 0 && (
-        <SpecCardsSection
-          cards={specCards}
-          open={specCardsOpen}
-          onToggle={() => setSpecCardsOpen((v) => !v)}
-          onRunSkill={(key) => setPicker({ key, phase: "Implementation" })}
-          onOpenSidebar={setSpecSidebar}
-        />
-      )}
-
       {newItem && (
         <NewItemModal
           phase={newItem}
@@ -698,19 +683,6 @@ export function AiWorkflowView({
             setEditing(null);
             onReload();
           }}
-        />
-      )}
-
-      {specSidebar && (
-        <SpecSidebar
-          card={specSidebar}
-          implSkills={phaseSkills["Implementation"] ?? []}
-          skillsByName={skillsByName}
-          onRun={(skill, note) => {
-            promoteSpecAndRun(specSidebar.key, "Implementation", skill, note);
-            setSpecSidebar(null);
-          }}
-          onClose={() => setSpecSidebar(null)}
         />
       )}
     </div>
@@ -1069,203 +1041,6 @@ function AiwfCard({
           )
         )}
       </div>
-    </div>
-  );
-}
-
-// Read-only collapsible section listing spec cards sourced from the project's docs/specs/ directory.
-// Rows are clickable (open sidebar) and draggable to phase columns (promote to board card).
-function SpecCardsSection({
-  cards,
-  open,
-  onToggle,
-  onRunSkill,
-  onOpenSidebar,
-}: {
-  cards: Ticket[];
-  open: boolean;
-  onToggle: () => void;
-  onRunSkill: (key: string) => void;
-  onOpenSidebar: (card: Ticket) => void;
-}) {
-  const PAGE_SIZE = 10;
-  const [filter, setFilter] = useState("");
-  const [page, setPage] = useState(1);
-  const q = filter.toLowerCase();
-  // Reset to page 1 when filter changes
-  const filtered = q
-    ? cards.filter((c) => c.key.toLowerCase().includes(q) || c.summary.toLowerCase().includes(q))
-    : cards;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const visible = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-
-  return (
-    <div className="aiwf-spec-section">
-      <div className="aiwf-spec-header">
-        <button className="aiwf-spec-toggle" onClick={onToggle}>
-          {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          <BookOpen size={13} />
-          Specs ({cards.length})
-        </button>
-        {open && (
-          <div className="aiwf-spec-filter-wrap">
-            <Search size={12} />
-            <input
-              className="aiwf-spec-filter"
-              placeholder="Filter…"
-              value={filter}
-              onChange={(e) => {
-                setFilter(e.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-        )}
-      </div>
-      {open && (
-        <div className="aiwf-spec-list">
-          {visible.map((c) => (
-            <div
-              key={c.key}
-              className="aiwf-spec-row"
-              draggable
-              onClick={() => onOpenSidebar(c)}
-              onDragStart={(e) => {
-                const data: TicketDragData = {
-                  key: c.key,
-                  boardKey: c.boardKey!,
-                  status: c.status,
-                  kind: "spec",
-                };
-                e.dataTransfer.setData(TICKET_DND_MIME, JSON.stringify(data));
-                e.dataTransfer.effectAllowed = "copy";
-                e.stopPropagation();
-              }}
-            >
-              <span className="card-key aiwf-spec-key">{c.key}</span>
-              <span className="aiwf-spec-title">{c.summary}</span>
-              <button
-                className="btn-ghost sm aiwf-spec-run"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRunSkill(c.key);
-                }}
-              >
-                <Play size={12} /> Run skill
-              </button>
-            </div>
-          ))}
-          {visible.length === 0 && q && <span className="aiwf-spec-empty">No specs match "{filter}"</span>}
-          {totalPages > 1 && (
-            <div className="aiwf-spec-pagination">
-              {/* Use safePage (not stale page) so Prev/Next always navigate relative to what's shown. */}
-              <button className="btn-ghost sm" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>
-                ‹ Prev
-              </button>
-              <span className="aiwf-spec-page">
-                {safePage} / {totalPages}
-              </span>
-              <button
-                className="btn-ghost sm"
-                disabled={safePage >= totalPages}
-                onClick={() => setPage(safePage + 1)}
-              >
-                Next ›
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Sidebar panel for a spec card: renders the spec markdown with an inline skill picker at the bottom.
-// Dragging the spec to a column is the other path; this is for reading + running without leaving the board.
-function SpecSidebar({
-  card,
-  implSkills,
-  skillsByName,
-  onRun,
-  onClose,
-}: {
-  card: Ticket;
-  implSkills: string[];
-  skillsByName: Map<string, Skill>;
-  onRun: (skill: string, note?: string) => void;
-  onClose: () => void;
-}) {
-  const [skill, setSkill] = useState(implSkills[0] ?? "");
-  const [note, setNote] = useState("");
-  // Strip the "Spec: path\n\n" header line — just render the markdown body
-  const content = (card.description ?? "").replace(/^Spec: [^\n]+\n\n/, "");
-
-  return (
-    <div className="spec-overlay" onClick={onClose}>
-      <aside className="spec-panel" onClick={(e) => e.stopPropagation()}>
-        <header className="spec-head">
-          <div className="spec-head-main">
-            <BookOpen size={14} />
-            <span className="card-key">{card.key}</span>
-            <span className="spec-head-title">{card.summary}</span>
-          </div>
-          <button className="icon-btn" onClick={onClose}>
-            <X size={16} />
-          </button>
-        </header>
-
-        <div className="spec-body">
-          {content ? <Markdown>{content}</Markdown> : <span className="spec-body-empty">No content</span>}
-        </div>
-
-        {implSkills.length > 0 && (
-          <footer className="spec-footer">
-            <div className="field">
-              <span>Skill</span>
-              <div className="seg wrap">
-                {implSkills.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    className={skill === s ? "on" : ""}
-                    disabled={!skillsByName.has(s)}
-                    onClick={() => setSkill(s)}
-                  >
-                    /{s}
-                    <span className="aiwf-skill-tag">(aiwf)</span>
-                    {skillsByName.get(s)?.model && (
-                      <span className="model-chip">{skillsByName.get(s)!.model}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="field">
-              <span>Note (optional)</span>
-              <textarea
-                className="note-input"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                rows={3}
-                placeholder="Steer the session…"
-                onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") onRun(skill, note.trim() || undefined);
-                }}
-              />
-            </div>
-            <div className="spec-footer-actions">
-              <button
-                className="btn"
-                disabled={!skill}
-                onClick={() => onRun(skill, note.trim() || undefined)}
-              >
-                <Play size={13} /> Run skill
-              </button>
-            </div>
-          </footer>
-        )}
-      </aside>
     </div>
   );
 }
