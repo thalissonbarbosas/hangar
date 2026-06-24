@@ -592,6 +592,15 @@ function CompletedTicketsModal({
 
 const DONE_CAP = 5; // max cards shown in the done column before "See more" kicks in
 
+// Maps a column status name to a semantic CSS class for top-border coloring.
+function statusClass(status: string): string {
+  const s = status.toLowerCase();
+  if (/progress|develop|active|doing/.test(s)) return "status-in-progress";
+  if (/review|testing|qa/.test(s)) return "status-in-review";
+  if (/done|complete|deliver|shipped|closed/.test(s)) return "status-done";
+  return "";
+}
+
 function Column({
   status,
   targetStatus,
@@ -640,10 +649,10 @@ function Column({
     ctx.onMoveTicket(data.key, targetStatus);
   }
 
+  const sc = statusClass(status);
   return (
     <div
-      className={`column${over ? " drop-over" : ""}`}
-      style={{ borderTopColor: color }}
+      className={`column${over ? " drop-over" : ""}${sc ? ` ${sc}` : ""}`.trim()}
       onDragOver={onDragOver}
       onDragLeave={() => setOver(false)}
       onDrop={onDrop}
