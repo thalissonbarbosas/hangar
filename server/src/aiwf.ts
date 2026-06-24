@@ -851,3 +851,35 @@ export function getAiwfDoc(slug: string): string | null {
   if (!fs.existsSync(filePath)) return null;
   return fs.readFileSync(filePath, "utf8");
 }
+
+/** List .md files in the project's docs/ directory, excluding the specs/ subdirectory.
+ *  Returns [] when the directory doesn't exist. */
+export function listProjectDocs(repoPath: string): AiwfDoc[] {
+  const docsDir = path.join(expandHome(repoPath), "docs");
+  if (!fs.existsSync(docsDir)) return [];
+  const specsSubdir = path.join(docsDir, "specs");
+  return fs
+    .readdirSync(docsDir)
+    .filter((f) => {
+      if (!f.endsWith(".md")) return false;
+      const full = path.join(docsDir, f);
+      return fs.statSync(full).isFile() && full !== specsSubdir;
+    })
+    .map((f) => {
+      const slug = f.replace(/\.md$/i, "");
+      const content = fs.readFileSync(path.join(docsDir, f), "utf8");
+      const heading = content.split(/\r?\n/).find((l) => l.startsWith("# "));
+      const title = heading ? heading.slice(2).trim() : formatSpecName(f);
+      return { slug, title };
+    })
+    .sort((a, b) => a.title.localeCompare(b.title));
+}
+
+/** Read one project doc by slug. Returns null if invalid or not found.
+ *  Slug is validated to `[A-Za-z0-9_-]` only before use. */
+export function getProjectDoc(repoPath: string, slug: string): string | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(slug)) return null;
+  const filePath = path.join(expandHome(repoPath), "docs", `${slug}.md`);
+  if (!fs.existsSync(filePath)) return null;
+  return fs.readFileSync(filePath, "utf8");
+}

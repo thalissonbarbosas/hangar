@@ -159,6 +159,12 @@ export const api = {
   // ---- Branch checkout (run the task branch in the project root) ----
   aiwfDocs: () => getJson<{ docs: AiwfDoc[] }>("/api/aiwf/docs"),
   aiwfDoc: (slug: string) => getJson<{ content: string }>(`/api/aiwf/docs/${encodeURIComponent(slug)}`),
+  aiwfProjectDocs: (id: string) =>
+    getJson<{ docs: AiwfDoc[] }>(`/api/aiwf/projects/${encodeURIComponent(id)}/docs`),
+  aiwfProjectDoc: (id: string, slug: string) =>
+    getJson<{ content: string }>(
+      `/api/aiwf/projects/${encodeURIComponent(id)}/docs/${encodeURIComponent(slug)}`,
+    ),
   aiwfBranch: (id: string) => getJson<{ branch: string }>(`/api/aiwf/projects/${id}/branch`),
   aiwfCheckoutCard: (id: string, key: string) =>
     postCheckout<{ ok: boolean; branch: string; previousBranch: string }>(
