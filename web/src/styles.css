@@ -20,9 +20,9 @@ html[data-theme="dark"] {
   --text-muted: #99a2b5;
   --text-dim: #8b93a3;
   --text-faint: #6b7488;
-  --accent: #6e8bff;
-  --accent-hover: #8aa0ff;
-  --accent-soft: rgba(110, 139, 255, 0.14);
+  --accent: #5c91ff;
+  --accent-hover: #7aaeff;
+  --accent-soft: rgba(92, 145, 255, 0.12);
   --accent-contrast: #0b0e14;
   --success: #34d399;
   --danger: #f87171;
@@ -43,9 +43,9 @@ html[data-theme="light"] {
   --text-muted: #59616f;
   --text-dim: #747882;
   --text-faint: #8b93a3;
-  --accent: #5566ef;
-  --accent-hover: #4453d6;
-  --accent-soft: rgba(85, 102, 239, 0.1);
+  --accent: #3050d4;
+  --accent-hover: #1f3db8;
+  --accent-soft: rgba(48, 80, 212, 0.1);
   --accent-contrast: #ffffff;
   --success: #0f9d63;
   --danger: #dc2626;
@@ -296,7 +296,7 @@ body {
   gap: 10px;
   margin: 0 0 12px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
 }
 .board-key {
   font: 600 11px var(--mono);
