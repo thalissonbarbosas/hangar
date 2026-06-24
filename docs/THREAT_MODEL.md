@@ -180,14 +180,12 @@ request — and state-changing endpoints (POST/PUT) don't require a response bod
 - **`execFileSync`/`execFileAsync` with array args in `aiwf.ts`** — eliminates shell injection surface from `aiwfBin` path (Threat 10).
 - **Zod schema validation on `PUT /api/config`** — `validateConfig` uses `safeParse`; invalid payloads receive a 400 before any disk write (Threat 11).
 - **`/api/fs/exists` restricted to configured repoPaths** — paths outside configured repos return 400 (Threat 12).
+- **`.hangar/` and subdirs created with mode `0700`** — prevents other OS users and backup tools from reading transcripts (Threat 14).
+- **`runRetentionDays` config + `sweepOldRuns` startup sweep** — auto-deletes terminal runs older than N days; "Delete" button in Sessions view for manual erasure (Threat 15).
 
 ### Required (not yet implemented)
 
-Priority order:
-
-1. **[LOW] GDPR run retention policy** — document the data retention stance. Implement a configurable `runRetentionDays` setting that auto-deletes runs older than N days. Surface a "Delete transcript" button in the Sessions view that calls the existing `DELETE /api/runs/:id`. (Threat 15)
-
-8. **[LOW] Restrict `.hangar/` file permissions** — set directory mode to `0700` on creation in `store.ts` so backup tools and other users on shared machines can't read transcripts. (Threat 14)
+None — all identified threats have controls in place.
 
 ---
 
