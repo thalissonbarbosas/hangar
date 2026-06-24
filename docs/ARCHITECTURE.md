@@ -57,32 +57,23 @@ graph TD
 
 ## Components
 
-### `index.ts` — Express API
+### `index.ts` — Express API entry point
 
-**Responsibility:** All HTTP routes in one file. Owns request parsing, auth guards
-(`requireJira`), rate limiting, and the SSE endpoint. Delegates all business logic to the
-modules below.
+**Responsibility:** Middleware setup (CORS, rate limiting, body parsing), router mounts, and
+`app.listen`. Routes are split into domain modules under `server/src/routes/`. Delegates all
+business logic to the modules below.
 
 **Technology:** Express 4 + `express-rate-limit`. TypeScript, `tsx watch` in dev.
 
-**Interfaces:**
-- `GET /api/health` — liveness + configuration status
-- `GET /api/config` / `PUT /api/config` — board configuration
-- `GET /api/settings/jira` / `PUT /api/settings/jira` — Jira credentials (token write-only)
-- `GET /api/tickets` / `POST /api/tickets/:key/transition` — Jira board data
-- `GET /api/agents` / `GET /api/skills` — registry
-- `POST /api/runs` / `GET /api/runs` / `GET /api/runs/:id` — run lifecycle
-- `GET /api/runs/:id/stream` — SSE stream (replays history then live events)
-- `POST /api/runs/:id/message` — operator follow-up / answer to AskUserQuestion
-- `POST /api/runs/:id/permissions/:requestId` — allow/deny gated tool
-- `POST /api/runs/:id/stop` / `DELETE /api/runs/:id` — stop or delete a run
-- `POST /api/aiwf/projects/:id/cards/:key/run` — run a skill on a card
-- `POST /api/workflows/runs` — start a board workflow
+**Route modules (`server/src/routes/`):**
+- `config.ts` — `GET /api/health`, `GET|PUT /api/config`, `GET|PUT /api/settings/jira`
+- `jira.ts` — `GET /api/tickets`, transitions, `GET /api/agents`, `GET /api/skills`, `/api/jira/*`
+- `runs.ts` — full run lifecycle: `POST|GET /api/runs`, SSE stream, message, permissions, stop, delete, terminal, `GET /api/fs/exists`
+- `workflows.ts` — `POST|GET|DELETE /api/workflows/runs*`
+- `aiwf.ts` — all `/api/aiwf/*` routes: projects, cards, checkout, worktrees, docs, install/uninstall
 
 **Key design decisions:**
-- All routes live in one file (currently ~1,044 lines). This is acknowledged technical debt
-  and should be refactored into route modules by domain: `routes/runs.ts`, `routes/jira.ts`,
-  `routes/aiwf.ts`, `routes/workflows.ts`.
+- Routes split into 5 domain modules (~78-line `index.ts`). Each module owns its imports and can be tested in isolation.
 - Rate limiting on session-spawn endpoints: 30 req/min per IP. Guards against runaway loops
   or misconfigured clients — not a security boundary.
 - CORS is open (no origin restriction) — acceptable for a localhost-only tool.
@@ -370,26 +361,13 @@ transcripts under `.hangar/` may contain file contents read by agent sessions �
 | **Persistence** | JSON files per run | SQLite; PostgreSQL | No DB dependency; single-process; run records don't need relational queries; bounded size |
 | **Git isolation** | `git worktree` | Docker volumes; no isolation | Isolation without containers; agent has full git history; each run gets its own branch naturally |
 | **Config hot-reload** | In-memory swap on PUT `/api/config` | File watch (`chokidar`) | Simpler; the Settings UI is the only config writer; no race conditions |
-| **Single-file API** | All routes in `index.ts` | Route modules by domain | Started small; now a known technical debt — see below |
+| **Domain route modules** | 5 route files under `routes/` | Single `index.ts` (prior) | Navigable by domain; each module testable in isolation; `index.ts` reduced to ~78 lines |
 | **No state manager** | React `useState` in `App.tsx` | Redux; Zustand | App state is simple enough; adding a manager would be premature |
 | **No test suite (web)** | `npm run typecheck` as the gate | Jest + Testing Library | Deliberate trade-off: solo maintainer; typecheck catches structural errors; behavioral testing deferred |
 
 ---
 
 ## Constraints and Known Technical Debt
-
-### Route splitting (priority)
-`server/src/index.ts` is a single 1,044-line file. As routes grow (especially the aiwf surface),
-this becomes harder to navigate and test in isolation. Target structure:
-
-```
-server/src/routes/
-  runs.ts        # /api/runs/* + SSE
-  jira.ts        # /api/jira/* + /api/tickets/*
-  aiwf.ts        # /api/aiwf/*
-  workflows.ts   # /api/workflows/*
-  config.ts      # /api/config, /api/settings/jira, /api/health
-```
 
 ### Worktree lifecycle (priority)
 The dual worktree mode (ephemeral OS tmpdir + task-scoped `.hangar/`) evolved organically and
