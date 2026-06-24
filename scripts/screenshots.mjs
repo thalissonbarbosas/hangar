@@ -11,7 +11,7 @@
  */
 
 import { chromium } from "playwright";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -44,19 +44,29 @@ async function waitReady(timeoutMs = 40_000) {
   throw new Error(`Demo server did not become ready within ${timeoutMs / 1000}s at ${BASE}`);
 }
 
+function killPort(port) {
+  // lsof -ti :<port> prints PIDs using that port; kill them so we can bind it.
+  try {
+    const pids = execSync(`lsof -ti :${port}`, { encoding: "utf8" }).trim();
+    if (pids) {
+      pids.split("\n").forEach((pid) => {
+        try {
+          process.kill(Number(pid), "SIGTERM");
+        } catch {}
+      });
+      console.log(`Killed process(es) on port ${port}: ${pids.replace(/\n/g, ", ")}`);
+    }
+  } catch {
+    // lsof returns exit code 1 when nothing is found — not an error.
+  }
+}
+
 async function startServer() {
   if (await isReady()) {
-    // A server is already running but may not be in demo mode — screenshots of
-    // a real board would contain live data and vary between runs. Bail out so
-    // the user stops their dev server first (or passes --no-server when they're
-    // sure the running server is already in demo mode).
-    console.error(
-      `\nError: a server is already running at ${BASE}.\n` +
-        `Screenshots must be taken from demo mode (HANGAR_DEMO=1).\n` +
-        `Stop your dev server first, then re-run this script.\n` +
-        `If the running server IS already in demo mode, pass --no-server to skip this check.\n`,
-    );
-    process.exit(1);
+    // A leftover server is holding the port — kill it and start a fresh demo instance.
+    console.log(`Port ${PORT} is in use — killing leftover process…`);
+    killPort(PORT);
+    await sleep(800);
   }
   console.log(`Starting demo server (HANGAR_DEMO=1 npm run dev)…`);
   const child = spawn("npm", ["run", "dev"], {
