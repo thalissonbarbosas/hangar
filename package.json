@@ -18,7 +18,8 @@
     "watch:web": "npm --prefix web run watch",
     "watch": "concurrently -n ts-server,ts-web -c blue,magenta \"npm:watch:server\" \"npm:watch:web\"",
     "prepare": "husky || true",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "validate": "node scripts/validate-screenshots.mjs"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
