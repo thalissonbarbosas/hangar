@@ -174,22 +174,18 @@ request — and state-changing endpoints (POST/PUT) don't require a response bod
 - **Slug allowlist** in doc/spec serving — `getProjectDoc` rejects anything outside `/^[A-Za-z0-9_-]+$/`.
 - **Shell-quoted `dir`** in terminal command template; session ID validated against UUID-ish charset before interpolation.
 - **Demo mode isolation** — `HANGAR_DEMO=1` never spawns real processes, reads real config, or writes real state.
-- **`bypassPermissions: false` (gated mode)** — available in Settings; holds mutating/unknown shell commands for Allow/Deny approval. Not the default.
+- **`bypassPermissions: false` (gated mode)** — now the default for fresh installs; holds mutating/unknown shell commands for Allow/Deny approval. Settings shows an amber warning when unrestricted mode is enabled (Threats 7, 8, 13).
 - **Restricted CORS origin** — `cors({ origin: ["http://localhost:5180", "http://127.0.0.1:5180"] })` blocks CSRF from malicious web pages (Threats 1–3).
 - **Server bound to `127.0.0.1`** — `app.listen(PORT, "127.0.0.1")` prevents accidental LAN/cloud exposure (Threat 6).
 - **`execFileSync`/`execFileAsync` with array args in `aiwf.ts`** — eliminates shell injection surface from `aiwfBin` path (Threat 10).
+- **Zod schema validation on `PUT /api/config`** — `validateConfig` uses `safeParse`; invalid payloads receive a 400 before any disk write (Threat 11).
+- **`/api/fs/exists` restricted to configured repoPaths** — paths outside configured repos return 400 (Threat 12).
 
 ### Required (not yet implemented)
 
 Priority order:
 
-1. **[MEDIUM] Config schema validation** — add a Zod (or equivalent) schema to `validateConfig` that rejects unexpected fields and validates path shapes before `saveConfig`. Reduces config injection risk (Threat 11).
-
-5. **[MEDIUM] Restrict `/api/fs/exists`** — validate that `req.query.path` resolves under one of the configured `repoPaths` before returning existence status. Stops filesystem enumeration (Threat 12).
-
-6. **[MEDIUM] Default `bypassPermissions: false`** — change the default in `HangarConfig` and `hangar.config.example.json` to `false`. Add a prominent UI warning when unrestricted mode is enabled. Reduces blast radius for all agent-scope threats (Threats 7, 8, 13).
-
-7. **[LOW] GDPR run retention policy** — document the data retention stance. Implement a configurable `runRetentionDays` setting that auto-deletes runs older than N days. Surface a "Delete transcript" button in the Sessions view that calls the existing `DELETE /api/runs/:id`. (Threat 15)
+1. **[LOW] GDPR run retention policy** — document the data retention stance. Implement a configurable `runRetentionDays` setting that auto-deletes runs older than N days. Surface a "Delete transcript" button in the Sessions view that calls the existing `DELETE /api/runs/:id`. (Threat 15)
 
 8. **[LOW] Restrict `.hangar/` file permissions** — set directory mode to `0700` on creation in `store.ts` so backup tools and other users on shared machines can't read transcripts. (Threat 14)
 
