@@ -7,21 +7,31 @@ import path from "path";
 jest.mock("child_process", () => {
   const { promisify } = jest.requireActual("util") as typeof import("util");
   const execFn = jest.fn();
+  const execFileFn = jest.fn();
 
   (execFn as any)[promisify.custom] = jest.fn(() => Promise.resolve({ stdout: "", stderr: "" }));
-  return { execSync: jest.fn(), exec: execFn };
+  (execFileFn as any)[promisify.custom] = jest.fn(() => Promise.resolve({ stdout: "", stderr: "" }));
+  return { execSync: jest.fn(), execFileSync: jest.fn(), exec: execFn, execFile: execFileFn };
 });
-import { execSync, exec } from "child_process";
+import { execSync, execFileSync, exec, execFile } from "child_process";
 import { promisify } from "util";
 const execSyncMock = execSync as unknown as jest.Mock;
+const execFileSyncMock = execFileSync as unknown as jest.Mock;
 
 const execCustomMock = (exec as any)[promisify.custom] as jest.Mock;
+const execFileCustomMock = (execFile as any)[promisify.custom] as jest.Mock;
 
 function mockExecResolve(stdout: string) {
   execCustomMock.mockResolvedValue({ stdout, stderr: "" });
 }
 function mockExecReject(err: Error & { stdout?: string; stderr?: string }) {
   execCustomMock.mockRejectedValue(err);
+}
+function mockExecFileResolve(stdout: string) {
+  execFileCustomMock.mockResolvedValue({ stdout, stderr: "" });
+}
+function mockExecFileReject(err: Error & { stdout?: string; stderr?: string }) {
+  execFileCustomMock.mockRejectedValue(err);
 }
 
 // Wire a temp project repo + skills dir + config BEFORE config.ts loads (it reads CONFIG_PATH at
@@ -791,13 +801,13 @@ describe("detectAiwf", () => {
     fs.writeFileSync(path.join(home, ".local", "bin", "aiwf"), "#!/bin/sh\n");
     jest.spyOn(os, "homedir").mockReturnValue(home);
 
-    execSyncMock.mockReturnValue("aiwf v9.9\n");
+    execFileSyncMock.mockReturnValue("aiwf v9.9\n");
     const ok = aiwf.detectAiwf();
     expect(ok.aiwfBin).toContain("aiwf");
     expect(ok.version).toBe("aiwf v9.9");
     expect(ok.installed).toBe(true);
 
-    execSyncMock.mockImplementation(() => {
+    execFileSyncMock.mockImplementation(() => {
       throw new Error("no version");
     });
     expect(aiwf.detectAiwf().version).toBeNull();
@@ -828,7 +838,7 @@ describe("installAiwf / uninstallAiwf", () => {
     fs.mkdirSync(path.join(home, ".local", "bin"), { recursive: true });
     fs.writeFileSync(path.join(home, ".local", "bin", "aiwf"), "#!/bin/sh\n");
     jest.spyOn(os, "homedir").mockReturnValue(home);
-    mockExecResolve("removed");
+    mockExecFileResolve("removed");
     const { output } = await aiwf.uninstallAiwf();
     expect(output).toBe("removed");
   });
@@ -838,7 +848,7 @@ describe("installAiwf / uninstallAiwf", () => {
     fs.mkdirSync(path.join(home, ".local", "bin"), { recursive: true });
     fs.writeFileSync(path.join(home, ".local", "bin", "aiwf"), "#!/bin/sh\n");
     jest.spyOn(os, "homedir").mockReturnValue(home);
-    mockExecReject(Object.assign(new Error("boom"), { stderr: "bad" }));
+    mockExecFileReject(Object.assign(new Error("boom"), { stderr: "bad" }));
     await expect(aiwf.uninstallAiwf()).rejects.toThrow(/aiwf uninstall failed/);
   });
 });
