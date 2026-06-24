@@ -473,7 +473,7 @@ function PermissionsSection({ onSaved }: { onSaved: () => void }) {
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    api.config().then((c) => setBypass(c.bypassPermissions ?? true));
+    api.config().then((c) => setBypass(c.bypassPermissions ?? false));
   }, []);
 
   async function setMode(next: boolean) {
@@ -505,8 +505,8 @@ function PermissionsSection({ onSaved }: { onSaved: () => void }) {
         <div className="warn-box">
           <ShieldAlert size={15} />
           <span>
-            The agent can edit files, run any shell command, <code>git push</code>, and write to databases in
-            the board's repo — <b>with no approval</b>. Use only where you trust it to act.
+            Unrestricted mode: agents run without approval prompts, like{" "}
+            <code>--dangerously-skip-permissions</code>. Only use with repos you fully trust.
           </span>
         </div>
       ) : (

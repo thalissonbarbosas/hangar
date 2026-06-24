@@ -105,6 +105,9 @@ export function loadConfig(): HangarConfig {
   }
   const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8")) as HangarConfig;
   validateConfig(raw);
+  // Apply safe defaults for optional security-sensitive fields so omitted keys
+  // in hand-edited configs behave predictably (false = gated, not unrestricted).
+  if (typeof raw.bypassPermissions !== "boolean") raw.bypassPermissions = false;
   // Workflows list by name everywhere they're shown; sort here so a hand-edited config is honored too.
   for (const b of raw.boards) {
     if (Array.isArray(b.workflows)) b.workflows.sort((a, b) => a.name.localeCompare(b.name));
