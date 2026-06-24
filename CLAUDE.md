@@ -37,12 +37,14 @@ The web dev server proxies `/api` to the server port, so always have the server 
 
 ## Verification
 
-Before committing or opening a PR, always run both checks and confirm they pass:
+Before committing or opening a PR, always run all checks and confirm they pass:
 
 1. `npm run typecheck` — must exit 0; fix all errors before proceeding
 2. `npm run lint -- --max-warnings=2` — must exit 0; fix errors (2 pre-existing warnings are OK)
+3. `npm --prefix server test` — must exit 0; fix any test failures before proceeding
+4. `npm run format:check` — must exit 0; run `npm run format` to auto-fix then re-check
 
-Do not open a PR if either command fails.
+Do not open a PR if any command fails.
 
 **Demo mode** — `HANGAR_DEMO=1 npm run dev` runs with a fictional board + seeded sessions and
 no Jira. It's fully self-contained: `config.ts` synthesizes `demoConfig()` and never reads or
