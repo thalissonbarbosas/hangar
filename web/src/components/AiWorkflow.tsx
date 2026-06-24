@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   FolderPlus,
+  FolderOpen,
   Download,
   CheckCircle2,
   AlertTriangle,
@@ -29,6 +30,7 @@ import {
 } from "lucide-react";
 import { api, CheckoutFailed } from "../api";
 import {
+  AiwfDoc,
   AiwfProject,
   AiwfSkillGroup,
   AiwfStatus,
@@ -294,6 +296,8 @@ export function AiWorkflowView({
     target: string;
   } | null>(null);
   const [worktreeManagerOpen, setWorktreeManagerOpen] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
+  const [docPicker, setDocPicker] = useState<{ slug: string; title: string } | null>(null);
   const [editing, setEditing] = useState<AiwfProject | null>(null);
   const [busy, setBusy] = useState(false);
   const [projMenuOpen, setProjMenuOpen] = useState(false);
@@ -372,6 +376,7 @@ export function AiWorkflowView({
   const columns = project.columns?.length ? project.columns : (status?.defaultColumns ?? []);
   const activeCards = cards.filter((c) => !c.archived && c.kind !== "spec");
   const archivedCards = cards.filter((c) => c.archived);
+  const specCards = cards.filter((c) => c.kind === "spec");
   const extra = [...new Set(activeCards.map((c) => c.status))].filter((s) => !columns.includes(s));
   const allColumns = [...columns, ...extra];
 
@@ -493,6 +498,9 @@ export function AiWorkflowView({
           onClick={() => setWorktreeManagerOpen(true)}
         >
           <Wrench size={15} />
+        </button>
+        <button className="icon-btn has-tip" data-tip="Documents & specs" onClick={() => setDocsOpen(true)}>
+          <BookOpen size={15} />
         </button>
         <div className="aiwf-options" ref={projMenuRef}>
           <button
@@ -682,6 +690,51 @@ export function AiWorkflowView({
           onSaved={() => {
             setEditing(null);
             onReload();
+          }}
+        />
+      )}
+
+      {docsOpen && (
+        <AiwfDocsModal
+          projectId={project.id}
+          specCards={specCards}
+          onRunSpecSkill={(key) => {
+            setDocsOpen(false);
+            setPicker({ key, phase: "Implementation" });
+          }}
+          onRunDocSkill={(slug, title) => {
+            setDocsOpen(false);
+            setDocPicker({ slug, title });
+          }}
+          onClose={() => setDocsOpen(false)}
+        />
+      )}
+
+      {docPicker && (
+        <PhaseSkillModal
+          phase="Doc"
+          phaseSkills={[...(phaseSkills["Design"] ?? []), ...(phaseSkills["Implementation"] ?? [])]}
+          skillsByName={skillsByName}
+          onCancel={() => setDocPicker(null)}
+          onRun={(skill, note) => {
+            const phase =
+              Object.entries(phaseSkills).find(([, ss]) => ss.includes(skill))?.[0] ?? "Implementation";
+            api
+              .createAiwfCard(project!.id, {
+                title: docPicker.title,
+                status: phase,
+                kind: "thread",
+                description: `Doc: ${docPicker.slug}\n\n${docPicker.title}`,
+              })
+              .then((r) => {
+                setDocPicker(null);
+                loadCards(project!.id);
+                runCard(r.ticket.key, skill, note);
+              })
+              .catch((e) => {
+                setDocPicker(null);
+                onError(String(e.message ?? e));
+              });
           }}
         />
       )}
@@ -1755,6 +1808,333 @@ function NewProjectWizard({
         </div>
       </div>
     </div>
+  );
+}
+
+// Colors for the two tabs — mirrors the Planning/Design phase palette.
+const DOCS_TAB_COLORS = { project: "#10b981", specs: "#8b5cf6", docs: "#4f7cff" } as const;
+
+// Two-tab modal (Documents + Specs) opened from the project header's 📖 button.
+// Clicking a row opens an inline preview pane on the right; the modal stays open.
+function AiwfDocsModal({
+  projectId,
+  specCards,
+  onRunSpecSkill,
+  onRunDocSkill,
+  onClose,
+}: {
+  projectId: string;
+  specCards: Ticket[];
+  onRunSpecSkill: (key: string) => void;
+  onRunDocSkill: (slug: string, title: string) => void;
+  onClose: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<"project" | "specs" | "docs">("project");
+  const [projectDocs, setProjectDocs] = useState<AiwfDoc[]>([]);
+  const [projectDocsLoading, setProjectDocsLoading] = useState(true);
+  const [docs, setDocs] = useState<AiwfDoc[]>([]);
+  const [docsLoading, setDocsLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState("");
+  // preview.id is the unique row key; source distinguishes which API to call for slug-only rows
+  const [preview, setPreview] = useState<{
+    id: string;
+    title: string;
+    content?: string;
+    slug?: string;
+    source?: "project" | "aiwf";
+  } | null>(null);
+  const [previewContent, setPreviewContent] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .aiwfProjectDocs(projectId)
+      .then((r) => setProjectDocs(r.docs))
+      .catch(() => setProjectDocs([]))
+      .finally(() => setProjectDocsLoading(false));
+  }, [projectId]);
+
+  useEffect(() => {
+    api
+      .aiwfDocs()
+      .then((r) => setDocs(r.docs))
+      .catch(() => setDocs([]))
+      .finally(() => setDocsLoading(false));
+  }, []);
+
+  // Fetch remote content when a slug-only preview is selected.
+  useEffect(() => {
+    if (!preview) return;
+    if (preview.content !== undefined) {
+      setPreviewContent(preview.content);
+      setPreviewLoading(false);
+      setPreviewError(null);
+      return;
+    }
+    if (!preview.slug) return;
+    setPreviewLoading(true);
+    setPreviewError(null);
+    const fetch =
+      preview.source === "project" ? api.aiwfProjectDoc(projectId, preview.slug) : api.aiwfDoc(preview.slug);
+    fetch
+      .then((r) => setPreviewContent(r.content))
+      .catch((e) => setPreviewError(String(e.message ?? e)))
+      .finally(() => setPreviewLoading(false));
+  }, [preview, projectId]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const q = filter.toLowerCase();
+  const visibleSpecs = q ? specCards.filter((c) => c.summary.toLowerCase().includes(q)) : specCards;
+
+  function toggleExpand(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  return createPortal(
+    <div className="modal-overlay" onClick={onClose}>
+      <div
+        className={`modal aiwf-docs-modal${preview ? " has-preview" : ""}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <span className="modal-title">
+            <BookOpen size={16} /> Documents & Specs
+          </span>
+          <button className="icon-btn" onClick={onClose} title="Close">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Tabs — same style as the skills guide */}
+        <div className="aiwf-guide-tabs">
+          {(["project", "specs", "docs"] as const).map((id, idx, arr) => {
+            const label = id === "project" ? "Project" : id === "specs" ? "Specs" : "AIWF Docs";
+            const color = DOCS_TAB_COLORS[id];
+            const active = activeTab === id;
+            return (
+              <button
+                key={id}
+                className={`aiwf-guide-tab${active ? " active" : ""}`}
+                style={active ? { color, borderBottomColor: color } : undefined}
+                onClick={() => setActiveTab(id)}
+              >
+                <span className="aiwf-guide-tab-dot" style={{ background: color }} />
+                {label}
+                {idx < arr.length - 1 && <span className="aiwf-guide-tab-arrow">→</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Body: list pane (always) + preview pane (when a row is selected) */}
+        <div className="aiwf-docs-body">
+          <div className="aiwf-docs-list-pane">
+            {activeTab === "project" && (
+              <div className="aiwf-docs-list">
+                {projectDocsLoading ? (
+                  <div className="aiwf-docs-row">
+                    <Loader2 size={13} className="spin" /> Loading…
+                  </div>
+                ) : projectDocs.length === 0 ? (
+                  <div className="col-done-empty">No docs found in this project's docs/ folder.</div>
+                ) : (
+                  projectDocs.map((doc) => (
+                    <div
+                      key={doc.slug}
+                      className={`aiwf-docs-row${preview?.id === `proj:${doc.slug}` ? " selected" : ""}`}
+                      onClick={() =>
+                        setPreview({
+                          id: `proj:${doc.slug}`,
+                          title: doc.title,
+                          slug: doc.slug,
+                          source: "project",
+                        })
+                      }
+                    >
+                      <span className="aiwf-docs-row-title">{doc.title}</span>
+                      <button
+                        className="btn-ghost sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRunDocSkill(doc.slug, doc.title);
+                        }}
+                      >
+                        <Play size={11} /> Run skill
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === "docs" && (
+              <div className="aiwf-docs-list">
+                {docsLoading ? (
+                  <div className="aiwf-docs-row">
+                    <Loader2 size={13} className="spin" /> Loading…
+                  </div>
+                ) : docs.length === 0 ? (
+                  <div className="col-done-empty">Install AI Workflow to browse its docs.</div>
+                ) : (
+                  docs.map((doc) => (
+                    <div
+                      key={doc.slug}
+                      className={`aiwf-docs-row${preview?.id === `aiwf:${doc.slug}` ? " selected" : ""}`}
+                      onClick={() =>
+                        setPreview({
+                          id: `aiwf:${doc.slug}`,
+                          title: doc.title,
+                          slug: doc.slug,
+                          source: "aiwf",
+                        })
+                      }
+                    >
+                      <span className="aiwf-docs-row-title">{doc.title}</span>
+                      <button
+                        className="btn-ghost sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRunDocSkill(doc.slug, doc.title);
+                        }}
+                      >
+                        <Play size={11} /> Run skill
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === "specs" && (
+              <>
+                <input
+                  className="col-done-filter"
+                  style={{ marginBottom: "8px" }}
+                  placeholder="Filter by name…"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  autoFocus
+                />
+                <div className="aiwf-docs-list">
+                  {visibleSpecs.length === 0 ? (
+                    <div className="col-done-empty">
+                      {specCards.length === 0
+                        ? "No specs in this project yet."
+                        : `No specs match "${filter}"`}
+                    </div>
+                  ) : (
+                    visibleSpecs.map((card) => {
+                      const isFolder = !!card.specChildren?.length;
+                      const open = expanded.has(card.key);
+                      return (
+                        <div key={card.key}>
+                          <div
+                            className={`aiwf-docs-row${preview?.id === card.key ? " selected" : ""}`}
+                            draggable
+                            onDragStart={(e) => {
+                              const data: TicketDragData = {
+                                key: card.key,
+                                boardKey: card.boardKey,
+                                status: card.status,
+                                kind: "spec",
+                              };
+                              e.dataTransfer.setData(TICKET_DND_MIME, JSON.stringify(data));
+                              e.dataTransfer.effectAllowed = "move";
+                            }}
+                            onClick={() => {
+                              if (isFolder) toggleExpand(card.key);
+                              else
+                                setPreview({
+                                  id: card.key,
+                                  title: card.summary,
+                                  content: card.description ?? "",
+                                });
+                            }}
+                          >
+                            {isFolder && (open ? <ChevronDown size={13} /> : <ChevronRight size={13} />)}
+                            {isFolder && <FolderOpen size={13} />}
+                            <span className="card-key col-done-key">{card.key}</span>
+                            <span className="aiwf-docs-row-title">{card.summary}</span>
+                            <button
+                              className="btn-ghost sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRunSpecSkill(card.key);
+                              }}
+                            >
+                              <Play size={11} /> Run skill
+                            </button>
+                          </div>
+                          {isFolder &&
+                            open &&
+                            card.specChildren!.map((child) => (
+                              <div
+                                key={child.filename}
+                                className={`aiwf-docs-row aiwf-spec-child-row${preview?.id === child.filename ? " selected" : ""}`}
+                                onClick={() =>
+                                  setPreview({
+                                    id: child.filename,
+                                    title: child.title,
+                                    content: child.content,
+                                  })
+                                }
+                              >
+                                <span className="aiwf-docs-row-title">{child.title}</span>
+                              </div>
+                            ))}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Inline doc preview — shown when a row is selected */}
+          {preview && (
+            <div className="aiwf-docs-preview">
+              <div className="aiwf-docs-preview-head">
+                <span className="aiwf-docs-preview-title">{preview.title}</span>
+                <button className="icon-btn" onClick={() => setPreview(null)} title="Close preview">
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="aiwf-docs-preview-body">
+                {previewLoading && (
+                  <span className="aiwf-data-muted">
+                    <Loader2 size={13} className="spin" /> Loading…
+                  </span>
+                )}
+                {previewError && <span className="aiwf-data-muted">Failed to load: {previewError}</span>}
+                {!previewLoading && !previewError && <Markdown>{previewContent}</Markdown>}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
