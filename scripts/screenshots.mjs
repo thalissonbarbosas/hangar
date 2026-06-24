@@ -18,8 +18,9 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 const OUT = join(ROOT, "docs", "screenshots");
-const PORT = process.env.WEB_PORT || 5180;
-const BASE = `http://localhost:${PORT}`;
+const WEB_PORT = process.env.WEB_PORT || 5180;
+const SRV_PORT = process.env.PORT || 3001;
+const BASE = `http://localhost:${WEB_PORT}`;
 const NO_SERVER = process.argv.includes("--no-server");
 
 function sleep(ms) {
@@ -41,7 +42,7 @@ async function waitReady(timeoutMs = 40_000) {
     if (await isReady()) return;
     await sleep(600);
   }
-  throw new Error(`Demo server did not become ready within ${timeoutMs / 1000}s at ${BASE}`);
+  throw new Error(`Demo server did not become ready within ${timeoutMs / 1000}s (${BASE})`);
 }
 
 function killPort(port) {
@@ -54,7 +55,7 @@ function killPort(port) {
           process.kill(Number(pid), "SIGTERM");
         } catch {}
       });
-      console.log(`Killed process(es) on port ${port}: ${pids.replace(/\n/g, ", ")}`);
+      console.log(`  killed :${port} (pid ${pids.replace(/\n/g, ", ")})`);
     }
   } catch {
     // lsof returns exit code 1 when nothing is found — not an error.
@@ -62,12 +63,14 @@ function killPort(port) {
 }
 
 async function startServer() {
-  if (await isReady()) {
-    // A leftover server is holding the port — kill it and start a fresh demo instance.
-    console.log(`Port ${PORT} is in use — killing leftover process…`);
-    killPort(PORT);
-    await sleep(800);
-  }
+  // Always clear both ports before spawning. A previous Ctrl+C often leaves
+  // the Express backend alive on SRV_PORT even after Vite on WEB_PORT has
+  // exited — the new demo Vite would then proxy to the old non-demo instance
+  // and screenshots would show real data instead of the demo seed.
+  killPort(WEB_PORT);
+  killPort(SRV_PORT);
+  await sleep(1200); // give the OS time to release both ports
+
   console.log(`Starting demo server (HANGAR_DEMO=1 npm run dev)…`);
   const child = spawn("npm", ["run", "dev"], {
     cwd: ROOT,
