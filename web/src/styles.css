@@ -327,6 +327,16 @@ body {
   border-top: 2px solid var(--border);
   border-radius: var(--r-lg);
 }
+/* Semantic top-border colors by column status type — heuristic, safe default is --border */
+.column.status-in-progress {
+  border-top-color: var(--accent);
+}
+.column.status-in-review {
+  border-top-color: var(--warning);
+}
+.column.status-done {
+  border-top-color: var(--success);
+}
 .column-title {
   font-weight: 600;
 }
