@@ -175,18 +175,15 @@ request — and state-changing endpoints (POST/PUT) don't require a response bod
 - **Shell-quoted `dir`** in terminal command template; session ID validated against UUID-ish charset before interpolation.
 - **Demo mode isolation** — `HANGAR_DEMO=1` never spawns real processes, reads real config, or writes real state.
 - **`bypassPermissions: false` (gated mode)** — available in Settings; holds mutating/unknown shell commands for Allow/Deny approval. Not the default.
+- **Restricted CORS origin** — `cors({ origin: ["http://localhost:5180", "http://127.0.0.1:5180"] })` blocks CSRF from malicious web pages (Threats 1–3).
+- **Server bound to `127.0.0.1`** — `app.listen(PORT, "127.0.0.1")` prevents accidental LAN/cloud exposure (Threat 6).
+- **`execFileSync`/`execFileAsync` with array args in `aiwf.ts`** — eliminates shell injection surface from `aiwfBin` path (Threat 10).
 
 ### Required (not yet implemented)
 
 Priority order:
 
-1. **[HIGH] Restrict CORS origin** — replace `app.use(cors())` with `cors({ origin: ["http://localhost:5180", `http://127.0.0.1:${WEB_PORT}`] })`. Prevents CSRF attacks from malicious web pages (Threat 1–3).
-
-2. **[HIGH] Bind server to `127.0.0.1`** — pass `{ host: "127.0.0.1" }` to `app.listen()`. Prevents accidental LAN/cloud exposure (Threat 6). Currently relies on documentation alone.
-
-3. **[HIGH] Replace shell-string exec in `aiwf.ts`** — change `execSync(`"${aiwfBin}" version`)` and `execAsync(`"${aiwfBin}" uninstall-all`)` to `execFileSync(aiwfBin, ["version"])` / `execFile(aiwfBin, ["uninstall-all"])`. Eliminates the shell injection surface (Threat 10).
-
-4. **[MEDIUM] Config schema validation** — add a Zod (or equivalent) schema to `validateConfig` that rejects unexpected fields and validates path shapes before `saveConfig`. Reduces config injection risk (Threat 11).
+1. **[MEDIUM] Config schema validation** — add a Zod (or equivalent) schema to `validateConfig` that rejects unexpected fields and validates path shapes before `saveConfig`. Reduces config injection risk (Threat 11).
 
 5. **[MEDIUM] Restrict `/api/fs/exists`** — validate that `req.query.path` resolves under one of the configured `repoPaths` before returning existence status. Stops filesystem enumeration (Threat 12).
 
