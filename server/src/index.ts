@@ -7,10 +7,7 @@ import { randomUUID } from "crypto";
 import {
   loadConfig,
   getConfig,
-  saveConfig,
   loadJiraEnv,
-  jiraSettingsView,
-  saveJiraSettings,
   expandHome,
   boardPaths,
   getAiwfProjects,
@@ -18,6 +15,7 @@ import {
   JiraEnv,
   PORT,
 } from "./config";
+import { configRouter } from "./routes/config";
 import {
   detectAiwf,
   installAiwf,
@@ -86,7 +84,7 @@ import {
   clearWorkflowRuns,
   loadPersistedWorkflowRuns,
 } from "./workflows";
-import { HangarConfig, Ticket, AiwfProject } from "./types";
+import { Ticket, AiwfProject } from "./types";
 import { pruneWorktrees, removeWorktree, currentBranch, checkoutBranch } from "./worktree";
 
 const app = express();
@@ -116,48 +114,7 @@ loadPersistedRuns(); // restore runs saved before the last restart
 loadPersistedWorkflowRuns(); // restore workflow runs too
 if (isDemo()) seedDemoRuns(); // HANGAR_DEMO=1: fictional sessions for a credential-free demo
 
-app.get("/api/health", (_req, res) => {
-  res.json({
-    ok: true,
-    jiraConfigured: loadJiraEnv() !== null,
-    boards: getConfig().boards.map((b) => b.key),
-  });
-});
-
-// Full board config (keys, names, statuses, repo paths) + agents dir.
-// Each board gets resolvedPaths: the home-expanded versions of its repoPaths, so the
-// client can match repo skills to the board without knowing the home directory.
-app.get("/api/config", (_req, res) => {
-  const cfg = getConfig();
-  res.json({
-    ...cfg,
-    boards: cfg.boards.map((b) => ({ ...b, resolvedPaths: boardPaths(b) })),
-  });
-});
-
-// Save board config (from the Settings UI).
-app.put("/api/config", (req, res) => {
-  try {
-    res.json(saveConfig(req.body as HangarConfig));
-  } catch (err) {
-    res.status(400).json({ error: String(err instanceof Error ? err.message : err) });
-  }
-});
-
-// Non-secret Jira settings view (never returns the token).
-app.get("/api/settings/jira", (_req, res) => {
-  res.json(jiraSettingsView());
-});
-
-// Save Jira settings to .env. Blank token = keep the existing one.
-app.put("/api/settings/jira", (req, res) => {
-  try {
-    saveJiraSettings(req.body ?? {});
-    res.json(jiraSettingsView());
-  } catch (err) {
-    res.status(400).json({ error: String(err instanceof Error ? err.message : err) });
-  }
-});
+app.use(configRouter);
 
 // Test a connection — uses creds from the body if given, else the saved ones.
 app.post("/api/jira/test", async (req, res) => {
