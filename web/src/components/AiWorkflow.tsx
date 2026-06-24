@@ -696,6 +696,7 @@ export function AiWorkflowView({
 
       {docsOpen && (
         <AiwfDocsModal
+          projectId={project.id}
           specCards={specCards}
           onRunSpecSkill={(key) => {
             setDocsOpen(false);
@@ -1811,36 +1812,49 @@ function NewProjectWizard({
 }
 
 // Colors for the two tabs — mirrors the Planning/Design phase palette.
-const DOCS_TAB_COLORS = { docs: "#4f7cff", specs: "#8b5cf6" } as const;
+const DOCS_TAB_COLORS = { project: "#10b981", specs: "#8b5cf6", docs: "#4f7cff" } as const;
 
 // Two-tab modal (Documents + Specs) opened from the project header's 📖 button.
 // Clicking a row opens an inline preview pane on the right; the modal stays open.
 function AiwfDocsModal({
+  projectId,
   specCards,
   onRunSpecSkill,
   onRunDocSkill,
   onClose,
 }: {
+  projectId: string;
   specCards: Ticket[];
   onRunSpecSkill: (key: string) => void;
   onRunDocSkill: (slug: string, title: string) => void;
   onClose: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<"docs" | "specs">("docs");
+  const [activeTab, setActiveTab] = useState<"project" | "specs" | "docs">("project");
+  const [projectDocs, setProjectDocs] = useState<AiwfDoc[]>([]);
+  const [projectDocsLoading, setProjectDocsLoading] = useState(true);
   const [docs, setDocs] = useState<AiwfDoc[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState("");
-  // preview.id is the unique row key (slug / card.key / child.filename)
+  // preview.id is the unique row key; source distinguishes which API to call for slug-only rows
   const [preview, setPreview] = useState<{
     id: string;
     title: string;
     content?: string;
     slug?: string;
+    source?: "project" | "aiwf";
   } | null>(null);
   const [previewContent, setPreviewContent] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .aiwfProjectDocs(projectId)
+      .then((r) => setProjectDocs(r.docs))
+      .catch(() => setProjectDocs([]))
+      .finally(() => setProjectDocsLoading(false));
+  }, [projectId]);
 
   useEffect(() => {
     api
@@ -1850,7 +1864,7 @@ function AiwfDocsModal({
       .finally(() => setDocsLoading(false));
   }, []);
 
-  // Fetch remote content when a slug-only preview is selected (docs tab).
+  // Fetch remote content when a slug-only preview is selected.
   useEffect(() => {
     if (!preview) return;
     if (preview.content !== undefined) {
@@ -1862,12 +1876,13 @@ function AiwfDocsModal({
     if (!preview.slug) return;
     setPreviewLoading(true);
     setPreviewError(null);
-    api
-      .aiwfDoc(preview.slug)
+    const fetch =
+      preview.source === "project" ? api.aiwfProjectDoc(projectId, preview.slug) : api.aiwfDoc(preview.slug);
+    fetch
       .then((r) => setPreviewContent(r.content))
       .catch((e) => setPreviewError(String(e.message ?? e)))
       .finally(() => setPreviewLoading(false));
-  }, [preview]);
+  }, [preview, projectId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -1906,8 +1921,8 @@ function AiwfDocsModal({
 
         {/* Tabs — same style as the skills guide */}
         <div className="aiwf-guide-tabs">
-          {(["docs", "specs"] as const).map((id, idx, arr) => {
-            const label = id === "docs" ? "Documents" : "Specs";
+          {(["project", "specs", "docs"] as const).map((id, idx, arr) => {
+            const label = id === "project" ? "Project" : id === "specs" ? "Specs" : "AIWF Docs";
             const color = DOCS_TAB_COLORS[id];
             const active = activeTab === id;
             return (
@@ -1928,6 +1943,44 @@ function AiwfDocsModal({
         {/* Body: list pane (always) + preview pane (when a row is selected) */}
         <div className="aiwf-docs-body">
           <div className="aiwf-docs-list-pane">
+            {activeTab === "project" && (
+              <div className="aiwf-docs-list">
+                {projectDocsLoading ? (
+                  <div className="aiwf-docs-row">
+                    <Loader2 size={13} className="spin" /> Loading…
+                  </div>
+                ) : projectDocs.length === 0 ? (
+                  <div className="col-done-empty">No docs found in this project's docs/ folder.</div>
+                ) : (
+                  projectDocs.map((doc) => (
+                    <div
+                      key={doc.slug}
+                      className={`aiwf-docs-row${preview?.id === `proj:${doc.slug}` ? " selected" : ""}`}
+                      onClick={() =>
+                        setPreview({
+                          id: `proj:${doc.slug}`,
+                          title: doc.title,
+                          slug: doc.slug,
+                          source: "project",
+                        })
+                      }
+                    >
+                      <span className="aiwf-docs-row-title">{doc.title}</span>
+                      <button
+                        className="btn-ghost sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRunDocSkill(doc.slug, doc.title);
+                        }}
+                      >
+                        <Play size={11} /> Run skill
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
             {activeTab === "docs" && (
               <div className="aiwf-docs-list">
                 {docsLoading ? (
@@ -1940,8 +1993,15 @@ function AiwfDocsModal({
                   docs.map((doc) => (
                     <div
                       key={doc.slug}
-                      className={`aiwf-docs-row${preview?.id === doc.slug ? " selected" : ""}`}
-                      onClick={() => setPreview({ id: doc.slug, title: doc.title, slug: doc.slug })}
+                      className={`aiwf-docs-row${preview?.id === `aiwf:${doc.slug}` ? " selected" : ""}`}
+                      onClick={() =>
+                        setPreview({
+                          id: `aiwf:${doc.slug}`,
+                          title: doc.title,
+                          slug: doc.slug,
+                          source: "aiwf",
+                        })
+                      }
                     >
                       <span className="aiwf-docs-row-title">{doc.title}</span>
                       <button
