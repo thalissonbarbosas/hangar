@@ -2,6 +2,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import dotenv from "dotenv";
+import { z } from "zod";
 import { HangarConfig, WorkflowConfig, AiwfProject } from "./types";
 import { isDemo, demoConfig } from "./demo";
 
@@ -46,26 +47,71 @@ function cleanWorkflows(raw: unknown): WorkflowConfig[] {
   return out;
 }
 
-function validateConfig(raw: HangarConfig): void {
-  if (!raw || !Array.isArray(raw.boards) || raw.boards.length === 0) {
-    throw new Error("Config must define at least one board");
+// Zod schema for HangarConfig — mirrors types.ts exactly. Validates structure on every
+// PUT /api/config so crafted payloads (Threat 11) are rejected with a 400 before any write.
+const WorkflowStepSchema = z.object({
+  name: z.string(),
+  kind: z.enum(["agent", "skill"]),
+  note: z.string().optional(),
+});
+
+const WorkflowConfigSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  steps: z.array(WorkflowStepSchema),
+});
+
+const BoardConfigSchema = z.object({
+  key: z.string().min(1),
+  name: z.string().min(1),
+  statuses: z.array(z.string()),
+  repoPath: z.string().optional(),
+  // repoPaths entries are strings; saveConfig cleans out empty entries before writing.
+  repoPaths: z.array(z.string()).optional(),
+  agents: z.array(z.string()).optional(),
+  skills: z.array(z.string()).optional(),
+  workflows: z.array(WorkflowConfigSchema).optional(),
+});
+
+const AiwfProjectSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  repoPath: z.string().min(1),
+  columns: z.array(z.string()).optional(),
+  createdAt: z.number(),
+});
+
+const HangarConfigSchema = z.object({
+  agentsDir: z.string().min(1),
+  skillsDir: z.string().optional(),
+  boards: z.array(BoardConfigSchema).min(1),
+  aiWorkflow: z
+    .object({
+      projects: z.array(AiwfProjectSchema),
+    })
+    .optional(),
+  bypassPermissions: z.boolean().optional(),
+  isolateRuns: z.boolean().optional(),
+  exclusiveAgents: z.array(z.string()).optional(),
+  // 0 is accepted as a "clear" signal — saveConfig drops it. Float inputs are floored
+  // by saveConfig before writing (Zod validates that it is a number, not that it is an int).
+  maxTurns: z.number().nonnegative().optional(),
+  maxBudgetUsd: z.number().nonnegative().optional(),
+  terminal: z.string().optional(),
+});
+
+/** Validate the shape of a raw config object with Zod.
+ *  Returns { ok: true } on success or { ok: false; error: string } on failure — never throws.
+ *  Callers that need a throw (e.g. startup) should throw on ok === false themselves. */
+function validateConfig(raw: unknown): { ok: true } | { ok: false; error: string } {
+  const result = HangarConfigSchema.safeParse(raw);
+  if (!result.success) {
+    const first = result.error.issues[0];
+    const path = first.path.join(".");
+    const msg = path ? `${path}: ${first.message}` : first.message;
+    return { ok: false, error: msg };
   }
-  for (const b of raw.boards) {
-    if (!b.key || !b.name || !Array.isArray(b.statuses) || b.statuses.length === 0) {
-      throw new Error(`Invalid board config: ${JSON.stringify(b)}`);
-    }
-  }
-  if (!raw.agentsDir) throw new Error("Config must define agentsDir");
-  if (raw.aiWorkflow) {
-    if (!Array.isArray(raw.aiWorkflow.projects)) {
-      throw new Error("aiWorkflow.projects must be an array");
-    }
-    for (const p of raw.aiWorkflow.projects) {
-      if (!p.id || !p.name || !p.repoPath) {
-        throw new Error(`Invalid aiWorkflow project: ${JSON.stringify(p)}`);
-      }
-    }
-  }
+  return { ok: true };
 }
 
 /** Sanitize the aiWorkflow projects list, dropping incomplete entries. */
@@ -104,7 +150,8 @@ export function loadConfig(): HangarConfig {
     throw new Error(`Config file not found at ${CONFIG_PATH}`);
   }
   const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8")) as HangarConfig;
-  validateConfig(raw);
+  const check = validateConfig(raw);
+  if (!check.ok) throw new Error(check.error);
   // Apply safe defaults for optional security-sensitive fields so omitted keys
   // in hand-edited configs behave predictably (false = gated, not unrestricted).
   if (typeof raw.bypassPermissions !== "boolean") raw.bypassPermissions = false;
@@ -121,10 +168,12 @@ export function getConfig(): HangarConfig {
   return currentConfig!;
 }
 
-/** Validate, write to disk, and hot-swap the in-memory config. */
+/** Validate, write to disk, and hot-swap the in-memory config.
+ *  Throws on validation failure (same as before) so callers in index.ts can catch and 400. */
 export function saveConfig(raw: HangarConfig): HangarConfig {
   if (isDemo()) return getConfig(); // never overwrite the real config while in demo mode
-  validateConfig(raw);
+  const check = validateConfig(raw);
+  if (!check.ok) throw new Error(check.error);
   const clean: HangarConfig = {
     agentsDir: raw.agentsDir,
     ...(raw.skillsDir
