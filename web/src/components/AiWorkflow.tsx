@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   FolderPlus,
+  FolderOpen,
   Download,
   CheckCircle2,
   AlertTriangle,
@@ -29,6 +30,7 @@ import {
 } from "lucide-react";
 import { api, CheckoutFailed } from "../api";
 import {
+  AiwfDoc,
   AiwfProject,
   AiwfSkillGroup,
   AiwfStatus,
@@ -265,6 +267,7 @@ export function AiWorkflowView({
   runs,
   onOpenRun,
   onOpenSession,
+  onOpenDoc,
   onReload,
   onStartClaude,
   onError,
@@ -275,6 +278,7 @@ export function AiWorkflowView({
   runs: RunSummary[];
   onOpenRun: (run: RunSummary) => void;
   onOpenSession: (a: OpenSession) => void;
+  onOpenDoc: (doc: { title: string; content?: string; slug?: string }) => void;
   onReload: () => void;
   onStartClaude: (cwd: string, title: string, model: string, note?: string) => Promise<string>;
   onError: (msg: string) => void;
@@ -294,6 +298,8 @@ export function AiWorkflowView({
     target: string;
   } | null>(null);
   const [worktreeManagerOpen, setWorktreeManagerOpen] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
+  const [docPicker, setDocPicker] = useState<{ slug: string; title: string } | null>(null);
   const [editing, setEditing] = useState<AiwfProject | null>(null);
   const [busy, setBusy] = useState(false);
   const [projMenuOpen, setProjMenuOpen] = useState(false);
@@ -372,6 +378,7 @@ export function AiWorkflowView({
   const columns = project.columns?.length ? project.columns : (status?.defaultColumns ?? []);
   const activeCards = cards.filter((c) => !c.archived && c.kind !== "spec");
   const archivedCards = cards.filter((c) => c.archived);
+  const specCards = cards.filter((c) => c.kind === "spec");
   const extra = [...new Set(activeCards.map((c) => c.status))].filter((s) => !columns.includes(s));
   const allColumns = [...columns, ...extra];
 
@@ -493,6 +500,9 @@ export function AiWorkflowView({
           onClick={() => setWorktreeManagerOpen(true)}
         >
           <Wrench size={15} />
+        </button>
+        <button className="icon-btn has-tip" data-tip="Documents & specs" onClick={() => setDocsOpen(true)}>
+          <BookOpen size={15} />
         </button>
         <div className="aiwf-options" ref={projMenuRef}>
           <button
@@ -682,6 +692,51 @@ export function AiWorkflowView({
           onSaved={() => {
             setEditing(null);
             onReload();
+          }}
+        />
+      )}
+
+      {docsOpen && (
+        <AiwfDocsModal
+          specCards={specCards}
+          onOpenDoc={onOpenDoc}
+          onRunSpecSkill={(key) => {
+            setDocsOpen(false);
+            setPicker({ key, phase: "Implementation" });
+          }}
+          onRunDocSkill={(slug, title) => {
+            setDocsOpen(false);
+            setDocPicker({ slug, title });
+          }}
+          onClose={() => setDocsOpen(false)}
+        />
+      )}
+
+      {docPicker && (
+        <PhaseSkillModal
+          phase="Doc"
+          phaseSkills={[...(phaseSkills["Design"] ?? []), ...(phaseSkills["Implementation"] ?? [])]}
+          skillsByName={skillsByName}
+          onCancel={() => setDocPicker(null)}
+          onRun={(skill, note) => {
+            const phase =
+              Object.entries(phaseSkills).find(([, ss]) => ss.includes(skill))?.[0] ?? "Implementation";
+            api
+              .createAiwfCard(project!.id, {
+                title: docPicker.title,
+                status: phase,
+                kind: "thread",
+                description: `Doc: ${docPicker.slug}\n\n${docPicker.title}`,
+              })
+              .then((r) => {
+                setDocPicker(null);
+                loadCards(project!.id);
+                runCard(r.ticket.key, skill, note);
+              })
+              .catch((e) => {
+                setDocPicker(null);
+                onError(String(e.message ?? e));
+              });
           }}
         />
       )}
@@ -1755,6 +1810,204 @@ function NewProjectWizard({
         </div>
       </div>
     </div>
+  );
+}
+
+// Two-tab modal (Documents + Specs) opened from the project header's 📖 button.
+function AiwfDocsModal({
+  specCards,
+  onOpenDoc,
+  onRunSpecSkill,
+  onRunDocSkill,
+  onClose,
+}: {
+  specCards: Ticket[];
+  onOpenDoc: (doc: { title: string; content?: string; slug?: string }) => void;
+  onRunSpecSkill: (key: string) => void;
+  onRunDocSkill: (slug: string, title: string) => void;
+  onClose: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<"docs" | "specs">("docs");
+  const [docs, setDocs] = useState<AiwfDoc[]>([]);
+  const [docsLoading, setDocsLoading] = useState(true);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState("");
+
+  useEffect(() => {
+    api
+      .aiwfDocs()
+      .then((r) => setDocs(r.docs))
+      .catch(() => setDocs([]))
+      .finally(() => setDocsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const q = filter.toLowerCase();
+  const visibleSpecs = q ? specCards.filter((c) => c.summary.toLowerCase().includes(q)) : specCards;
+
+  function toggleExpand(key: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  return createPortal(
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal modal-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <span className="modal-title">
+            <BookOpen size={16} /> Documents & Specs
+          </span>
+          <button className="icon-btn" onClick={onClose} title="Close">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="aiwf-modal-tabs">
+          <button
+            className={`aiwf-modal-tab${activeTab === "docs" ? " active" : ""}`}
+            onClick={() => setActiveTab("docs")}
+          >
+            Documents
+          </button>
+          <button
+            className={`aiwf-modal-tab${activeTab === "specs" ? " active" : ""}`}
+            onClick={() => setActiveTab("specs")}
+          >
+            Specs
+          </button>
+        </div>
+
+        {activeTab === "docs" && (
+          <div className="col-done-list">
+            {docsLoading ? (
+              <div className="col-done-row">
+                <Loader2 size={13} className="spin" /> Loading…
+              </div>
+            ) : docs.length === 0 ? (
+              <div className="col-done-empty">Install AI Workflow to browse its docs.</div>
+            ) : (
+              docs.map((doc) => (
+                <div
+                  key={doc.slug}
+                  className="col-done-row"
+                  onClick={() => {
+                    onOpenDoc({ title: doc.title, slug: doc.slug });
+                    onClose();
+                  }}
+                >
+                  <span className="col-done-title">{doc.title}</span>
+                  <button
+                    className="btn-ghost sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRunDocSkill(doc.slug, doc.title);
+                    }}
+                  >
+                    <Play size={11} /> Run skill
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {activeTab === "specs" && (
+          <>
+            <input
+              className="col-done-filter"
+              placeholder="Filter by name…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              autoFocus
+            />
+            <div className="col-done-list">
+              {visibleSpecs.length === 0 ? (
+                <div className="col-done-empty">
+                  {specCards.length === 0 ? "No specs in this project yet." : `No specs match "${filter}"`}
+                </div>
+              ) : (
+                visibleSpecs.map((card) => {
+                  const isFolder = !!card.specChildren?.length;
+                  const open = expanded.has(card.key);
+                  return (
+                    <div key={card.key}>
+                      <div
+                        className="col-done-row"
+                        draggable
+                        onDragStart={(e) => {
+                          const data: TicketDragData = {
+                            key: card.key,
+                            boardKey: card.boardKey,
+                            status: card.status,
+                            kind: "spec",
+                          };
+                          e.dataTransfer.setData(TICKET_DND_MIME, JSON.stringify(data));
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                        onClick={() => {
+                          if (isFolder) {
+                            toggleExpand(card.key);
+                          } else {
+                            onOpenDoc({ title: card.summary, content: card.description });
+                            onClose();
+                          }
+                        }}
+                      >
+                        {isFolder && (open ? <ChevronDown size={13} /> : <ChevronRight size={13} />)}
+                        {isFolder && <FolderOpen size={13} />}
+                        <span className="card-key col-done-key">{card.key}</span>
+                        <span className="col-done-title">{card.summary}</span>
+                        <button
+                          className="btn-ghost sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRunSpecSkill(card.key);
+                          }}
+                        >
+                          <Play size={11} /> Run skill
+                        </button>
+                      </div>
+                      {isFolder &&
+                        open &&
+                        card.specChildren!.map((child) => (
+                          <div
+                            key={child.filename}
+                            className="col-done-row aiwf-spec-child-row"
+                            onClick={() => {
+                              onOpenDoc({ title: child.title, content: child.content });
+                              onClose();
+                            }}
+                          >
+                            <span className="col-done-title">{child.title}</span>
+                          </div>
+                        ))}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

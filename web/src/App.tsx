@@ -30,6 +30,7 @@ import {
 import { Board } from "./components/Board";
 import { Settings } from "./components/Settings";
 import { RunPanel } from "./components/RunPanel";
+import { DocPanel, ActiveDoc } from "./components/DocPanel";
 import { SessionsView } from "./components/SessionsView";
 import { SkillRunner } from "./components/SkillRunner";
 import { WorkflowsBar } from "./components/WorkflowsBar";
@@ -77,6 +78,7 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeRun, setActiveRun] = useState<ActiveRun | null>(null);
+  const [activeDoc, setActiveDoc] = useState<ActiveDoc | null>(null);
   const [bypass, setBypass] = useState(false);
   const [terminalConfigured, setTerminalConfigured] = useState(false);
   const [assignee, setAssignee] = useState<string>(() => localStorage.getItem(ASSIGNEE_KEY) ?? "");
@@ -229,12 +231,18 @@ export function App() {
   }
 
   function openRun(run: RunSummary) {
+    setActiveDoc(null);
     setActiveRun({
       runId: run.id,
       ticketKey: run.ticketKey || run.title || "ad-hoc",
       agentName: run.agentName,
       ticketUrl: run.ticketUrl,
     });
+  }
+
+  function openDoc(doc: ActiveDoc) {
+    setActiveRun(null);
+    setActiveDoc(doc);
   }
 
   function openRunById(runId: string) {
@@ -587,6 +595,7 @@ export function App() {
           runs={runs}
           onOpenRun={openRun}
           onOpenSession={openSession}
+          onOpenDoc={openDoc}
           onReload={loadAiwf}
           onStartClaude={openClaudeSession}
           onError={setError}
@@ -644,6 +653,7 @@ export function App() {
           terminalConfigured={terminalConfigured}
         />
       )}
+      {activeDoc && <DocPanel doc={activeDoc} onClose={() => setActiveDoc(null)} />}
     </div>
   );
 }
