@@ -42,116 +42,141 @@ computed version, skip ahead to tagging; otherwise start at the changelog PR.
 
 ### Phase 1 — Changelog PR
 
-1. **Preconditions.** Confirm the working tree is clean and you're on `main`:
+**Step 1 — Preconditions.** Confirm the working tree is clean and you're on `main`:
 
-   ```
-   git status --porcelain && git rev-parse --abbrev-ref HEAD
-   git pull --ff-only
-   ```
+```
+git status --porcelain && git rev-parse --abbrev-ref HEAD
+git pull --ff-only
+```
 
-   If the tree is dirty or you're not on `main`, stop and tell the user.
+If the tree is dirty or you're not on `main`, stop and tell the user.
 
-2. **Find the last release.** The latest version tag:
+**Step 2 — Find the last release.** The latest version tag:
 
-   ```
-   git describe --tags --match 'v*' --abbrev=0 2>/dev/null
-   ```
+```
+git describe --tags --match 'v*' --abbrev=0 2>/dev/null
+```
 
-   If there is none, this is the **first release** — the range is the full history and the current
-   `package.json` version is the baseline.
+If there is none, this is the **first release** — the range is the full history and the current
+`package.json` version is the baseline.
 
-3. **Collect commits** since that tag (or all commits, first release). Use first-parent so squashed
-   PRs read as one line each:
+**Step 3 — Collect commits** since that tag (or all commits, first release). Use first-parent so
+squashed PRs read as one line each:
 
-   ```
-   git log <lastTag>..HEAD --first-parent --pretty='%s%n%b%x00'
-   ```
+```
+git log <lastTag>..HEAD --first-parent --pretty='%s%n%b%x00'
+```
 
-   Parse each commit's conventional prefix and `!`/`BREAKING CHANGE:` markers.
+Parse each commit's conventional prefix and `!`/`BREAKING CHANGE:` markers.
 
-4. **Compute the next version** per the rules in Guardrails, starting from the root
-   `package.json` version. Announce it to the user with the bump reason and the list of commits that
-   drove it, e.g. _"3 feats + 5 fixes since v0.8.0 → minor bump → **0.9.0**. Override?"_ Wait for
-   confirmation (accept an explicit override version).
+**Step 4 — Compute the next version** per the rules in Guardrails, starting from the root
+`package.json` version. Announce it to the user with the bump reason and the list of commits that
+drove it, e.g. _"3 feats + 5 fixes since v0.8.0 → minor bump → **0.9.0**. Override?"_ Wait for
+confirmation (accept an explicit override version).
 
-5. **Create the branch:**
+**Step 5 — Create the branch:**
 
-   ```
-   git switch -c release/<version>
-   ```
+```
+git switch -c release/<version>
+```
 
-6. **Update `CHANGELOG.md`** (create it if missing) in [Keep a Changelog](https://keepachangelog.com)
-   format. Insert a new section directly under the header, newest first. Get the date from
-   `date +%F`. Group entries by category and write them as human-readable lines (rephrase terse
-   commit subjects into clear past-tense changes; drop noise like `chore: retrigger CI`,
-   merge commits, and pure formatting/test commits unless notable):
+**Step 6 — Sync `docs/AI_WORKFLOW.md` with the implementation.** Run `/aiwf-sync`. If it finds
+drift, apply the fixes before continuing — stale AIWF docs in a release PR are confusing. If it
+reports "in sync", move on immediately.
 
-   ```markdown
-   ## [<version>] - <YYYY-MM-DD>
+**Step 7 — Audit all docs for gaps and staleness.** Run `/docs-update`. Review the findings and
+apply any that are clear-cut (missing features, stale config table entries, broken paths). Skip
+anything that needs significant new prose — that belongs in a separate docs PR, not here. If no
+issues are found, move on immediately.
 
-   ### Added # from feat:
+**Step 8 — Refresh README screenshots.** Run the screenshots script so the release PR ships
+up-to-date visuals alongside the changelog:
 
-   ### Changed # behaviour changes, refactors that are user-visible
+```
+npm run screenshots
+```
 
-   ### Fixed # from fix:
+This starts the demo server, drives Playwright through the 8 key UI states, and saves PNGs to
+`docs/screenshots/`. If it fails (Playwright not installed, port conflict, etc.) print the error,
+skip this step, and continue — screenshots are best-effort; they do not block the release. If
+Playwright's Chromium browser has never been installed, the error message will say so; the user can
+run `npx playwright install chromium` and re-run `npm run screenshots` manually.
 
-   ### Security # from security: / security-relevant fixes
-   ```
+**Step 9 — Update `CHANGELOG.md`** (create it if missing) in [Keep a Changelog](https://keepachangelog.com)
+format. Insert a new section directly under the header, newest first. Get the date from `date +%F`.
+Group entries by category and write them as human-readable lines (rephrase terse commit subjects into
+clear past-tense changes; drop noise like `chore: retrigger CI`, merge commits, and pure
+formatting/test commits unless notable):
 
-   Omit empty categories. If the file is new, prepend the standard preamble:
+```markdown
+## [<version>] - <YYYY-MM-DD>
 
-   ```markdown
-   # Changelog
+### Added
 
-   All notable changes to this project are documented in this file.
+### Changed
 
-   The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-   and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-   ```
+### Fixed
 
-7. **Bump the version** in the root `package.json` to `<version>` (edit the `"version"` field only).
+### Security
+```
 
-8. **Commit, push, open the PR.** Use a conventional commit but a plain PR title:
-   ```
-   git add CHANGELOG.md package.json
-   git commit -m "chore(release): v<version>"
-   git push -u origin release/<version>
-   gh pr create --base main --title "Release <version>" \
-     --body "<summary + the new CHANGELOG section + a note that tagging happens after merge>"
-   ```
-   Report the PR URL. Remind the user that CI (test, typecheck, build, lint, format) must pass and
-   the PR must merge before Phase 2.
+Omit empty categories. If the file is new, prepend the standard preamble:
+
+```markdown
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+```
+
+**Step 10 — Bump the version** in the root `package.json` to `<version>` (edit the `"version"` field only).
+
+**Step 11 — Commit, push, open the PR.** Use a conventional commit but a plain PR title:
+
+```
+git add CHANGELOG.md package.json docs/
+git commit -m "chore(release): v<version>"
+git push -u origin release/<version>
+gh pr create --base main --title "Release <version>" \
+  --body "<summary + the new CHANGELOG section + a note that tagging happens after merge>"
+```
+
+Report the PR URL. Remind the user that CI (test, typecheck, build, lint, format) must pass and
+the PR must merge before Phase 2.
 
 ### Phase 2 — Tag + GitHub Release (after the PR merges)
 
 Run these once the `Release <version>` PR is merged to `main`.
 
-1. **Sync main and confirm the merge:**
+**Step 1 — Sync main and confirm the merge:**
 
-   ```
-   git switch main && git pull --ff-only
-   git log -1 --pretty='%s'   # expect the release merge / squash commit
-   ```
+```
+git switch main && git pull --ff-only
+git log -1 --pretty='%s'   # expect the release merge / squash commit
+```
 
-   Verify `package.json` version equals `<version>` on `main`.
+Verify `package.json` version equals `<version>` on `main`.
 
-2. **Tag the merge commit and push the tag:**
+**Step 2 — Tag the merge commit and push the tag:**
 
-   ```
-   git tag -a v<version> -m "v<version>"
-   git push origin v<version>
-   ```
+```
+git tag -a v<version> -m "v<version>"
+git push origin v<version>
+```
 
-3. **Publish the GitHub Release** using the changelog section as notes:
+**Step 3 — Publish the GitHub Release** using the changelog section as notes:
 
-   ```
-   gh release create v<version> --title "v<version>" --notes "<the CHANGELOG section body>"
-   ```
+```
+gh release create v<version> --title "v<version>" --notes "<the CHANGELOG section body>"
+```
 
-   For a pre-1.0 (`0.y.z`) release, add `--prerelease` only if the user wants it flagged as such;
-   otherwise a normal release is fine. Report the release URL.
+For a pre-1.0 (`0.y.z`) release, add `--prerelease` only if the user wants it flagged as such;
+otherwise a normal release is fine. Report the release URL.
 
-4. **Clean up** the merged branch:
-   ```
-   git branch -d release/<version> && git push origin --delete release/<version>
-   ```
+**Step 4 — Clean up** the merged branch:
+
+```
+git branch -d release/<version> && git push origin --delete release/<version>
+```
