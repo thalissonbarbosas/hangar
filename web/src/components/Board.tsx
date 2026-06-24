@@ -426,6 +426,9 @@ function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCt
 function TicketCard({ ticket, ctx }: { ticket: Ticket; ctx: CardCtx }) {
   const run = ctx.runByTicket.get(ticket.key);
   const active = run ? isActive(run.state) : false;
+  // Derive extra state classes for left-border strip (awaiting-input overrides active; done is terminal).
+  const stateClass =
+    run?.state === "awaiting_input" ? " awaiting-input" : run?.state === "done" ? " done" : "";
   const [jiraPrUrl, setJiraPrUrl] = useState<string | null>(null);
   const prUrl = run?.prUrl ?? ticket.prUrl ?? jiraPrUrl;
   const prNum = prUrl?.match(/\/pull\/(\d+)/)?.[1];
@@ -458,7 +461,7 @@ function TicketCard({ ticket, ctx }: { ticket: Ticket; ctx: CardCtx }) {
 
   return (
     <div
-      className={`card${active ? " active" : ""}${dragging ? " dragging" : ""}`}
+      className={`card${active ? " active" : ""}${stateClass}${dragging ? " dragging" : ""}`}
       title={ticket.summary}
       draggable
       onDragStart={onDragStart}
