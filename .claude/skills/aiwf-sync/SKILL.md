@@ -1,19 +1,19 @@
 ---
 name: aiwf-sync
-description: "Check whether docs/ai-workflow.md is in sync with the AI Workflow implementation — routes, phase/skill table, config shape, card format, and 'Where it lives' file inventory. Use after any change to the AIWF connection, or to audit before a release. Reports concrete drift findings; optionally fixes them."
+description: "Check whether docs/AI_WORKFLOW.md is in sync with the AI Workflow implementation — routes, phase/skill table, config shape, card format, and 'Where it lives' file inventory. Use after any change to the AIWF connection, or to audit before a release. Reports concrete drift findings; optionally fixes them."
 ---
 
-Audit **`docs/ai-workflow.md`** against the live AIWF implementation and report (or fix) drift.
+Audit **`docs/AI_WORKFLOW.md`** against the live AIWF implementation and report (or fix) drift.
 
 The rule in `CLAUDE.md`: _whenever you change the AI Workflow connection — its routes, board model,
-phases/skills, config shape, install flow, or card format — update `docs/ai-workflow.md` in the same
+phases/skills, config shape, install flow, or card format — update `docs/AI_WORKFLOW.md` in the same
 change._ This skill makes that rule checkable.
 
 ## Steps
 
 ### 1. Read the doc
 
-Read `docs/ai-workflow.md` in full.
+Read `docs/AI_WORKFLOW.md` in full.
 
 ### 2. Check: phase/skill table
 
@@ -90,9 +90,9 @@ For each section, report:
 - **In sync** — no drift found
 - **Drift** — describe the specific mismatch (e.g. "Route `PATCH /api/aiwf/projects/:id` is in the code but missing from the API table")
 
-If no drift is found anywhere, report "docs/ai-workflow.md is in sync with the implementation."
+If no drift is found anywhere, report "docs/AI_WORKFLOW.md is in sync with the implementation."
 
 If drift is found, ask: **"Fix these now?"**
 
-- Yes → update `docs/ai-workflow.md` to match the code (code is the source of truth), then run `npm run typecheck` to confirm no accidental edits broke anything.
+- Yes → update `docs/AI_WORKFLOW.md` to match the code (code is the source of truth), then run `npm run typecheck` to confirm no accidental edits broke anything.
 - No → leave the doc as-is and just report the findings.
