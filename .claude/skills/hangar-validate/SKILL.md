@@ -1,6 +1,6 @@
 ---
 name: hangar-validate
-description: "Validate a Hangar UI or server change before merging — runs typecheck, lint, captures screenshots in both light and dark mode, and outputs a focused visual checklist based on what changed. Use before merging any design, UI, or server change."
+description: "Validate a Hangar UI or server change before merging — runs typecheck, lint, starts the real dev server, opens the browser, and outputs a focused visual checklist based on what changed. Use before merging any design, UI, or server change."
 ---
 
 Validate the current branch. Does not modify any files or commit anything.
@@ -14,7 +14,7 @@ git diff main --stat
 git diff main --name-only
 ```
 
-Save the list of changed files — used in Step 5 to generate the visual checklist.
+Save the list of changed files — used in Step 4 to generate the visual checklist.
 
 ### 2. Run typecheck + lint
 
@@ -23,27 +23,29 @@ npm run typecheck
 npm run lint -- --max-warnings=2
 ```
 
-**If typecheck fails, stop here.** Report the errors and tell the user to fix them — screenshots on a broken build are misleading.
+**If typecheck fails, stop here.** Report the errors and tell the user to fix them — a broken build is not worth inspecting.
 
 Report ✅/❌ for each check.
 
-### 3. Capture screenshots in light + dark mode
+### 3. Start the dev server and open the app
 
 ```bash
-npm run validate
+npm run dev
 ```
 
-This kills any running processes on ports 5180 and 3001, starts a fresh demo server (`HANGAR_DEMO=1`), captures board/sessions/settings in both light and dark mode, then shuts down. Output lands in `docs/screenshots/validation/`.
-
-If Playwright's Chromium hasn't been installed yet, the script will error with a clear message. Run `npx playwright install chromium` and re-run.
-
-### 4. Open the screenshots
+Then open the browser:
 
 ```bash
-open docs/screenshots/validation/
+open http://localhost:5180
 ```
 
-### 5. Generate visual checklist
+This starts the real Hangar instance (with the user's actual Jira boards and config). The user will inspect the UI themselves.
+
+Tell the user: "Server is running at http://localhost:5180 — check the items in the visual checklist below, then tell me when you're done."
+
+**Wait for the user to confirm they've finished inspecting before continuing.**
+
+### 4. Generate visual checklist
 
 Based on the changed files from Step 1, output only the relevant rows:
 
@@ -62,7 +64,11 @@ Based on the changed files from Step 1, output only the relevant rows:
 | `server/src/store.ts`                  | No visual check — typecheck sufficient                                                      |
 | `server/src/sessions.ts`               | No visual check — run a session manually to verify behavior                                 |
 
-### 6. Report summary
+To check both themes: open Settings → toggle the theme switch, or press the theme button in the topbar.
+
+### 5. Report summary
+
+After the user confirms the visual check, report:
 
 ```
 ## Validation Report — <branch name>
@@ -73,15 +79,10 @@ Based on the changed files from Step 1, output only the relevant rows:
 - Typecheck: ✅ / ❌ <error summary>
 - Lint:      ✅ / ❌ <warning/error count>
 
-### Screenshots
-docs/screenshots/validation/
-  light/board.png   light/sessions.png   light/settings.png
-  dark/board.png    dark/sessions.png    dark/settings.png
-
 ### Visual Checklist
-<rows from Step 5 relevant to changed files>
+<rows from Step 4 relevant to changed files, with ✅/❌ based on user feedback>
 
 ### Result
-✅ Checks pass — review screenshots, then merge
+✅ Checks pass — ready to merge
 ❌ Fix failures before merging
 ```
