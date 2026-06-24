@@ -403,6 +403,7 @@ aiwfRouter.post("/api/aiwf/projects/:id/cards", (req, res) => {
 aiwfRouter.post("/api/aiwf/projects/:id/cards/:key/transition", (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
+  if (!CARD_KEY_RE.test(req.params.key)) return res.status(400).json({ error: "Invalid card key" });
   const status = String(req.body?.status ?? "").trim();
   if (!status) return res.status(400).json({ error: "status is required" });
   // Spec cards have no mutable board card file. Allow Complete transitions only — they clear the
@@ -425,6 +426,7 @@ aiwfRouter.post("/api/aiwf/projects/:id/cards/:key/transition", (req, res) => {
 aiwfRouter.post("/api/aiwf/projects/:id/cards/:key/archive", (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
+  if (!CARD_KEY_RE.test(req.params.key)) return res.status(400).json({ error: "Invalid card key" });
   if (req.params.key.startsWith("SPEC-")) return res.status(400).json({ error: "Spec cards are read-only." });
   const archived = req.body?.archived !== false; // coerce: absent or true → true, explicit false → false
   if (isDemo()) return res.json({ ok: true });
@@ -440,6 +442,7 @@ aiwfRouter.post("/api/aiwf/projects/:id/cards/:key/archive", (req, res) => {
 aiwfRouter.delete("/api/aiwf/projects/:id/cards/:key", (req, res) => {
   const p = requireAiwfProject(res, req.params.id);
   if (!p) return;
+  if (!CARD_KEY_RE.test(req.params.key)) return res.status(400).json({ error: "Invalid card key" });
   if (req.params.key.startsWith("SPEC-")) return res.status(400).json({ error: "Spec cards are read-only." });
   if (isDemo()) return res.json({ ok: true });
   const removed = deleteCard(p, req.params.key);
