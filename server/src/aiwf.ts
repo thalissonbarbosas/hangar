@@ -7,7 +7,7 @@ import { promisify } from "util";
 
 const execAsync = promisify(execRaw);
 import { expandHome, getConfig, getAiwfProjects } from "./config";
-import { AiwfProject, AiwfHistoryEntry, Ticket } from "./types";
+import { AiwfDoc, AiwfProject, AiwfHistoryEntry, SpecSlice, Ticket } from "./types";
 import { isDemo, demoAiwfCards } from "./demo";
 import { createWorktree, findWorktreePath, sanitize } from "./worktree";
 import { DATA_DIR } from "./store";
@@ -417,6 +417,16 @@ function specNum(key: string): number {
   return m ? Number(m[1]) : 0;
 }
 
+/** Convert a raw spec/doc filename into a readable title.
+ *  e.g. "001_remove-spec-section.md" → "Remove Spec Section" */
+export function formatSpecName(raw: string): string {
+  return raw
+    .replace(/^\d{3}[._]/, "")
+    .replace(/\.md$/i, "")
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /** Parse a spec file and return a Ticket. relPath is relative to the project root.
  *  The caller supplies the (already disambiguated) key — see listSpecCards. */
 function parseSpecFile(
@@ -428,7 +438,7 @@ function parseSpecFile(
 ): Ticket {
   // Title: first "# " heading; strip common skill-generated prefixes so the summary is clean.
   const headingLine = content.split(/\r?\n/).find((l) => l.startsWith("# "));
-  let summary = headingLine ? headingLine.slice(2).trim() : entryName.replace(/\.md$/, "");
+  let summary = headingLine ? headingLine.slice(2).trim() : formatSpecName(entryName);
   summary = summary.replace(/^(?:Spec\s+\d+\s*[—-]\s*|Feature:\s*|Phase\s+\d+:\s*)/i, "").trim() || summary;
 
   // Description: spec file path prepended so skills can resolve it by path.
@@ -458,7 +468,7 @@ export function listSpecCards(project: AiwfProject): Ticket[] {
   if (!fs.existsSync(specsDir)) return [];
 
   // Collect raw spec sources first so we can detect numeric-prefix collisions before keying.
-  const sources: { entryName: string; relPath: string; content: string }[] = [];
+  const sources: { entryName: string; relPath: string; content: string; children?: SpecSlice[] }[] = [];
   for (const entry of fs.readdirSync(specsDir, { withFileTypes: true })) {
     if (entry.isFile() && /^\d{3}_.*\.md$/.test(entry.name)) {
       // Single-file spec: docs/specs/NNN_slug.md
@@ -471,7 +481,19 @@ export function listSpecCards(project: AiwfProject): Ticket[] {
       if (fs.existsSync(readme)) {
         const relPath = path.join("docs", "specs", entry.name, "README.md");
         const content = fs.readFileSync(readme, "utf8");
-        sources.push({ entryName: entry.name, relPath, content });
+        // Attach child slice files (NNN_*.md, excluding README.md) sorted by filename.
+        const dirPath = path.join(specsDir, entry.name);
+        const children: SpecSlice[] = fs
+          .readdirSync(dirPath)
+          .filter((f) => /^\d{3}_.*\.md$/.test(f))
+          .sort()
+          .map((f) => {
+            const childContent = fs.readFileSync(path.join(dirPath, f), "utf8");
+            const childHeading = childContent.split(/\r?\n/).find((l) => l.startsWith("# "));
+            const childTitle = childHeading ? childHeading.slice(2).trim() : formatSpecName(f);
+            return { filename: f, title: childTitle, content: childContent };
+          });
+        sources.push({ entryName: entry.name, relPath, content, children });
       }
     }
   }
@@ -487,7 +509,9 @@ export function listSpecCards(project: AiwfProject): Ticket[] {
   const cards = sources.map((s) => {
     const base = baseSpecKey(s.entryName);
     const key = (baseCounts.get(base) ?? 0) > 1 ? `SPEC-${s.entryName.replace(/\.md$/, "")}` : base;
-    return parseSpecFile(s.content, s.entryName, s.relPath, project, key);
+    const card = parseSpecFile(s.content, s.entryName, s.relPath, project, key);
+    if (s.children?.length) card.specChildren = s.children;
+    return card;
   });
 
   // Sort descending by numeric prefix (newest first); break ties by key so order is deterministic.
@@ -796,4 +820,34 @@ export async function resolveTaskWorktree(
     ? specAbsPath(project, cardKey)
     : specPathFromDescription(project, description);
   return resolveCardWorktree(`aiwf-${project.id}`, cardKey, skill, repoRoot, specPath);
+}
+
+// ---------------------------------------------------------------------------
+// AIWF docs: ~/.local/share/ai-workflow/docs/
+// ---------------------------------------------------------------------------
+
+const AIWF_DOCS_DIR = path.join(os.homedir(), ".local", "share", "ai-workflow", "docs");
+
+/** List all .md files in the AIWF docs directory. Returns [] when not installed. */
+export function listAiwfDocs(): AiwfDoc[] {
+  if (!fs.existsSync(AIWF_DOCS_DIR)) return [];
+  return fs
+    .readdirSync(AIWF_DOCS_DIR)
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => {
+      const slug = f.replace(/\.md$/i, "");
+      const content = fs.readFileSync(path.join(AIWF_DOCS_DIR, f), "utf8");
+      const heading = content.split(/\r?\n/).find((l) => l.startsWith("# "));
+      const title = heading ? heading.slice(2).trim() : formatSpecName(f);
+      return { slug, title };
+    });
+}
+
+/** Read a single AIWF doc by slug. Returns null if not found.
+ *  Slug is validated to `[A-Za-z0-9_-]` only before use. */
+export function getAiwfDoc(slug: string): string | null {
+  if (!/^[A-Za-z0-9_-]+$/.test(slug)) return null;
+  const filePath = path.join(AIWF_DOCS_DIR, `${slug}.md`);
+  if (!fs.existsSync(filePath)) return null;
+  return fs.readFileSync(filePath, "utf8");
 }

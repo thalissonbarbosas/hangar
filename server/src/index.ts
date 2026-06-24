@@ -46,6 +46,8 @@ import {
   AIWF_REPO_URL,
   AIWF_AUTHOR,
   AIWF_AUTHOR_URL,
+  listAiwfDocs,
+  getAiwfDoc,
 } from "./aiwf";
 import { loadAgents, loadAgent } from "./agents";
 import { allSkills, skillExists, findSkill } from "./skills";
@@ -300,6 +302,19 @@ app.get("/api/aiwf/status", (_req, res) => {
     author: AIWF_AUTHOR,
     authorUrl: AIWF_AUTHOR_URL,
   });
+});
+
+// AIWF docs: list + fetch from ~/.local/share/ai-workflow/docs/
+app.get("/api/aiwf/docs", (_req, res) => {
+  res.json({ docs: listAiwfDocs() });
+});
+
+app.get("/api/aiwf/docs/:slug", (req, res) => {
+  const { slug } = req.params;
+  if (!/^[A-Za-z0-9_-]+$/.test(slug)) return res.status(400).json({ error: "Invalid slug" });
+  const content = getAiwfDoc(slug);
+  if (content === null) return res.status(404).json({ error: "Not found" });
+  res.json({ content });
 });
 
 // One-click install (the client confirms first). Runs the aiwf bootstrap script.
