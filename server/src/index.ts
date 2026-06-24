@@ -16,6 +16,7 @@ import {
 import { configRouter } from "./routes/config";
 import { jiraRouter } from "./routes/jira";
 import { runsRouter } from "./routes/runs";
+import { workflowsRouter } from "./routes/workflows";
 import {
   detectAiwf,
   installAiwf,
@@ -52,15 +53,8 @@ import {
 import { skillExists, findSkill } from "./skills";
 import { startRun, clearRuns, loadPersistedRuns, seedDemoRuns, activeRunsInDir } from "./sessions";
 import { isDemo } from "./demo";
-import {
-  startWorkflow,
-  listWorkflowRuns,
-  stopWorkflowRun,
-  deleteWorkflowRun,
-  clearWorkflowRuns,
-  loadPersistedWorkflowRuns,
-} from "./workflows";
-import { Ticket, AiwfProject } from "./types";
+import { clearWorkflowRuns, loadPersistedWorkflowRuns } from "./workflows";
+import { AiwfProject } from "./types";
 import { pruneWorktrees, removeWorktree, currentBranch, checkoutBranch } from "./worktree";
 
 const app = express();
@@ -93,6 +87,7 @@ if (isDemo()) seedDemoRuns(); // HANGAR_DEMO=1: fictional sessions for a credent
 app.use(configRouter);
 app.use(jiraRouter);
 app.use(runsRouter);
+app.use(workflowsRouter);
 
 // ---------------- AI Workflow connection (self-hosted, Claude-run) ----------------
 
@@ -536,45 +531,6 @@ app.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, async (req, 
     aiwfPhase: card.status,
   });
   res.json({ runId: run.id });
-});
-
-// ---------------- Board workflows (sequential agent pipelines) ----------------
-
-// Start a workflow on a ticket: { boardKey, workflowId, ticket }.
-app.post("/api/workflows/runs", runCreateLimiter, async (req, res) => {
-  const boardKey = String(req.body?.boardKey ?? "");
-  const workflowId = String(req.body?.workflowId ?? "");
-  const ticket = req.body?.ticket as Ticket | undefined;
-  if (!ticket?.key) return res.status(400).json({ error: "A ticket is required to start a workflow." });
-  try {
-    const wf = await startWorkflow(boardKey, workflowId, ticket);
-    res.json({ workflowRunId: wf.id });
-  } catch (err) {
-    res.status(400).json({ error: String(err instanceof Error ? err.message : err) });
-  }
-});
-
-app.get("/api/workflows/runs", (_req, res) => {
-  res.json({ runs: listWorkflowRuns() });
-});
-
-app.post("/api/workflows/runs/:id/stop", async (req, res) => {
-  const ok = await stopWorkflowRun(req.params.id);
-  if (!ok) return res.status(404).json({ error: "No such workflow run" });
-  res.json({ ok: true });
-});
-
-// Clear workflow runs: ?scope=finished (default) or ?scope=all. Must precede the :id route.
-app.delete("/api/workflows/runs", async (req, res) => {
-  const scope = req.query.scope === "all" ? "all" : "finished";
-  const cleared = await clearWorkflowRuns(scope);
-  res.json({ ok: true, cleared });
-});
-
-app.delete("/api/workflows/runs/:id", async (req, res) => {
-  const ok = await deleteWorkflowRun(req.params.id);
-  if (!ok) return res.status(404).json({ error: "No such workflow run" });
-  res.json({ ok: true });
 });
 
 // Export the app so tests (and other entry points) can mount it without binding a port.
