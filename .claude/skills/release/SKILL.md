@@ -80,7 +80,16 @@ computed version, skip ahead to tagging; otherwise start at the changelog PR.
    git switch -c release/<version>
    ```
 
-6. **Refresh README screenshots.** Run the screenshots script so the release PR ships
+6. **Sync `docs/AI_WORKFLOW.md` with the implementation.** Run `/aiwf-sync`. If it finds drift,
+   apply the fixes before continuing — stale AIWF docs in a release PR are confusing. If it
+   reports "in sync", move on immediately.
+
+7. **Audit all docs for gaps and staleness.** Run `/docs-update`. Review the findings and apply
+   any that are clear-cut (missing features, stale config table entries, broken paths). Skip
+   anything that needs significant new prose — that belongs in a separate docs PR, not here.
+   If no issues are found, move on immediately.
+
+8. **Refresh README screenshots.** Run the screenshots script so the release PR ships
    up-to-date visuals alongside the changelog:
 
    ```
@@ -94,13 +103,7 @@ computed version, skip ahead to tagging; otherwise start at the changelog PR.
    so; the user can run `npx playwright install chromium` and re-run `npm run screenshots`
    manually.
 
-   Stage screenshots only if the script succeeded:
-
-   ```
-   git add docs/screenshots/
-   ```
-
-7. **Update `CHANGELOG.md`** (create it if missing) in [Keep a Changelog](https://keepachangelog.com)
+9. **Update `CHANGELOG.md`** (create it if missing) in [Keep a Changelog](https://keepachangelog.com)
    format. Insert a new section directly under the header, newest first. Get the date from
    `date +%F`. Group entries by category and write them as human-readable lines (rephrase terse
    commit subjects into clear past-tense changes; drop noise like `chore: retrigger CI`,
@@ -129,18 +132,20 @@ computed version, skip ahead to tagging; otherwise start at the changelog PR.
    and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
    ```
 
-8. **Bump the version** in the root `package.json` to `<version>` (edit the `"version"` field only).
+10. **Bump the version** in the root `package.json` to `<version>` (edit the `"version"` field only).
 
-9. **Commit, push, open the PR.** Use a conventional commit but a plain PR title:
-   ```
-   git add CHANGELOG.md package.json
-   git commit -m "chore(release): v<version>"
-   git push -u origin release/<version>
-   gh pr create --base main --title "Release <version>" \
+11. **Commit, push, open the PR.** Use a conventional commit but a plain PR title:
+    ```
+    git add CHANGELOG.md package.json docs/
+    git commit -m "chore(release): v<version>"
+    git push -u origin release/<version>
+    gh pr create --base main --title "Release <version>" \
      --body "<summary + the new CHANGELOG section + a note that tagging happens after merge>"
-   ```
-   Report the PR URL. Remind the user that CI (test, typecheck, build, lint, format) must pass and
-   the PR must merge before Phase 2.
+    ```
+
+```
+Report the PR URL. Remind the user that CI (test, typecheck, build, lint, format) must pass and
+the PR must merge before Phase 2.
 
 ### Phase 2 — Tag + GitHub Release (after the PR merges)
 
@@ -148,30 +153,40 @@ Run these once the `Release <version>` PR is merged to `main`.
 
 1. **Sync main and confirm the merge:**
 
-   ```
-   git switch main && git pull --ff-only
-   git log -1 --pretty='%s'   # expect the release merge / squash commit
-   ```
+```
 
-   Verify `package.json` version equals `<version>` on `main`.
+git switch main && git pull --ff-only
+git log -1 --pretty='%s' # expect the release merge / squash commit
+
+```
+
+Verify `package.json` version equals `<version>` on `main`.
 
 2. **Tag the merge commit and push the tag:**
 
-   ```
-   git tag -a v<version> -m "v<version>"
-   git push origin v<version>
-   ```
+```
+
+git tag -a v<version> -m "v<version>"
+git push origin v<version>
+
+```
 
 3. **Publish the GitHub Release** using the changelog section as notes:
 
-   ```
-   gh release create v<version> --title "v<version>" --notes "<the CHANGELOG section body>"
-   ```
+```
 
-   For a pre-1.0 (`0.y.z`) release, add `--prerelease` only if the user wants it flagged as such;
-   otherwise a normal release is fine. Report the release URL.
+gh release create v<version> --title "v<version>" --notes "<the CHANGELOG section body>"
+
+```
+
+For a pre-1.0 (`0.y.z`) release, add `--prerelease` only if the user wants it flagged as such;
+otherwise a normal release is fine. Report the release URL.
 
 4. **Clean up** the merged branch:
-   ```
-   git branch -d release/<version> && git push origin --delete release/<version>
-   ```
+```
+
+git branch -d release/<version> && git push origin --delete release/<version>
+
+```
+
+```
