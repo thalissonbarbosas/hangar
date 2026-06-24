@@ -5,7 +5,7 @@ shows Jira tickets as Kanban columns; assigning an agent/skill to a card spawns 
 session via `@anthropic-ai/claude-agent-sdk` and streams it back live.
 
 See `README.md` for the user-facing feature tour, `docs/` for detailed guides (e.g.
-`docs/ai-workflow.md`), and `../Hangar-SPEC.md` for the full plan.
+`docs/AI_WORKFLOW.md`), and `../Hangar-SPEC.md` for the full plan.
 
 ## Layout
 
@@ -116,7 +116,7 @@ its own key.
   `README.md`. Keep `README.md` a lean overview that links into `docs/`; don't add
   new standalone doc files to the repo root.
 - **AI Workflow doc (required)**: whenever you change the AI Workflow connection — its routes, board
-  model, phases/skills, config shape, install flow, or card format — update `docs/ai-workflow.md` in
+  model, phases/skills, config shape, install flow, or card format — update `docs/AI_WORKFLOW.md` in
   the same change. Run **`/aiwf-sync`** after any such change to verify the doc is in sync.
 - No automated tests exist yet — verify changes with `npm run typecheck` and, where it matters, by
   running `npm run dev` and exercising the flow in the UI. Run **`/smoke`** before merging any

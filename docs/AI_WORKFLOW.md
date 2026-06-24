@@ -12,7 +12,7 @@ the live run panel. **All AI Workflow runs are executed by Claude** (Hangar's ex
 `@anthropic-ai/claude-agent-sdk` engine) — the connection is a methodology + a board, not a different
 model. A project that happens to be Gemini-based (`GEMINI.md`) just becomes context Claude reads.
 
-<img src="aiwf-board.png" alt="The AI Workflow phase board" width="880" />
+<img src="screenshots/aiwf-board.png" alt="The AI Workflow phase board" width="880" />
 
 > Keep this doc in sync with the feature — see the rule in `CLAUDE.md`.
 
@@ -108,7 +108,7 @@ Each phase column's skill list matches the table above; the `Complete` column ha
 skill is additionally instructed to **seed the board** — it writes one card per roadmap task into
 the project's board dir (Hangar passes it the absolute data-dir path).
 
-<img src="aiwf-new-item.png" alt="Creating a session or task in a phase column" width="640" />
+<img src="screenshots/aiwf-new-item.png" alt="Creating a session or task in a phase column" width="640" />
 
 ### Spec tasks
 

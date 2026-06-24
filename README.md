@@ -10,7 +10,7 @@ Pull your Jira tickets onto a Kanban board, assign an agent or skill to a card, 
 real [Claude Code](https://claude.com/claude-code) session run — streaming live, isolated per
 run, with a human in the loop when it matters.
 
-<img src="docs/board.png" alt="The Hangar board" width="880" />
+<img src="docs/screenshots/board.png" alt="The Hangar board" width="880" />
 
 </div>
 
@@ -92,25 +92,25 @@ that can reach port 3001 can start agent sessions, read run transcripts, and mod
 
 **Live agent session** — streaming output, tool calls, the worktree branch, session id, and cost:
 
-<img src="docs/running.png" alt="A live agent session" width="880" />
+<img src="docs/screenshots/running.png" alt="A live agent session" width="880" />
 
 **Human-in-the-loop** — the agent asks; you answer inline (gated mode pauses risky tools the same way):
 
-<img src="docs/wait-input.png" alt="An agent awaiting input" width="880" />
+<img src="docs/screenshots/wait-input.png" alt="An agent awaiting input" width="880" />
 
 **A finished run** — the result, captured session id, cost, and the auto-detected PR link:
 
-<img src="docs/done.png" alt="A finished agent session" width="880" />
+<img src="docs/screenshots/done.png" alt="A finished agent session" width="880" />
 
 **Sessions view** — every run, grouped by project with a tab bar, with state, model, age, cost, a
 PR link when one was opened. **Resume** continues a finished session in-app; **Open in terminal**
 hands it off to your shell (set it up in **Settings → Terminal**):
 
-<img src="docs/sessions.png" alt="The sessions view" width="880" />
+<img src="docs/screenshots/sessions.png" alt="The sessions view" width="880" />
 
 **Configure everything in the UI** — boards, columns, repo paths, and agents, no file editing required:
 
-<img src="docs/settings.png" alt="Settings" width="880" />
+<img src="docs/screenshots/settings.png" alt="Settings" width="880" />
 
 ## How it works
 
@@ -142,7 +142,7 @@ chip can be edited to change its name or location (the repo path) in place. Card
 **archive**, **delete**, and **see data** actions via a `⋯` menu. A **📖 Skills guide** button in
 the sub-bar shows every aiwf skill by phase tab, with install status and descriptions.
 
-**→ Full guide: [`docs/ai-workflow.md`](docs/ai-workflow.md).**
+**→ Full guide: [`docs/AI_WORKFLOW.md`](docs/AI_WORKFLOW.md).**
 
 ### Configuration
 
