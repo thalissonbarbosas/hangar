@@ -4,7 +4,7 @@
  *
  * Usage:
  *   node scripts/screenshots.mjs             # starts the demo server automatically
- *   node scripts/screenshots.mjs --no-server # server already running at localhost:$WEB_PORT
+ *   node scripts/screenshots.mjs --no-server # skip server start (only if already running with HANGAR_DEMO=1)
  *
  * One-time setup (installs the Chromium browser Playwright uses):
  *   npx playwright install chromium
@@ -46,8 +46,17 @@ async function waitReady(timeoutMs = 40_000) {
 
 async function startServer() {
   if (await isReady()) {
-    console.log(`Server already running at ${BASE}.`);
-    return null;
+    // A server is already running but may not be in demo mode — screenshots of
+    // a real board would contain live data and vary between runs. Bail out so
+    // the user stops their dev server first (or passes --no-server when they're
+    // sure the running server is already in demo mode).
+    console.error(
+      `\nError: a server is already running at ${BASE}.\n` +
+        `Screenshots must be taken from demo mode (HANGAR_DEMO=1).\n` +
+        `Stop your dev server first, then re-run this script.\n` +
+        `If the running server IS already in demo mode, pass --no-server to skip this check.\n`,
+    );
+    process.exit(1);
   }
   console.log(`Starting demo server (HANGAR_DEMO=1 npm run dev)…`);
   const child = spawn("npm", ["run", "dev"], {
