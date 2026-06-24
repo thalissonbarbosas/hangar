@@ -7,9 +7,11 @@ import path from "path";
 jest.mock("child_process", () => {
   const { promisify } = jest.requireActual("util") as typeof import("util");
   const execFn = jest.fn();
+  const execFileFn = jest.fn();
 
   (execFn as any)[promisify.custom] = jest.fn(() => Promise.resolve({ stdout: "", stderr: "" }));
-  return { execSync: jest.fn(), exec: execFn };
+  (execFileFn as any)[promisify.custom] = jest.fn(() => Promise.resolve({ stdout: "", stderr: "" }));
+  return { execSync: jest.fn(), execFileSync: jest.fn(), exec: execFn, execFile: execFileFn };
 });
 
 // Wire a temp project repo + skills dir + config BEFORE any module loads.
