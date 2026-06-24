@@ -63,6 +63,8 @@ export interface HangarConfig {
    * `{{command}}` (the resume command). Unset = the action warns instead of launching.
    */
   terminal?: string;
+  /** Auto-delete finished runs older than this many days. Undefined = keep forever (GDPR opt-in). */
+  runRetentionDays?: number;
 }
 
 export interface Skill {

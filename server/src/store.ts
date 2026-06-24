@@ -72,3 +72,33 @@ export const saveWorkflowRecord = (record: WorkflowRecord): void =>
   writeRecord(WORKFLOWS_DIR, record.id, record);
 export const deleteWorkflowRecord = (id: string): void => deleteRecord(WORKFLOWS_DIR, id);
 export const loadWorkflowRecords = (): WorkflowRecord[] => loadRecords<WorkflowRecord>(WORKFLOWS_DIR);
+
+const TERMINAL_STATES = new Set(["done", "error", "stopped"]);
+
+/**
+ * Delete run JSON files older than `retentionDays` days.
+ * Never deletes running or queued runs — only terminal states (done/error/stopped).
+ * Called once at startup when `runRetentionDays` is configured.
+ */
+export function sweepOldRuns(retentionDays: number): void {
+  if (!fs.existsSync(RUNS_DIR)) return;
+  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  let swept = 0;
+  for (const f of fs.readdirSync(RUNS_DIR)) {
+    if (!f.endsWith(".json")) continue;
+    try {
+      const record = JSON.parse(fs.readFileSync(path.join(RUNS_DIR, f), "utf8")) as Partial<RunRecord>;
+      // Skip active runs — never delete runs that might still be live.
+      if (!record.state || !TERMINAL_STATES.has(record.state)) continue;
+      // Use endedAt; skip if missing (shouldn't happen for terminal runs but be safe).
+      const finishedAt = record.endedAt;
+      if (typeof finishedAt !== "number" || finishedAt > cutoff) continue;
+      fs.rmSync(path.join(RUNS_DIR, f), { force: true });
+      swept++;
+    } catch {
+      /* skip corrupt or unreadable files */
+    }
+  }
+  if (swept > 0)
+    console.log(`[hangar] retention sweep: deleted ${swept} run(s) older than ${retentionDays}d`);
+}
