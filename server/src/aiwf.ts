@@ -2,10 +2,11 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { randomUUID } from "crypto";
-import { execSync, exec as execRaw } from "child_process";
+import { execFileSync, execFile, exec as execRaw } from "child_process";
 import { promisify } from "util";
 
 const execAsync = promisify(execRaw);
+const execFileAsync = promisify(execFile);
 import { expandHome, getConfig, getAiwfProjects } from "./config";
 import { AiwfDoc, AiwfProject, AiwfHistoryEntry, SpecSlice, Ticket } from "./types";
 import { isDemo, demoAiwfCards } from "./demo";
@@ -139,7 +140,7 @@ export function detectAiwf(): AiwfStatus {
   let version: string | null = null;
   if (aiwfBin) {
     try {
-      version = execSync(`"${aiwfBin}" version`, { encoding: "utf8", timeout: 5000 }).trim() || null;
+      version = execFileSync(aiwfBin, ["version"], { encoding: "utf8", timeout: 5000 }).trim() || null;
     } catch {
       /* launcher present but version failed — ignore */
     }
@@ -178,7 +179,10 @@ export async function uninstallAiwf(): Promise<{ status: AiwfStatus; output: str
     throw new Error("aiwf launcher not found (~/.local/bin/aiwf) — nothing to uninstall.");
   }
   try {
-    const { stdout } = await execAsync(`"${aiwfBin}" uninstall-all`, { encoding: "utf8", timeout: 120_000 });
+    const { stdout } = await execFileAsync(aiwfBin, ["uninstall-all"], {
+      encoding: "utf8",
+      timeout: 120_000,
+    });
     return { status: detectAiwf(), output: stdout ?? "" };
   } catch (err) {
     const e = err as { stdout?: string; stderr?: string; message?: string };
