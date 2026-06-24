@@ -22,5 +22,6 @@
   },
   "bypassPermissions": false,
   "isolateRuns": true,
-  "terminal": "osascript -e 'tell application \"Terminal\" to do script \"cd \\\"{{dir}}\\\" && {{command}}\"' -e 'tell application \"Terminal\" to activate'"
+  "terminal": "osascript -e 'tell application \"Terminal\" to do script \"cd \\\"{{dir}}\\\" && {{command}}\"' -e 'tell application \"Terminal\" to activate'",
+  "runRetentionDays": 90
 }

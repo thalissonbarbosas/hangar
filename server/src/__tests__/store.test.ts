@@ -88,3 +88,71 @@ describe("HANGAR_DATA_DIR home expansion", () => {
     expect(fs.existsSync(path.join(dir, "runs", "run-1.json"))).toBe(true);
   });
 });
+
+describe("sweepOldRuns", () => {
+  const OLD_TS = Date.now() - 100 * 24 * 60 * 60 * 1000; // 100 days ago
+  const NEW_TS = Date.now() - 1 * 24 * 60 * 60 * 1000; // 1 day ago
+
+  function writeRun(runsDir: string, id: string, record: object): void {
+    fs.mkdirSync(runsDir, { recursive: true });
+    fs.writeFileSync(path.join(runsDir, `${id}.json`), JSON.stringify(record));
+  }
+
+  it("is a no-op when the runs dir does not exist", () => {
+    const dir = tempDir();
+    const store = loadStore(dir);
+    // Should not throw even though the runs dir hasn't been created yet.
+    expect(() => store.sweepOldRuns(30)).not.toThrow();
+  });
+
+  it("deletes terminal runs older than the retention window", () => {
+    const dir = tempDir();
+    const store = loadStore(dir);
+    const runsDir = path.join(dir, "runs");
+    writeRun(runsDir, "old-done", { id: "old-done", state: "done", endedAt: OLD_TS });
+    writeRun(runsDir, "old-error", { id: "old-error", state: "error", endedAt: OLD_TS });
+    writeRun(runsDir, "old-stopped", { id: "old-stopped", state: "stopped", endedAt: OLD_TS });
+    store.sweepOldRuns(30);
+    expect(fs.existsSync(path.join(runsDir, "old-done.json"))).toBe(false);
+    expect(fs.existsSync(path.join(runsDir, "old-error.json"))).toBe(false);
+    expect(fs.existsSync(path.join(runsDir, "old-stopped.json"))).toBe(false);
+  });
+
+  it("keeps terminal runs newer than the retention window", () => {
+    const dir = tempDir();
+    const store = loadStore(dir);
+    const runsDir = path.join(dir, "runs");
+    writeRun(runsDir, "new-done", { id: "new-done", state: "done", endedAt: NEW_TS });
+    store.sweepOldRuns(30);
+    expect(fs.existsSync(path.join(runsDir, "new-done.json"))).toBe(true);
+  });
+
+  it("never deletes active runs regardless of age", () => {
+    const dir = tempDir();
+    const store = loadStore(dir);
+    const runsDir = path.join(dir, "runs");
+    writeRun(runsDir, "running", { id: "running", state: "running", endedAt: OLD_TS });
+    writeRun(runsDir, "queued", { id: "queued", state: "queued", endedAt: OLD_TS });
+    store.sweepOldRuns(1);
+    expect(fs.existsSync(path.join(runsDir, "running.json"))).toBe(true);
+    expect(fs.existsSync(path.join(runsDir, "queued.json"))).toBe(true);
+  });
+
+  it("skips runs with no endedAt timestamp", () => {
+    const dir = tempDir();
+    const store = loadStore(dir);
+    const runsDir = path.join(dir, "runs");
+    writeRun(runsDir, "no-ts", { id: "no-ts", state: "done" });
+    store.sweepOldRuns(1);
+    expect(fs.existsSync(path.join(runsDir, "no-ts.json"))).toBe(true);
+  });
+
+  it("skips corrupt JSON files without throwing", () => {
+    const dir = tempDir();
+    const store = loadStore(dir);
+    const runsDir = path.join(dir, "runs");
+    fs.mkdirSync(runsDir, { recursive: true });
+    fs.writeFileSync(path.join(runsDir, "corrupt.json"), "{not json");
+    expect(() => store.sweepOldRuns(1)).not.toThrow();
+  });
+});

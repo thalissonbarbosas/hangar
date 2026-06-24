@@ -98,6 +98,7 @@ const HangarConfigSchema = z.object({
   maxTurns: z.number().nonnegative().optional(),
   maxBudgetUsd: z.number().nonnegative().optional(),
   terminal: z.string().optional(),
+  runRetentionDays: z.number().positive().optional(),
 });
 
 /** Validate the shape of a raw config object with Zod.
@@ -241,6 +242,14 @@ export function saveConfig(raw: HangarConfig): HangarConfig {
         : {}
       : currentConfig?.terminal
         ? { terminal: currentConfig.terminal }
+        : {}),
+    // Retention policy: a positive number sets it, 0 clears it, undefined preserves.
+    ...(typeof raw.runRetentionDays === "number"
+      ? raw.runRetentionDays > 0
+        ? { runRetentionDays: Math.max(1, Math.floor(raw.runRetentionDays)) }
+        : {}
+      : typeof currentConfig?.runRetentionDays === "number"
+        ? { runRetentionDays: currentConfig.runRetentionDays }
         : {}),
   };
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(clean, null, 2) + "\n");

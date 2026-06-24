@@ -51,6 +51,8 @@ export interface FullConfig {
   maxTurns?: number;
   maxBudgetUsd?: number;
   terminal?: string; // "Open in terminal" command template ({{dir}} + {{command}} placeholders)
+  /** Auto-delete finished runs older than this many days. Undefined = keep forever (GDPR opt-in). */
+  runRetentionDays?: number;
 }
 
 export interface AiwfSkillGroup {
