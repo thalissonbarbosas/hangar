@@ -56,6 +56,13 @@ import { DocPanel } from "./DocPanel";
 //   • <AiWorkflowView> — the phase board
 // ---------------------------------------------------------------------------
 
+/** Extract the NNN prefix from paths like docs/specs/019_foo.md or docs/roadmap/001_bar.md.
+ *  Returns null for folder roots (e.g. "docs/specs") that have no prefix. */
+function extractItemNumber(path: string): string | null {
+  const m = path.match(/\/(\d{3})[_.]/);
+  return m ? m[1] : null;
+}
+
 interface OpenSession {
   runId: string;
   ticketKey: string;
@@ -294,6 +301,11 @@ function DocTreeRow({
 }) {
   const isFolder = node.type === "folder" || node.type === "spec-dir";
   const absent = !node.exists;
+  // NNN badge for spec and roadmap-child rows — extracted once so the regex runs only once.
+  const itemNumber =
+    node.type === "spec" || node.type === "spec-dir" || node.path.startsWith("docs/roadmap/")
+      ? extractItemNumber(node.path)
+      : null;
   const classes = [
     "doc-tree-row",
     indent ? `indent-${indent}` : "",
@@ -336,6 +348,7 @@ function DocTreeRow({
         <span style={{ width: 12, flexShrink: 0 }} />
       )}
       <span style={{ flexShrink: 0 }}>{docIcon(node)}</span>
+      {itemNumber && <span className="doc-tree-num">{itemNumber}</span>}
       <span
         style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
       >
@@ -367,6 +380,9 @@ function DocTreeSidebar({
   const [loading, setLoading] = useState(true);
   // Specs folder expanded by default.
   const [expanded, setExpanded] = useState<Set<string>>(new Set(["docs/specs"]));
+  // How many children to show in the paginated sections (10 at a time).
+  const [specsLimit, setSpecsLimit] = useState(10);
+  const [roadmapLimit, setRoadmapLimit] = useState(10);
 
   useEffect(() => {
     setLoading(true);
@@ -375,6 +391,12 @@ function DocTreeSidebar({
       .then((r) => setNodes(r.nodes))
       .catch(() => setNodes([]))
       .finally(() => setLoading(false));
+  }, [projectId]);
+
+  // Reset pagination when the project changes.
+  useEffect(() => {
+    setSpecsLimit(10);
+    setRoadmapLimit(10);
   }, [projectId]);
 
   function toggleExpanded(path: string) {
@@ -398,44 +420,69 @@ function DocTreeSidebar({
         </div>
       ) : (
         <div className="doc-tree">
-          {nodes.map((node) => (
-            <div key={node.path}>
-              <DocTreeRow
-                node={node}
-                selected={selectedPath === node.path}
-                expanded={expanded.has(node.path)}
-                onToggle={() => toggleExpanded(node.path)}
-                onSelect={() => onOpenDoc(node)}
-              />
-              {(node.type === "folder" || node.type === "spec-dir") &&
-                expanded.has(node.path) &&
-                node.children?.map((child) => (
-                  <div key={child.path}>
-                    <DocTreeRow
-                      node={child}
-                      indent={1}
-                      selected={selectedPath === child.path}
-                      expanded={expanded.has(child.path)}
-                      onToggle={() => toggleExpanded(child.path)}
-                      onSelect={() => onOpenDoc(child)}
-                    />
-                    {(child.type === "folder" || child.type === "spec-dir") &&
-                      expanded.has(child.path) &&
-                      child.children?.map((grandchild) => (
+          {nodes.map((node) => {
+            const allChildren = node.children ?? [];
+            const limit =
+              node.path === "docs/specs"
+                ? specsLimit
+                : node.path === "docs/roadmap"
+                  ? roadmapLimit
+                  : allChildren.length;
+            const visibleChildren = allChildren.slice(0, limit);
+            const hiddenCount = allChildren.length - visibleChildren.length;
+            const isPaginated = node.path === "docs/specs" || node.path === "docs/roadmap";
+            return (
+              <div key={node.path}>
+                <DocTreeRow
+                  node={node}
+                  selected={selectedPath === node.path}
+                  expanded={expanded.has(node.path)}
+                  onToggle={() => toggleExpanded(node.path)}
+                  onSelect={() => onOpenDoc(node)}
+                />
+                {(node.type === "folder" || node.type === "spec-dir") && expanded.has(node.path) && (
+                  <>
+                    {visibleChildren.map((child) => (
+                      <div key={child.path}>
                         <DocTreeRow
-                          key={grandchild.path}
-                          node={grandchild}
-                          indent={2}
-                          selected={selectedPath === grandchild.path}
-                          expanded={expanded.has(grandchild.path)}
-                          onToggle={() => toggleExpanded(grandchild.path)}
-                          onSelect={() => onOpenDoc(grandchild)}
+                          node={child}
+                          indent={1}
+                          selected={selectedPath === child.path}
+                          expanded={expanded.has(child.path)}
+                          onToggle={() => toggleExpanded(child.path)}
+                          onSelect={() => onOpenDoc(child)}
                         />
-                      ))}
-                  </div>
-                ))}
-            </div>
-          ))}
+                        {(child.type === "folder" || child.type === "spec-dir") &&
+                          expanded.has(child.path) &&
+                          child.children?.map((grandchild) => (
+                            <DocTreeRow
+                              key={grandchild.path}
+                              node={grandchild}
+                              indent={2}
+                              selected={selectedPath === grandchild.path}
+                              expanded={expanded.has(grandchild.path)}
+                              onToggle={() => toggleExpanded(grandchild.path)}
+                              onSelect={() => onOpenDoc(grandchild)}
+                            />
+                          ))}
+                      </div>
+                    ))}
+                    {isPaginated && hiddenCount > 0 && (
+                      <button
+                        className="btn-ghost sm doc-tree-see-more"
+                        onClick={() => {
+                          if (node.path === "docs/specs") setSpecsLimit((l) => l + 10);
+                          else setRoadmapLimit((l) => l + 10);
+                        }}
+                      >
+                        See {Math.min(hiddenCount, 10)} more…
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
