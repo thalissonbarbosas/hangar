@@ -28,6 +28,32 @@ import { Markdown } from "./Markdown";
 // Default prompt sent by the one-click "Resume" — picks the session back up without a custom steer.
 const RESUME_MESSAGE = "Continue.";
 
+// Static map of skill → suggested follow-on skills, in display order.
+const SKILL_NEXT_MAP: Record<string, string[]> = {
+  // Spec workflow
+  prd: ["roadmap", "spec"],
+  roadmap: ["spec"],
+  adr: ["spec"],
+  rfc: ["spec"],
+  spec: ["feature"],
+  design: ["spec"],
+  // Implementation workflow
+  tdd: ["feature"],
+  feature: ["commit", "pr", "verify"],
+  fix: ["commit", "pr"],
+  simplify: ["commit", "pr"],
+  // Quality workflow
+  "code-review": ["fix", "commit"],
+  "security-review": ["fix"],
+  security: ["fix"],
+  review: ["fix"],
+  verify: ["commit", "pr"],
+  // Delivery workflow
+  commit: ["pr"],
+  pr: ["review", "jira-comment"],
+  "release-pr": ["jira-announce"],
+};
+
 function s(v: unknown): string {
   return typeof v === "string" ? v : v == null ? "" : String(v);
 }
@@ -293,6 +319,16 @@ export function RunPanel({
           )}
           {renderEvents(events, resolvedDecisions, resolvedQuestions, submitting, decide, sendFollowup)}
         </div>
+
+        {(sessionId || isActive(state)) && (
+          <SmartButtons
+            agentName={agentName}
+            skills={skills}
+            state={state}
+            sessionId={sessionId}
+            sendFollowup={sendFollowup}
+          />
+        )}
 
         {(sessionId || isActive(state)) && (
           <form
@@ -635,5 +671,36 @@ function StateBadge({ state }: { state: RunState }) {
       {m.icon}
       {m.label}
     </span>
+  );
+}
+
+function SmartButtons({
+  agentName,
+  skills,
+  state,
+  sessionId,
+  sendFollowup,
+}: {
+  agentName: string;
+  skills: Skill[];
+  state: RunState;
+  sessionId: string | undefined;
+  sendFollowup: (text: string) => void;
+}) {
+  if (isActive(state) || !sessionId) return null;
+  const suggestions = SKILL_NEXT_MAP[agentName];
+  if (!suggestions) return null;
+  const available = new Set(skills.map((s) => s.name));
+  const buttons = suggestions.filter((name) => available.has(name));
+  if (buttons.length === 0) return null;
+  return (
+    <div className="smart-buttons">
+      <span className="smart-buttons-label">Next:</span>
+      {buttons.map((name) => (
+        <button key={name} className="smart-btn" onClick={() => sendFollowup("/" + name)}>
+          /{name}
+        </button>
+      ))}
+    </div>
   );
 }
