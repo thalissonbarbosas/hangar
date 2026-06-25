@@ -6,6 +6,7 @@ import { jiraRouter } from "./routes/jira";
 import { runsRouter } from "./routes/runs";
 import { workflowsRouter } from "./routes/workflows";
 import { aiwfRouter } from "./routes/aiwf";
+import { usageRouter } from "./routes/usage";
 import { clearRuns, loadPersistedRuns, seedDemoRuns } from "./sessions";
 import { sweepOldRuns } from "./store";
 import { isDemo } from "./demo";
@@ -38,6 +39,7 @@ app.use(jiraRouter);
 app.use(runsRouter);
 app.use(workflowsRouter);
 app.use(aiwfRouter);
+app.use(usageRouter);
 
 // Export the app so tests (and other entry points) can mount it without binding a port.
 export { app };
