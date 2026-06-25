@@ -1,19 +1,38 @@
 import { useEffect, useState } from "react";
-import { X, Loader2, AlertCircle } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { api } from "../api";
+import { AiwfDocTreeNode } from "../types";
 import { Markdown } from "./Markdown";
 
-export interface ActiveDoc {
-  title: string;
-  content?: string; // pre-loaded (spec cards pass their description)
-  slug?: string; // if set and content is absent, fetched from /api/aiwf/docs/:slug
+interface DocPanelProps {
+  projectId: string;
+  node: AiwfDocTreeNode;
+  onClose: () => void;
 }
 
-export function DocPanel({ doc, onClose }: { doc: ActiveDoc; onClose: () => void }) {
-  const [content, setContent] = useState(doc.content ?? "");
-  const [loading, setLoading] = useState(!doc.content && !!doc.slug);
+// Read-only panel that fetches and renders a project doc's markdown content.
+// Reuses the run-panel CSS shell so it slots in the same right-hand panel slot.
+export function DocPanel({ projectId, node, onClose }: DocPanelProps) {
+  const [content, setContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  function load() {
+    setLoading(true);
+    setError(null);
+    api
+      .aiwfProjectDocContent(projectId, node.path)
+      .then((r) => setContent(r.content))
+      .catch((e) => setError(String(e.message ?? e)))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, node.path]);
+
+  // Escape key closes the panel — same pattern as modals.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -22,53 +41,34 @@ export function DocPanel({ doc, onClose }: { doc: ActiveDoc; onClose: () => void
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  useEffect(() => {
-    if (doc.content) {
-      setContent(doc.content);
-      setLoading(false);
-      return;
-    }
-    if (!doc.slug) return;
-    setLoading(true);
-    setError(null);
-    api
-      .aiwfDoc(doc.slug)
-      .then((r) => setContent(r.content))
-      .catch((e) => setError(String(e.message ?? e)))
-      .finally(() => setLoading(false));
-  }, [doc.slug, doc.content]);
-
   return (
-    <div className="run-overlay" onClick={onClose}>
-      <aside className="run-panel" onClick={(e) => e.stopPropagation()}>
-        <header className="run-head">
-          <div className="run-head-main">
-            <span className="run-title">{doc.title}</span>
+    <div className="run-panel">
+      <div className="run-head">
+        <div className="run-head-main">
+          <span className="run-title">{node.title}</span>
+        </div>
+        <button className="icon-btn" onClick={onClose} aria-label="Close">
+          <X size={14} />
+        </button>
+      </div>
+      <div className="run-body doc-panel-body">
+        {loading && (
+          <div style={{ padding: "20px 16px", color: "var(--text-muted)", display: "flex", gap: 8 }}>
+            <Loader2 size={14} className="spin" /> Loading…
           </div>
-          <div className="run-head-actions">
-            <button className="icon-btn" onClick={onClose} title="Close">
-              <X size={17} />
+        )}
+        {error && (
+          <div style={{ padding: "20px 16px" }}>
+            <div style={{ color: "var(--danger)", marginBottom: 10, fontSize: 13 }}>
+              Failed to load: {error}
+            </div>
+            <button className="btn-ghost" onClick={load}>
+              Retry
             </button>
           </div>
-        </header>
-        <div className="run-body">
-          {loading && (
-            <div className="run-line muted">
-              <Loader2 size={14} className="spin" /> Loading…
-            </div>
-          )}
-          {error && (
-            <div className="run-result error">
-              <AlertCircle size={14} /> {error}
-            </div>
-          )}
-          {!loading && !error && (
-            <div className="run-line text">
-              <Markdown>{content}</Markdown>
-            </div>
-          )}
-        </div>
-      </aside>
+        )}
+        {!loading && !error && content !== null && <Markdown>{content}</Markdown>}
+      </div>
     </div>
   );
 }
