@@ -853,68 +853,6 @@ describe("installAiwf / uninstallAiwf", () => {
   });
 });
 
-describe("listProjectDocs", () => {
-  it("returns [] when the docs dir does not exist", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "proj-"));
-    expect(aiwf.listProjectDocs(tmp)).toEqual([]);
-  });
-
-  it("lists .md files, extracts title from first heading, sorts alphabetically", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "proj-"));
-    const docs = path.join(tmp, "docs");
-    fs.mkdirSync(docs);
-    fs.writeFileSync(path.join(docs, "beta.md"), "# Beta Guide\nsome content");
-    fs.writeFileSync(path.join(docs, "alpha.md"), "# Alpha Guide\nsome content");
-    const result = aiwf.listProjectDocs(tmp);
-    expect(result).toEqual([
-      { slug: "alpha", title: "Alpha Guide" },
-      { slug: "beta", title: "Beta Guide" },
-    ]);
-  });
-
-  it("falls back to formatSpecName when no heading is present", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "proj-"));
-    const docs = path.join(tmp, "docs");
-    fs.mkdirSync(docs);
-    fs.writeFileSync(path.join(docs, "my-guide.md"), "no heading here");
-    const result = aiwf.listProjectDocs(tmp);
-    expect(result[0].title).toBe("My Guide");
-  });
-
-  it("excludes non-.md files and subdirectories", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "proj-"));
-    const docs = path.join(tmp, "docs");
-    fs.mkdirSync(docs);
-    fs.writeFileSync(path.join(docs, "readme.md"), "# Readme");
-    fs.writeFileSync(path.join(docs, "ignore.txt"), "text file");
-    fs.mkdirSync(path.join(docs, "specs"));
-    const result = aiwf.listProjectDocs(tmp);
-    expect(result).toEqual([{ slug: "readme", title: "Readme" }]);
-  });
-});
-
-describe("getProjectDoc", () => {
-  it("returns null for an invalid slug", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "proj-"));
-    expect(aiwf.getProjectDoc(tmp, "../etc/passwd")).toBeNull();
-    expect(aiwf.getProjectDoc(tmp, "bad/path")).toBeNull();
-  });
-
-  it("returns null when the file does not exist", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "proj-"));
-    fs.mkdirSync(path.join(tmp, "docs"));
-    expect(aiwf.getProjectDoc(tmp, "missing")).toBeNull();
-  });
-
-  it("returns the file content for a valid slug", () => {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "proj-"));
-    const docs = path.join(tmp, "docs");
-    fs.mkdirSync(docs);
-    fs.writeFileSync(path.join(docs, "guide.md"), "# Guide\nHello");
-    expect(aiwf.getProjectDoc(tmp, "guide")).toBe("# Guide\nHello");
-  });
-});
-
 describe("listProjectDocTree", () => {
   let tmp: string;
   beforeEach(() => {

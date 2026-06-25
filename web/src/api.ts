@@ -1,6 +1,5 @@
 import {
   Agent,
-  AiwfDoc,
   AiwfDocTreeNode,
   AiwfProject,
   AiwfStatus,
@@ -158,14 +157,6 @@ export const api = {
   deleteAllAiwfWorktrees: (id: string) =>
     sendJson<{ ok: boolean; removed: number }>("DELETE", `/api/aiwf/projects/${id}/worktrees`, {}),
   // ---- Branch checkout (run the task branch in the project root) ----
-  aiwfDocs: () => getJson<{ docs: AiwfDoc[] }>("/api/aiwf/docs"),
-  aiwfDoc: (slug: string) => getJson<{ content: string }>(`/api/aiwf/docs/${encodeURIComponent(slug)}`),
-  aiwfProjectDocs: (id: string) =>
-    getJson<{ docs: AiwfDoc[] }>(`/api/aiwf/projects/${encodeURIComponent(id)}/docs`),
-  aiwfProjectDoc: (id: string, slug: string) =>
-    getJson<{ content: string }>(
-      `/api/aiwf/projects/${encodeURIComponent(id)}/docs/${encodeURIComponent(slug)}`,
-    ),
   aiwfProjectDocTree: (id: string) =>
     getJson<{ nodes: AiwfDocTreeNode[] }>(`/api/aiwf/projects/${encodeURIComponent(id)}/docs/tree`),
   aiwfProjectDocContent: (id: string, docPath: string) =>
