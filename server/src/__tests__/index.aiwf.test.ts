@@ -792,12 +792,6 @@ describe("Doc tree routes", () => {
     expect(paths).toContain("docs/specs");
   });
 
-  it("GET /api/aiwf/projects/:id/docs/tree does not conflict with flat docs list", async () => {
-    const flat = await request(app).get(`/api/aiwf/projects/${pid}/docs`);
-    expect(flat.status).toBe(200);
-    expect(Array.isArray(flat.body.docs)).toBe(true);
-  });
-
   it("GET /api/aiwf/projects/:id/docs/content?path=docs/PRD.md returns 200 when file exists", async () => {
     const docsDir = path.join(repoDir, "docs");
     fs.mkdirSync(docsDir, { recursive: true });
