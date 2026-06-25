@@ -1655,6 +1655,20 @@ html[data-theme="light"] .model-haiku {
   border-color: color-mix(in srgb, var(--tab-color, var(--accent)) 40%, var(--border));
 }
 
+/* ---- inline picker (hand-off modal) ---- */
+.handoff-picker {
+  position: static; /* override the fixed positioning used by the board card popover */
+  width: 100%;
+  max-height: 260px;
+  box-shadow: none;
+  border-radius: var(--r-md);
+}
+.assign-item-main.selected {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 500;
+}
+
 /* ---- note modal ---- */
 .modal-overlay {
   position: fixed;
