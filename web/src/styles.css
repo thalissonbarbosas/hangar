@@ -1663,6 +1663,13 @@ html[data-theme="light"] .model-haiku {
   box-shadow: none;
   border-radius: var(--r-md);
 }
+/* The skills column is flex: 0 0 auto (max-content), so when the handoff-picker
+   is full-width the column stops short of the right edge and the scrollbar lands
+   in the middle of the box. Stretching it fills the remaining space and pins the
+   scrollbar to the far right. */
+.handoff-picker .assign-col:last-child {
+  flex: 1;
+}
 .assign-item-main.selected {
   background: var(--accent-soft);
   color: var(--accent);
