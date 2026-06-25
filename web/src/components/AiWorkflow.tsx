@@ -312,7 +312,21 @@ function DocTreeRow({
   }
 
   return (
-    <div className={classes} onClick={handleClick}>
+    <div
+      className={classes}
+      onClick={handleClick}
+      role="button"
+      tabIndex={absent ? -1 : 0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleClick();
+        }
+      }}
+      aria-label={node.title}
+      aria-expanded={isFolder ? expanded : undefined}
+      aria-disabled={absent}
+    >
       {isFolder ? (
         expanded ? (
           <ChevronDown size={12} style={{ flexShrink: 0 }} />
@@ -439,8 +453,17 @@ function DocTreeSidebar({
               <div
                 key={thread.key}
                 className="sidebar-thread-row"
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${thread.key}: ${thread.summary}`}
                 onClick={() => {
                   if (run) onOpenThread(run.id);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (run) onOpenThread(run.id);
+                  }
                 }}
               >
                 <span className={dotClass} />

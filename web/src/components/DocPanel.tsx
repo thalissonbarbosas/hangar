@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { api } from "../api";
 import { AiwfDocTreeNode } from "../types";
@@ -17,7 +17,8 @@ export function DocPanel({ projectId, node, onClose }: DocPanelProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  function load() {
+  // Stable load function so the Retry button always captures the latest projectId/node.path.
+  const load = useCallback(() => {
     setLoading(true);
     setError(null);
     api
@@ -25,12 +26,11 @@ export function DocPanel({ projectId, node, onClose }: DocPanelProps) {
       .then((r) => setContent(r.content))
       .catch((e) => setError(String(e.message ?? e)))
       .finally(() => setLoading(false));
-  }
+  }, [projectId, node.path]);
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, node.path]);
+  }, [load]);
 
   // Escape key closes the panel — same pattern as modals.
   useEffect(() => {
