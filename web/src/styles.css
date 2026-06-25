@@ -2503,6 +2503,39 @@ a.session-ticket {
   height: 38px;
 }
 
+/* Smart buttons — contextual next-skill strip above the composer */
+.smart-buttons {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  flex-wrap: wrap;
+}
+.smart-buttons-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: 2px;
+  white-space: nowrap;
+}
+.smart-btn {
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition: background var(--t), color var(--t);
+  font-family: var(--mono);
+  line-height: 1.5;
+}
+.smart-btn:hover {
+  background: var(--accent-soft);
+}
+
 /* ---- AI Workflow view ---- */
 .aiwf {
   display: flex;
