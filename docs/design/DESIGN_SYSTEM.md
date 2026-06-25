@@ -241,6 +241,86 @@ Shadows are stronger in dark mode because backgrounds are darker — the contras
 
 ---
 
+## Doc Tree Sidebar
+
+*Added for: SPEC-017 (AIWF doc tree sidebar)*
+
+### Layout
+
+```css
+.doc-sidebar {
+  width: 220px;           /* fixed; collapses to 0 when hidden */
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+  transition: width 140ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.doc-sidebar.collapsed { width: 0; overflow: hidden; }
+```
+
+The sidebar sits between the AIWF sub-bar and the board. When collapsed the board reflows to
+fill the available width without any JS measurement.
+
+### Section label
+
+```css
+.doc-sidebar-section-label {
+  font-size: 9.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-faint);
+  padding: 10px 12px 6px;
+}
+```
+
+Used for "DOCUMENTS" and "ACTIVE · N" headings inside the sidebar.
+
+### Tree row
+
+```css
+.doc-tree-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 8px 5px 12px;
+  border-radius: 6px;
+  font-size: 11.5px; color: var(--text);
+  cursor: pointer;
+  transition: background 140ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.doc-tree-row:hover   { background: var(--surface-3); }
+.doc-tree-row.selected { background: var(--accent-soft); }
+.doc-tree-row.absent  { opacity: 0.45; cursor: default; }
+.doc-tree-row.indent-1 { padding-left: 24px; }
+.doc-tree-row.indent-2 { padding-left: 36px; }
+```
+
+**Anatomy of a tree row:**
+
+| Part | Spec |
+|------|------|
+| Chevron (folders) | `ChevronRight` / `ChevronDown`, `8px`, `var(--text-faint)` |
+| Icon | emoji: 📋 PRD, 🏗 ARCH, 🛡 THREATS, 🎨 DESIGN_SYSTEM, 📁 folder, 📝 spec |
+| Title | `flex: 1`, one line, `overflow: hidden; text-overflow: ellipsis; white-space: nowrap` |
+| Exists badge | `✓` at `8.5px / 700`, `var(--success)` on `var(--success-soft)` bg, `border-radius: 3px`, `padding: 1px 5px` |
+
+Absent rows (file does not exist on disk): render at `opacity: 0.45` with `cursor: default`.
+No "missing" badge — the dimming is the only signal.
+
+### Active thread row
+
+```css
+.sidebar-thread-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 8px; border-radius: 5px;
+  font-size: 10.5px; cursor: pointer;
+}
+.sidebar-thread-row:hover { background: var(--surface-3); }
+```
+
+Run dot: `5×5px`, `border-radius: 50%`. Running → `var(--accent)`; awaiting → `var(--warning)`.
+Card key: `var(--mono)`, `9.5px`, `var(--text-faint)`. Thread title: `var(--text-muted)`,
+`overflow: hidden; text-overflow: ellipsis`.
+
+---
+
 ## Implementation Notes
 
 ### Applying the accent color refinement
