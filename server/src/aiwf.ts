@@ -8,7 +8,7 @@ import { promisify } from "util";
 const execAsync = promisify(execRaw);
 const execFileAsync = promisify(execFile);
 import { expandHome, getConfig, getAiwfProjects } from "./config";
-import { AiwfDoc, AiwfDocTreeNode, AiwfProject, AiwfHistoryEntry, SpecSlice, Ticket } from "./types";
+import { AiwfDocTreeNode, AiwfProject, AiwfHistoryEntry, SpecSlice, Ticket } from "./types";
 import { isDemo, demoAiwfCards } from "./demo";
 import { createWorktree, findWorktreePath, sanitize } from "./worktree";
 import { DATA_DIR } from "./store";
@@ -829,64 +829,6 @@ export async function resolveTaskWorktree(
 // ---------------------------------------------------------------------------
 // AIWF docs: ~/.local/share/ai-workflow/docs/
 // ---------------------------------------------------------------------------
-
-const AIWF_DOCS_DIR = path.join(os.homedir(), ".local", "share", "ai-workflow", "docs");
-
-/** List all .md files in the AIWF docs directory. Returns [] when not installed. */
-export function listAiwfDocs(): AiwfDoc[] {
-  if (!fs.existsSync(AIWF_DOCS_DIR)) return [];
-  return fs
-    .readdirSync(AIWF_DOCS_DIR)
-    .filter((f) => f.endsWith(".md"))
-    .map((f) => {
-      const slug = f.replace(/\.md$/i, "");
-      const content = fs.readFileSync(path.join(AIWF_DOCS_DIR, f), "utf8");
-      const heading = content.split(/\r?\n/).find((l) => l.startsWith("# "));
-      const title = heading ? heading.slice(2).trim() : formatSpecName(f);
-      return { slug, title };
-    });
-}
-
-/** Read a single AIWF doc by slug. Returns null if not found.
- *  Slug is validated to `[A-Za-z0-9_-]` only before use. */
-export function getAiwfDoc(slug: string): string | null {
-  if (!/^[A-Za-z0-9_-]+$/.test(slug)) return null;
-  const filePath = path.join(AIWF_DOCS_DIR, `${slug}.md`);
-  if (!fs.existsSync(filePath)) return null;
-  return fs.readFileSync(filePath, "utf8");
-}
-
-/** List .md files in the project's docs/ directory, excluding the specs/ subdirectory.
- *  Returns [] when the directory doesn't exist. */
-export function listProjectDocs(repoPath: string): AiwfDoc[] {
-  const docsDir = path.join(expandHome(repoPath), "docs");
-  if (!fs.existsSync(docsDir)) return [];
-  const specsSubdir = path.join(docsDir, "specs");
-  return fs
-    .readdirSync(docsDir)
-    .filter((f) => {
-      if (!f.endsWith(".md")) return false;
-      const full = path.join(docsDir, f);
-      return fs.statSync(full).isFile() && full !== specsSubdir;
-    })
-    .map((f) => {
-      const slug = f.replace(/\.md$/i, "");
-      const content = fs.readFileSync(path.join(docsDir, f), "utf8");
-      const heading = content.split(/\r?\n/).find((l) => l.startsWith("# "));
-      const title = heading ? heading.slice(2).trim() : formatSpecName(f);
-      return { slug, title };
-    })
-    .sort((a, b) => a.title.localeCompare(b.title));
-}
-
-/** Read one project doc by slug. Returns null if invalid or not found.
- *  Slug is validated to `[A-Za-z0-9_-]` only before use. */
-export function getProjectDoc(repoPath: string, slug: string): string | null {
-  if (!/^[A-Za-z0-9_-]+$/.test(slug)) return null;
-  const filePath = path.join(expandHome(repoPath), "docs", `${slug}.md`);
-  if (!fs.existsSync(filePath)) return null;
-  return fs.readFileSync(filePath, "utf8");
-}
 
 /** Build a structured doc tree for the AIWF sidebar.
  *  Always returns the six standard entries (PRD, ARCH, THREAT_MODEL, DESIGN_SYSTEM, roadmap/, specs/)
