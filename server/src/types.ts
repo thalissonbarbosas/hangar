@@ -116,3 +116,18 @@ export interface Ticket {
   taskBranch?: string; // aiwf: the task-branch name when hasWorktree is true
   specChildren?: SpecSlice[]; // aiwf: slice files inside a directory spec (undefined for single-file specs)
 }
+
+export interface AiwfDocTreeNode {
+  /** Relative path from the project root — e.g. "docs/ARCHITECTURE.md" */
+  path: string;
+  /** Display title: first `# ` heading if file exists, otherwise formatSpecName fallback */
+  title: string;
+  /** doc = single .md file | folder = directory | spec = single-file spec card | spec-dir = sliced spec */
+  type: "doc" | "folder" | "spec" | "spec-dir";
+  /** Whether the file/directory exists on disk right now */
+  exists: boolean;
+  /** AIWF phase this doc is associated with (Planning, Design, Implementation, etc.) */
+  phase?: string;
+  /** Populated for folders and spec-dirs */
+  children?: AiwfDocTreeNode[];
+}

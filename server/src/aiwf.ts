@@ -8,7 +8,7 @@ import { promisify } from "util";
 const execAsync = promisify(execRaw);
 const execFileAsync = promisify(execFile);
 import { expandHome, getConfig, getAiwfProjects } from "./config";
-import { AiwfDoc, AiwfProject, AiwfHistoryEntry, SpecSlice, Ticket } from "./types";
+import { AiwfDoc, AiwfDocTreeNode, AiwfProject, AiwfHistoryEntry, SpecSlice, Ticket } from "./types";
 import { isDemo, demoAiwfCards } from "./demo";
 import { createWorktree, findWorktreePath, sanitize } from "./worktree";
 import { DATA_DIR } from "./store";
@@ -886,4 +886,172 @@ export function getProjectDoc(repoPath: string, slug: string): string | null {
   const filePath = path.join(expandHome(repoPath), "docs", `${slug}.md`);
   if (!fs.existsSync(filePath)) return null;
   return fs.readFileSync(filePath, "utf8");
+}
+
+/** Build a structured doc tree for the AIWF sidebar.
+ *  Always returns the six standard entries (PRD, ARCH, THREAT_MODEL, DESIGN_SYSTEM, roadmap/, specs/)
+ *  regardless of whether the files exist on disk (`exists` reflects disk state).
+ *  Extra root-level docs/*.md files are appended after the standard entries. */
+export function listProjectDocTree(repoPath: string): AiwfDocTreeNode[] {
+  const root = expandHome(repoPath);
+  const docsDir = path.join(root, "docs");
+
+  const fileExists = (rel: string) => fs.existsSync(path.join(root, rel));
+  const titleFromPath = (rel: string, fallback: string): string => {
+    const full = path.join(root, rel);
+    if (!fs.existsSync(full)) return fallback;
+    try {
+      const content = fs.readFileSync(full, "utf8");
+      const heading = content.split(/\r?\n/).find((l) => l.startsWith("# "));
+      return heading ? heading.slice(2).trim() : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
+  // Standard fixed entries
+  const nodes: AiwfDocTreeNode[] = [
+    {
+      path: "docs/PRD.md",
+      title: titleFromPath("docs/PRD.md", "Product Requirements"),
+      type: "doc",
+      exists: fileExists("docs/PRD.md"),
+      phase: "Planning",
+    },
+    {
+      path: "docs/ARCHITECTURE.md",
+      title: titleFromPath("docs/ARCHITECTURE.md", "Architecture"),
+      type: "doc",
+      exists: fileExists("docs/ARCHITECTURE.md"),
+      phase: "Planning",
+    },
+    {
+      path: "docs/THREAT_MODEL.md",
+      title: titleFromPath("docs/THREAT_MODEL.md", "Threat Model"),
+      type: "doc",
+      exists: fileExists("docs/THREAT_MODEL.md"),
+      phase: "Planning",
+    },
+    {
+      path: "docs/design/DESIGN_SYSTEM.md",
+      title: titleFromPath("docs/design/DESIGN_SYSTEM.md", "Design System"),
+      type: "doc",
+      exists: fileExists("docs/design/DESIGN_SYSTEM.md"),
+      phase: "Design",
+    },
+  ];
+
+  // Roadmap folder — children are all *.md files sorted by filename
+  const roadmapDir = path.join(docsDir, "roadmap");
+  const roadmapExists = fs.existsSync(roadmapDir) && fs.statSync(roadmapDir).isDirectory();
+  const roadmapChildren: AiwfDocTreeNode[] = roadmapExists
+    ? fs
+        .readdirSync(roadmapDir)
+        .filter((f) => f.endsWith(".md") && fs.statSync(path.join(roadmapDir, f)).isFile())
+        .sort()
+        .map((f) => {
+          const rel = "docs/roadmap/" + f;
+          return {
+            path: rel,
+            title: titleFromPath(rel, formatSpecName(f)),
+            type: "doc" as const,
+            exists: true,
+          };
+        })
+    : [];
+  nodes.push({
+    path: "docs/roadmap",
+    title: "Roadmap",
+    type: "folder",
+    exists: roadmapExists,
+    phase: "Planning",
+    children: roadmapChildren,
+  });
+
+  // Specs folder — reuse listSpecCards to avoid re-scanning, map Ticket → AiwfDocTreeNode
+  const specsDir = path.join(docsDir, "specs");
+  const specsExist = fs.existsSync(specsDir) && fs.statSync(specsDir).isDirectory();
+  const specProject: AiwfProject = { id: "_tree", name: "", repoPath, createdAt: 0 };
+  const specCards = listSpecCards(specProject);
+  const specsChildren: AiwfDocTreeNode[] = specCards.map((card) => {
+    // description starts with "Spec: docs/specs/...\n\n..."
+    const descFirst = card.description?.split(/\r?\n/)[0] ?? "";
+    const descPath = descFirst.replace(/^Spec:\s*/, "").replace(/\\/g, "/");
+    const isSliced = Array.isArray(card.specChildren);
+    // For sliced specs, descPath is "docs/specs/NNN_dir/README.md" — strip the filename to get the dir
+    const specPath = isSliced ? descPath.replace(/\/README\.md$/, "") : descPath;
+
+    const node: AiwfDocTreeNode = {
+      path: specPath,
+      title: card.summary,
+      type: isSliced ? "spec-dir" : "spec",
+      exists: true, // listSpecCards only returns entries that exist on disk
+    };
+    if (isSliced && card.specChildren) {
+      const dirPath = specPath;
+      node.children = card.specChildren.map((sl) => ({
+        path: dirPath + "/" + sl.filename,
+        title: sl.title,
+        type: "spec" as const,
+        exists: true,
+      }));
+    }
+    return node;
+  });
+  nodes.push({
+    path: "docs/specs",
+    title: "Specs",
+    type: "folder",
+    exists: specsExist,
+    phase: "Implementation",
+    children: specsChildren,
+  });
+
+  // Extra root-level docs/*.md files not already covered by the standard entries
+  const knownRoots = new Set(["PRD.md", "ARCHITECTURE.md", "THREAT_MODEL.md"]);
+  if (fs.existsSync(docsDir) && fs.statSync(docsDir).isDirectory()) {
+    const extras = fs
+      .readdirSync(docsDir)
+      .filter((f) => f.endsWith(".md") && !knownRoots.has(f) && fs.statSync(path.join(docsDir, f)).isFile())
+      .sort()
+      .map((f) => {
+        const rel = "docs/" + f;
+        return {
+          path: rel,
+          title: titleFromPath(rel, formatSpecName(f)),
+          type: "doc" as const,
+          exists: true,
+        };
+      });
+    nodes.push(...extras);
+  }
+
+  return nodes;
+}
+
+/** Read a project doc by relative path (e.g. "docs/design/DESIGN_SYSTEM.md").
+ *  Three-layer path validation guards against directory traversal.
+ *  Returns null on validation failure OR file-not-found. */
+export function getProjectDocByPath(
+  repoPath: string,
+  relPath: string,
+): { content: string; title: string } | null {
+  // Layer 1: must start with "docs/"
+  if (!relPath.startsWith("docs/")) return null;
+
+  // Layer 2: no ".." segments after normalize
+  const normalized = path.normalize(relPath);
+  if (normalized.includes("..")) return null;
+
+  // Layer 3: resolved absolute path must be strictly under <repoPath>/docs/
+  const docsRoot = path.join(expandHome(repoPath), "docs");
+  const absPath = path.resolve(path.join(expandHome(repoPath), relPath));
+  if (!absPath.startsWith(docsRoot + path.sep)) return null;
+
+  if (!fs.existsSync(absPath) || !fs.statSync(absPath).isFile()) return null;
+
+  const content = fs.readFileSync(absPath, "utf8");
+  const heading = content.split(/\r?\n/).find((l) => l.startsWith("# "));
+  const title = heading ? heading.slice(2).trim() : formatSpecName(path.basename(relPath));
+  return { content, title };
 }

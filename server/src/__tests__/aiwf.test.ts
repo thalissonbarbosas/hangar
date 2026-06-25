@@ -914,3 +914,143 @@ describe("getProjectDoc", () => {
     expect(aiwf.getProjectDoc(tmp, "guide")).toBe("# Guide\nHello");
   });
 });
+
+describe("listProjectDocTree", () => {
+  let tmp: string;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "doctree-"));
+  });
+  afterEach(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("returns all six standard entries with correct types, phases, and exists: false when docs/ is absent", () => {
+    const nodes = aiwf.listProjectDocTree(tmp);
+    expect(nodes.map((n) => n.path)).toEqual([
+      "docs/PRD.md",
+      "docs/ARCHITECTURE.md",
+      "docs/THREAT_MODEL.md",
+      "docs/design/DESIGN_SYSTEM.md",
+      "docs/roadmap",
+      "docs/specs",
+    ]);
+    expect(nodes.every((n) => !n.exists)).toBe(true);
+    expect(nodes.find((n) => n.path === "docs/PRD.md")?.phase).toBe("Planning");
+    expect(nodes.find((n) => n.path === "docs/design/DESIGN_SYSTEM.md")?.phase).toBe("Design");
+    expect(nodes.find((n) => n.path === "docs/specs")?.phase).toBe("Implementation");
+    expect(nodes.find((n) => n.path === "docs/roadmap")?.type).toBe("folder");
+    expect(nodes.find((n) => n.path === "docs/specs")?.type).toBe("folder");
+  });
+
+  it("docs/PRD.md has exists: true when file is present and exists: false when absent", () => {
+    const docs = path.join(tmp, "docs");
+    fs.mkdirSync(docs, { recursive: true });
+
+    // absent case
+    expect(aiwf.listProjectDocTree(tmp).find((n) => n.path === "docs/PRD.md")?.exists).toBe(false);
+
+    // present case
+    fs.writeFileSync(path.join(docs, "PRD.md"), "# Product Requirements\nBody");
+    expect(aiwf.listProjectDocTree(tmp).find((n) => n.path === "docs/PRD.md")?.exists).toBe(true);
+    expect(aiwf.listProjectDocTree(tmp).find((n) => n.path === "docs/PRD.md")?.title).toBe(
+      "Product Requirements",
+    );
+  });
+
+  it("roadmap folder children are sorted by filename ascending", () => {
+    const roadmap = path.join(tmp, "docs", "roadmap");
+    fs.mkdirSync(roadmap, { recursive: true });
+    fs.writeFileSync(path.join(roadmap, "003_c.md"), "# C\n");
+    fs.writeFileSync(path.join(roadmap, "001_a.md"), "# A\n");
+    fs.writeFileSync(path.join(roadmap, "002_b.md"), "# B\n");
+
+    const node = aiwf.listProjectDocTree(tmp).find((n) => n.path === "docs/roadmap")!;
+    expect(node.exists).toBe(true);
+    expect(node.children?.map((c) => c.path)).toEqual([
+      "docs/roadmap/001_a.md",
+      "docs/roadmap/002_b.md",
+      "docs/roadmap/003_c.md",
+    ]);
+  });
+
+  it("specs folder children use spec/spec-dir types from listSpecCards", () => {
+    const specsDir = path.join(tmp, "docs", "specs");
+    fs.mkdirSync(specsDir, { recursive: true });
+    // single-file spec
+    fs.writeFileSync(path.join(specsDir, "001_foo.md"), "# Foo\n");
+    // sliced spec dir
+    const dir = path.join(specsDir, "002_bar");
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, "README.md"), "# Bar\n");
+    fs.writeFileSync(path.join(dir, "001_slice-a.md"), "# Slice A\n");
+
+    const specsNode = aiwf.listProjectDocTree(tmp).find((n) => n.path === "docs/specs")!;
+    expect(specsNode.exists).toBe(true);
+    // listSpecCards returns descending numeric order so 002 before 001
+    const barNode = specsNode.children?.find((c) => c.type === "spec-dir");
+    const fooNode = specsNode.children?.find((c) => c.type === "spec");
+    expect(barNode).toBeDefined();
+    expect(fooNode).toBeDefined();
+    expect(barNode?.children).toHaveLength(1);
+    expect(barNode?.children?.[0].title).toBe("Slice A");
+  });
+
+  it("appends extra root-level docs/*.md files not in the standard set", () => {
+    const docs = path.join(tmp, "docs");
+    fs.mkdirSync(docs, { recursive: true });
+    fs.writeFileSync(path.join(docs, "EXTRA.md"), "# Extra\n");
+
+    const nodes = aiwf.listProjectDocTree(tmp);
+    const extra = nodes.find((n) => n.path === "docs/EXTRA.md");
+    expect(extra).toBeDefined();
+    expect(extra?.type).toBe("doc");
+    expect(extra?.exists).toBe(true);
+    // standard entries stay in their fixed positions
+    expect(nodes[0].path).toBe("docs/PRD.md");
+  });
+});
+
+describe("getProjectDocByPath", () => {
+  let tmp: string;
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "docbypath-"));
+    fs.mkdirSync(path.join(tmp, "docs"), { recursive: true });
+  });
+  afterEach(() => {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it("returns null for path traversal via ../", () => {
+    expect(aiwf.getProjectDocByPath(tmp, "../etc/passwd")).toBeNull();
+  });
+
+  it("returns null for docs/../../server/src/config.ts", () => {
+    expect(aiwf.getProjectDocByPath(tmp, "docs/../../server/src/config.ts")).toBeNull();
+  });
+
+  it("returns null for path not starting with docs/", () => {
+    expect(aiwf.getProjectDocByPath(tmp, "notdocs/README.md")).toBeNull();
+  });
+
+  it("returns null when the file does not exist", () => {
+    expect(aiwf.getProjectDocByPath(tmp, "docs/MISSING.md")).toBeNull();
+  });
+
+  it("returns content and title for a valid path", () => {
+    const docs = path.join(tmp, "docs");
+    fs.writeFileSync(path.join(docs, "ARCHITECTURE.md"), "# Architecture\nContent here.");
+    const result = aiwf.getProjectDocByPath(tmp, "docs/ARCHITECTURE.md");
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("Architecture");
+    expect(result!.content).toContain("Content here.");
+  });
+
+  it("returns content for a file in a subdirectory", () => {
+    const design = path.join(tmp, "docs", "design");
+    fs.mkdirSync(design, { recursive: true });
+    fs.writeFileSync(path.join(design, "DESIGN_SYSTEM.md"), "# Design System\nTokens.");
+    const result = aiwf.getProjectDocByPath(tmp, "docs/design/DESIGN_SYSTEM.md");
+    expect(result).not.toBeNull();
+    expect(result!.title).toBe("Design System");
+  });
+});
