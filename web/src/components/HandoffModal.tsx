@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
-import { Bot, Sparkles, X, GitBranch } from "lucide-react";
+import { X, GitBranch } from "lucide-react";
 import { Agent, RunKind, Skill } from "../types";
+import { AgentSkillPicker } from "./AgentSkillPicker";
 
 export function HandoffModal({
   fromLabel,
@@ -18,14 +19,11 @@ export function HandoffModal({
   onRun: (name: string, kind: RunKind, note: string) => void;
   onCancel: () => void;
 }) {
-  const [kind, setKind] = useState<RunKind>("agent");
   const [name, setName] = useState("");
+  const [kind, setKind] = useState<RunKind | null>(null);
   const [note, setNote] = useState(initialNote);
 
-  useEffect(() => setName(""), [kind]);
-
-  const options = kind === "skill" ? skills : agents;
-  const canRun = !!name && !!note.trim();
+  const canRun = !!name && !!kind && !!note.trim();
 
   return createPortal(
     <div className="modal-overlay" onClick={onCancel}>
@@ -44,30 +42,17 @@ export function HandoffModal({
         </p>
 
         <div className="field">
-          <label>Run</label>
-          <div className="board-toggles" style={{ width: "fit-content" }}>
-            <label className={kind === "agent" ? "pill on" : "pill"}>
-              <input type="radio" checked={kind === "agent"} onChange={() => setKind("agent")} />
-              <Bot size={13} /> Agent
-            </label>
-            <label className={kind === "skill" ? "pill on" : "pill"}>
-              <input type="radio" checked={kind === "skill"} onChange={() => setKind("skill")} />
-              <Sparkles size={13} /> Skill
-            </label>
-          </div>
-        </div>
-
-        <div className="field">
-          <label>{kind === "skill" ? "Skill" : "Agent"}</label>
-          <select className="runner-select" value={name} onChange={(e) => setName(e.target.value)}>
-            <option value="">Select a {kind}…</option>
-            {options.map((o) => (
-              <option key={o.name} value={o.name}>
-                {o.name}
-                {o.model ? ` · ${o.model}` : ""}
-              </option>
-            ))}
-          </select>
+          <label>Agent or Skill</label>
+          <AgentSkillPicker
+            agents={agents}
+            skills={skills}
+            selectedName={name}
+            selectedKind={kind}
+            onSelect={(n, k) => {
+              setName(n);
+              setKind(k);
+            }}
+          />
         </div>
 
         <div className="field">
@@ -79,7 +64,7 @@ export function HandoffModal({
           <button className="btn-ghost" onClick={onCancel}>
             Cancel
           </button>
-          <button className="btn" disabled={!canRun} onClick={() => onRun(name, kind, note)}>
+          <button className="btn" disabled={!canRun} onClick={() => onRun(name, kind!, note)}>
             <GitBranch size={14} /> Hand off
           </button>
         </div>
