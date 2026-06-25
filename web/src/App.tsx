@@ -85,6 +85,24 @@ export function App() {
   const [aiwf, setAiwf] = useState<AiwfStatus | null>(null);
   const [aiwfProjects, setAiwfProjects] = useState<AiwfProject[]>([]);
   const [aiwfSelected, setAiwfSelected] = useState<string | null>(null);
+  // Doc tree sidebar open/closed — persisted to localStorage so it survives page reloads.
+  const [aiwfSidebarOpen, setAiwfSidebarOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("hangar.aiwf.sidebarOpen") !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const toggleAiwfSidebar = () =>
+    setAiwfSidebarOpen((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem("hangar.aiwf.sidebarOpen", String(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
 
   const loadAiwf = useCallback(() => {
     api
@@ -537,10 +555,12 @@ export function App() {
           projects={aiwfProjects}
           selectedId={aiwfSelected}
           skills={enrichedSkills}
+          sidebarOpen={aiwfSidebarOpen}
           onSelect={setAiwfSelected}
           onReload={loadAiwf}
           onError={setError}
           onOpenSession={openSession}
+          onToggleSidebar={toggleAiwfSidebar}
         />
       )}
 
@@ -585,11 +605,13 @@ export function App() {
           status={aiwf}
           skills={enrichedSkills}
           runs={runs}
+          sidebarOpen={aiwfSidebarOpen}
           onOpenRun={openRun}
           onOpenSession={openSession}
           onReload={loadAiwf}
           onStartClaude={openClaudeSession}
           onError={setError}
+          onClearRun={() => setActiveRun(null)}
         />
       ) : (
         <div className="main">

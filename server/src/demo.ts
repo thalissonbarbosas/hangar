@@ -1,7 +1,7 @@
 // Demo mode (HANGAR_DEMO=1): serve a fake board + seeded sessions so the app is fully
 // explorable — and screenshot-able — without Jira credentials or real project data.
 // All content here is fictional. Default-off; nothing below runs unless the flag is set.
-import { BoardConfig, HangarConfig, Ticket } from "./types";
+import { AiwfDocTreeNode, BoardConfig, HangarConfig, Ticket } from "./types";
 
 export const DEMO_BOARD_KEY = "DEMO";
 
@@ -285,6 +285,66 @@ export function demoRunSeeds(): DemoRunSeed[] {
           ],
         },
         { kind: "state", state: "awaiting_input" },
+      ],
+    },
+  ];
+}
+
+/**
+ * Static doc tree stub for the demo AIWF project (Aurora).
+ * The real filesystem is never read in demo mode — this replaces listProjectDocTree.
+ */
+export function demoDocTree(): AiwfDocTreeNode[] {
+  return [
+    {
+      path: "docs/PRD.md",
+      title: "Product Requirements",
+      type: "doc",
+      exists: true,
+      phase: "Planning",
+    },
+    {
+      path: "docs/ARCHITECTURE.md",
+      title: "Architecture",
+      type: "doc",
+      exists: true,
+      phase: "Planning",
+    },
+    {
+      path: "docs/THREAT_MODEL.md",
+      title: "Threat Model",
+      type: "doc",
+      exists: false,
+      phase: "Planning",
+    },
+    {
+      path: "docs/design/DESIGN_SYSTEM.md",
+      title: "Design System",
+      type: "doc",
+      exists: false,
+      phase: "Design",
+    },
+    {
+      path: "docs/specs",
+      title: "Specs",
+      type: "spec-dir",
+      exists: true,
+      phase: "Implementation",
+      children: [
+        {
+          path: "docs/specs/001_auth.md",
+          title: "Auth feature",
+          type: "spec",
+          exists: true,
+          phase: "Implementation",
+        },
+        {
+          path: "docs/specs/002_dashboard.md",
+          title: "Dashboard layout",
+          type: "spec",
+          exists: true,
+          phase: "Implementation",
+        },
       ],
     },
   ];
