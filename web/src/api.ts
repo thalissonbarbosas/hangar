@@ -91,6 +91,14 @@ export interface JiraSettingsInput {
   myTicketsOnly?: boolean;
 }
 
+export interface UsageParams {
+  mode?: string;
+  since?: string;
+  until?: string;
+  active?: string;
+  recent?: string;
+}
+
 export const api = {
   config: () => getJson<FullConfig>("/api/config"),
   saveConfig: (cfg: FullConfig) => sendJson<FullConfig>("PUT", "/api/config", cfg),
@@ -213,4 +221,9 @@ export const api = {
   deleteWorkflowRun: (id: string) => sendJson<{ ok: boolean }>("DELETE", `/api/workflows/runs/${id}`, {}),
   clearWorkflowRuns: (scope: "finished" | "all" = "finished") =>
     sendJson<{ ok: boolean; cleared: number }>("DELETE", `/api/workflows/runs?scope=${scope}`, {}),
+  // ---- Usage cost (ccusage integration) ----
+  usageStatus: () => getJson<{ installed: boolean; version: string | null }>("/api/usage/status"),
+  usageData: (params: UsageParams) =>
+    getJson<unknown>(`/api/usage/data?${new URLSearchParams(params as Record<string, string>)}`),
+  usageInstall: () => sendJson<{ ok: boolean; output: string }>("POST", "/api/usage/install", {}),
 };
