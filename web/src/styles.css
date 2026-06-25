@@ -2528,7 +2528,9 @@ a.session-ticket {
   background: transparent;
   color: var(--accent);
   cursor: pointer;
-  transition: background var(--t), color var(--t);
+  transition:
+    background var(--t),
+    color var(--t);
   font-family: var(--mono);
   line-height: 1.5;
 }
