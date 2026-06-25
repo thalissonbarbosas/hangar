@@ -1,6 +1,7 @@
 import {
   Agent,
   AiwfDoc,
+  AiwfDocTreeNode,
   AiwfProject,
   AiwfStatus,
   FullConfig,
@@ -164,6 +165,12 @@ export const api = {
   aiwfProjectDoc: (id: string, slug: string) =>
     getJson<{ content: string }>(
       `/api/aiwf/projects/${encodeURIComponent(id)}/docs/${encodeURIComponent(slug)}`,
+    ),
+  aiwfProjectDocTree: (id: string) =>
+    getJson<{ nodes: AiwfDocTreeNode[] }>(`/api/aiwf/projects/${encodeURIComponent(id)}/docs/tree`),
+  aiwfProjectDocContent: (id: string, docPath: string) =>
+    getJson<{ content: string; title: string }>(
+      `/api/aiwf/projects/${encodeURIComponent(id)}/docs/content?path=${encodeURIComponent(docPath)}`,
     ),
   aiwfBranch: (id: string) => getJson<{ branch: string }>(`/api/aiwf/projects/${id}/branch`),
   aiwfCheckoutCard: (id: string, key: string) =>

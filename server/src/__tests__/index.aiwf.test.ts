@@ -763,3 +763,78 @@ describe("AI Workflow routes", () => {
     }
   });
 });
+
+describe("Doc tree routes", () => {
+  let pid: string;
+  let repoDir: string;
+
+  beforeAll(async () => {
+    repoDir = fs.mkdtempSync(path.join(os.tmpdir(), "aiwf-doctree-"));
+    const proj = await request(app)
+      .post("/api/aiwf/projects")
+      .send({ name: "Doc Tree Test", repoPath: repoDir, mode: "adopt" });
+    pid = proj.body.project.id;
+  });
+
+  afterAll(() => {
+    fs.rmSync(repoDir, { recursive: true, force: true });
+  });
+
+  it("GET /api/aiwf/projects/:id/docs/tree returns 200 with nodes array", async () => {
+    const res = await request(app).get(`/api/aiwf/projects/${pid}/docs/tree`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.nodes)).toBe(true);
+    // Six standard entries always present regardless of disk state
+    expect(res.body.nodes.length).toBeGreaterThanOrEqual(6);
+    const paths = res.body.nodes.map((n: { path: string }) => n.path);
+    expect(paths).toContain("docs/PRD.md");
+    expect(paths).toContain("docs/ARCHITECTURE.md");
+    expect(paths).toContain("docs/specs");
+  });
+
+  it("GET /api/aiwf/projects/:id/docs/tree does not conflict with flat docs list", async () => {
+    const flat = await request(app).get(`/api/aiwf/projects/${pid}/docs`);
+    expect(flat.status).toBe(200);
+    expect(Array.isArray(flat.body.docs)).toBe(true);
+  });
+
+  it("GET /api/aiwf/projects/:id/docs/content?path=docs/PRD.md returns 200 when file exists", async () => {
+    const docsDir = path.join(repoDir, "docs");
+    fs.mkdirSync(docsDir, { recursive: true });
+    fs.writeFileSync(path.join(docsDir, "PRD.md"), "# Product Requirements\nBody text.");
+
+    const res = await request(app).get(
+      `/api/aiwf/projects/${pid}/docs/content?path=` + encodeURIComponent("docs/PRD.md"),
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.title).toBe("Product Requirements");
+    expect(res.body.content).toContain("Body text.");
+
+    fs.rmSync(docsDir, { recursive: true, force: true });
+  });
+
+  it("GET /api/aiwf/projects/:id/docs/content?path=docs/PRD.md returns 404 when file absent", async () => {
+    const res = await request(app).get(
+      `/api/aiwf/projects/${pid}/docs/content?path=` + encodeURIComponent("docs/PRD.md"),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("GET /api/aiwf/projects/:id/docs/content?path=../server/src/config.ts returns 400", async () => {
+    const res = await request(app).get(
+      `/api/aiwf/projects/${pid}/docs/content?path=` + encodeURIComponent("../server/src/config.ts"),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 404 for unknown project", async () => {
+    expect((await request(app).get("/api/aiwf/projects/NOPE/docs/tree")).status).toBe(404);
+    expect(
+      (
+        await request(app).get(
+          "/api/aiwf/projects/NOPE/docs/content?path=" + encodeURIComponent("docs/PRD.md"),
+        )
+      ).status,
+    ).toBe(404);
+  });
+});

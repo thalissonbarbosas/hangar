@@ -196,7 +196,8 @@ URLs (dev-status API → remote links → comments, in order).
 
 **Responsibility:** Everything touching the AI Workflow (aiwf) connection — card CRUD,
 phase-lifecycle management, worktree state for task branches, install/uninstall of the toolkit,
-and doc listing.
+doc listing (flat `listProjectDocs` for the docs modal; tree `listProjectDocTree` for the
+sidebar), and doc content serving (`getProjectDocByPath` — path-validated, `docs/`-scoped).
 
 **Card storage:** Markdown files in `.hangar/aiwf/<projectId>/board/`. Cards have YAML
 frontmatter (`status`, `kind`, `prUrl`, `skill`, `history[]`, `archived`).
@@ -254,6 +255,10 @@ and four overlays (board, settings, sessions, run panel).
 - `SessionsView` — tabbed run list grouped by project.
 - `AiWorkflow` — aiwf board (cards as columns), project switcher, install/uninstall flow,
   skills guide modal, worktree management, branch checkout.
+- `DocTreeSidebar` — persistent left sidebar (220px) showing the project's AIWF doc tree
+  (PRD, architecture, design, roadmap, specs). Collapsible; state persisted to `localStorage`.
+- `DocPanel` — right-hand doc viewer (reuses RunPanel CSS shell); fetches and renders doc
+  markdown by relative path; replaces RunPanel when a doc is open.
 - `AiwfDocsModal` — multi-tab docs browser (📖 Docs & Specs); serves aiwf toolkit docs and
   per-project spec/doc files.
 - `Settings` — Jira connection, boards config, permission toggle, terminal command.
