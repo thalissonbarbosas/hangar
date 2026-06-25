@@ -40,7 +40,7 @@ import {
 } from "../aiwf";
 import { skillExists, findSkill } from "../skills";
 import { startRun, activeRunsInDir } from "../sessions";
-import { isDemo } from "../demo";
+import { demoDocTree, isDemo } from "../demo";
 import { AiwfProject } from "../types";
 import { removeWorktree, currentBranch, checkoutBranch } from "../worktree";
 
@@ -95,7 +95,8 @@ aiwfRouter.get("/api/aiwf/projects/:id/docs", (req, res) => {
 aiwfRouter.get("/api/aiwf/projects/:id/docs/tree", (req, res) => {
   const project = getAiwfProjects().find((p) => p.id === req.params.id);
   if (!project) return res.status(404).json({ error: "project_not_found" });
-  res.json({ nodes: listProjectDocTree(project.repoPath) });
+  // In demo mode the repo doesn't exist on disk — return the static stub instead.
+  res.json({ nodes: isDemo() ? demoDocTree() : listProjectDocTree(project.repoPath) });
 });
 
 // Doc content by relative path (for sidebar DocPanel)
@@ -103,6 +104,17 @@ aiwfRouter.get("/api/aiwf/projects/:id/docs/content", (req, res) => {
   const project = getAiwfProjects().find((p) => p.id === req.params.id);
   if (!project) return res.status(404).json({ error: "project_not_found" });
   const relPath = String(req.query.path ?? "");
+  // In demo mode serve synthetic markdown so DocPanel has something to render.
+  if (isDemo()) {
+    const node = demoDocTree().find((n) => n.path === relPath);
+    if (node?.exists) {
+      return res.json({
+        content: `# ${node.title}\n\nThis is a demo document for **${node.title}**.\n`,
+        title: node.title,
+      });
+    }
+    return res.status(404).json({ error: "Not found" });
+  }
   const result = getProjectDocByPath(project.repoPath, relPath);
   if (result === null) {
     if (!relPath.startsWith("docs/") || relPath.includes("..")) {

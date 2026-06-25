@@ -27,10 +27,13 @@ import {
   Wrench,
   GitBranch,
   CornerUpLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { api, CheckoutFailed } from "../api";
 import {
   AiwfDoc,
+  AiwfDocTreeNode,
   AiwfProject,
   AiwfSkillGroup,
   AiwfStatus,
@@ -45,6 +48,7 @@ import {
 import { Markdown } from "./Markdown";
 import { WorktreeManagerModal } from "./WorktreeManagerModal";
 import { ClaudeSessionButton } from "./Board";
+import { DocPanel } from "./DocPanel";
 
 // ---------------------------------------------------------------------------
 // AI Workflow connection — phases ARE the columns. A card is a work thread that
@@ -67,19 +71,23 @@ export function AiWorkflowBar({
   projects,
   selectedId,
   skills,
+  sidebarOpen,
   onSelect,
   onReload,
   onError,
   onOpenSession,
+  onToggleSidebar,
 }: {
   status: AiwfStatus | null;
   projects: AiwfProject[];
   selectedId: string | null;
   skills?: Skill[];
+  sidebarOpen?: boolean;
   onSelect: (id: string) => void;
   onReload: () => void;
   onError: (msg: string) => void;
   onOpenSession: (a: OpenSession) => void;
+  onToggleSidebar?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -123,6 +131,16 @@ export function AiWorkflowBar({
         </>
       ) : (
         <>
+          {onToggleSidebar && (
+            <button
+              className="icon-btn has-tip"
+              data-tip={sidebarOpen ? "Hide docs" : "Show docs"}
+              onClick={onToggleSidebar}
+              aria-label={sidebarOpen ? "Hide doc sidebar" : "Show doc sidebar"}
+            >
+              {sidebarOpen ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
+            </button>
+          )}
           <div className="aiwf-proj-picker">
             {projects.map((p) => (
               <span key={p.id} className="aiwf-proj">
@@ -249,6 +267,204 @@ function OptionsMenu({
   );
 }
 
+// ---- Doc tree sidebar ----
+
+// Icon mapping for standard doc types — shown before the title in each tree row.
+function docIcon(node: AiwfDocTreeNode): string {
+  if (node.path === "docs/PRD.md") return "📋";
+  if (node.path === "docs/ARCHITECTURE.md") return "🏗";
+  if (node.path === "docs/THREAT_MODEL.md") return "🛡";
+  if (node.path === "docs/design/DESIGN_SYSTEM.md") return "🎨";
+  if (node.type === "folder" || node.type === "spec-dir") return "📁";
+  return "📝";
+}
+
+function DocTreeRow({
+  node,
+  indent,
+  selected,
+  expanded,
+  onToggle,
+  onSelect,
+}: {
+  node: AiwfDocTreeNode;
+  indent?: 1 | 2;
+  selected: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+  onSelect: () => void;
+}) {
+  const isFolder = node.type === "folder" || node.type === "spec-dir";
+  const absent = !node.exists;
+  const classes = [
+    "doc-tree-row",
+    indent ? `indent-${indent}` : "",
+    selected ? "selected" : "",
+    absent ? "absent" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  function handleClick() {
+    if (absent) return;
+    if (isFolder) onToggle();
+    else onSelect();
+  }
+
+  return (
+    <div className={classes} onClick={handleClick}>
+      {isFolder ? (
+        expanded ? (
+          <ChevronDown size={12} style={{ flexShrink: 0 }} />
+        ) : (
+          <ChevronRight size={12} style={{ flexShrink: 0 }} />
+        )
+      ) : (
+        // 12px spacer to align leaf nodes with folder label (chevron width + gap)
+        <span style={{ width: 12, flexShrink: 0 }} />
+      )}
+      <span style={{ flexShrink: 0 }}>{docIcon(node)}</span>
+      <span
+        style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+      >
+        {node.title}
+      </span>
+      {node.exists && <span style={{ color: "var(--success)", fontSize: 10, flexShrink: 0 }}>✓</span>}
+    </div>
+  );
+}
+
+function DocTreeSidebar({
+  projectId,
+  open,
+  activeThreads,
+  runByTicket,
+  selectedPath,
+  onOpenDoc,
+  onOpenThread,
+}: {
+  projectId: string;
+  open: boolean;
+  activeThreads: Ticket[];
+  runByTicket: Map<string, RunSummary>;
+  selectedPath: string | null;
+  onOpenDoc: (node: AiwfDocTreeNode) => void;
+  onOpenThread: (runId: string) => void;
+}) {
+  const [nodes, setNodes] = useState<AiwfDocTreeNode[]>([]);
+  const [loading, setLoading] = useState(true);
+  // Specs folder expanded by default.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(["docs/specs"]));
+
+  useEffect(() => {
+    setLoading(true);
+    api
+      .aiwfProjectDocTree(projectId)
+      .then((r) => setNodes(r.nodes))
+      .catch(() => setNodes([]))
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  function toggleExpanded(path: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
+
+  // Limit active threads shown to 5.
+  const visibleThreads = activeThreads.slice(0, 5);
+
+  return (
+    <div className={`doc-sidebar${open ? "" : " collapsed"}`}>
+      <div className="doc-sidebar-section-label">Documents</div>
+      {loading ? (
+        <div style={{ padding: "8px 12px", color: "var(--text-faint)", fontSize: 11.5 }}>
+          <Loader2 size={12} className="spin" /> Loading…
+        </div>
+      ) : (
+        <div className="doc-tree">
+          {nodes.map((node) => (
+            <div key={node.path}>
+              <DocTreeRow
+                node={node}
+                selected={selectedPath === node.path}
+                expanded={expanded.has(node.path)}
+                onToggle={() => toggleExpanded(node.path)}
+                onSelect={() => onOpenDoc(node)}
+              />
+              {(node.type === "folder" || node.type === "spec-dir") &&
+                expanded.has(node.path) &&
+                node.children?.map((child) => (
+                  <div key={child.path}>
+                    <DocTreeRow
+                      node={child}
+                      indent={1}
+                      selected={selectedPath === child.path}
+                      expanded={expanded.has(child.path)}
+                      onToggle={() => toggleExpanded(child.path)}
+                      onSelect={() => onOpenDoc(child)}
+                    />
+                    {(child.type === "folder" || child.type === "spec-dir") &&
+                      expanded.has(child.path) &&
+                      child.children?.map((grandchild) => (
+                        <DocTreeRow
+                          key={grandchild.path}
+                          node={grandchild}
+                          indent={2}
+                          selected={selectedPath === grandchild.path}
+                          expanded={expanded.has(grandchild.path)}
+                          onToggle={() => toggleExpanded(grandchild.path)}
+                          onSelect={() => onOpenDoc(grandchild)}
+                        />
+                      ))}
+                  </div>
+                ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {visibleThreads.length > 0 && (
+        <>
+          <div className="doc-sidebar-section-label">Active · {visibleThreads.length}</div>
+          {visibleThreads.map((thread) => {
+            // Determine run state for the dot color — awaiting_input → warning, else → accent.
+            const run = runByTicket.get(thread.key);
+            const isAwaiting = run?.state === "awaiting_input";
+            const dotClass = isAwaiting ? "run-dot awaiting" : "run-dot running";
+            return (
+              <div
+                key={thread.key}
+                className="sidebar-thread-row"
+                onClick={() => {
+                  if (run) onOpenThread(run.id);
+                }}
+              >
+                <span className={dotClass} />
+                <span className="card-key">{thread.key}</span>
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {thread.summary}
+                </span>
+              </div>
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ---- Phase board ----
 
 const COLUMN_COLORS = ["#4f7cff", "#8b5cf6", "#10b981", "#e08e0b", "#0ea5e9", "#22c55e"];
@@ -265,21 +481,26 @@ export function AiWorkflowView({
   status,
   skills,
   runs,
+  sidebarOpen,
   onOpenRun,
   onOpenSession,
   onReload,
   onStartClaude,
   onError,
+  onClearRun,
 }: {
   project: AiwfProject | null;
   status: AiwfStatus | null;
   skills: Skill[];
   runs: RunSummary[];
+  sidebarOpen: boolean;
   onOpenRun: (run: RunSummary) => void;
   onOpenSession: (a: OpenSession) => void;
   onReload: () => void;
   onStartClaude: (cwd: string, title: string, model: string, note?: string) => Promise<string>;
   onError: (msg: string) => void;
+  /** Called when a doc is opened so the global RunPanel can be cleared. */
+  onClearRun?: () => void;
 }) {
   const [cards, setCards] = useState<Ticket[]>([]);
   const [newItem, setNewItem] = useState<string | null>(null); // phase for the New-item modal
@@ -302,6 +523,9 @@ export function AiWorkflowView({
   const [busy, setBusy] = useState(false);
   const [projMenuOpen, setProjMenuOpen] = useState(false);
   const projMenuRef = useRef<HTMLDivElement>(null);
+
+  // activeDoc and the global activeRun are mutually exclusive — opening one clears the other.
+  const [activeDoc, setActiveDoc] = useState<AiwfDocTreeNode | null>(null);
 
   useEffect(() => {
     if (!projMenuOpen) return;
@@ -379,6 +603,11 @@ export function AiWorkflowView({
   const specCards = cards.filter((c) => c.kind === "spec");
   const extra = [...new Set(activeCards.map((c) => c.status))].filter((s) => !columns.includes(s));
   const allColumns = [...columns, ...extra];
+  // Cards that have an active run — shown in the sidebar's "Active" section.
+  const activeThreads = activeCards.filter((c) => {
+    const run = runByTicket.get(c.key);
+    return run ? isActive(run.state) : false;
+  });
 
   function runCard(key: string, skill: string, note?: string) {
     api
@@ -482,120 +711,156 @@ export function AiWorkflowView({
   }
 
   return (
-    <div className="aiwf-board-area">
-      <div className="aiwf-board-header">
-        <span className="aiwf-board-project-name">{project.name}</span>
-        <ClaudeSessionButton
-          cwd={project.repoPath}
-          title={`${project.name} — Claude`}
-          runs={runs}
-          onOpenRun={onOpenRun}
-          onStart={(model, note) => onStartClaude(project.repoPath, `${project.name} — Claude`, model, note)}
-        />
-        <button
-          className="icon-btn has-tip"
-          data-tip="Manage task worktrees"
-          onClick={() => setWorktreeManagerOpen(true)}
-        >
-          <Wrench size={15} />
-        </button>
-        <button className="icon-btn has-tip" data-tip="Documents & specs" onClick={() => setDocsOpen(true)}>
-          <BookOpen size={15} />
-        </button>
-        <div className="aiwf-options" ref={projMenuRef}>
+    <div className="aiwf-content">
+      {/* Doc tree sidebar — collapsible, controlled by sidebarOpen from App */}
+      <DocTreeSidebar
+        projectId={project.id}
+        open={sidebarOpen}
+        activeThreads={activeThreads}
+        runByTicket={runByTicket}
+        selectedPath={activeDoc?.path ?? null}
+        onOpenDoc={(node) => {
+          setActiveDoc(node);
+          // Clear the global RunPanel so DocPanel has room on the right.
+          onClearRun?.();
+        }}
+        onOpenThread={(runId) => {
+          const run = runs.find((r) => r.id === runId);
+          if (run) {
+            setActiveDoc(null);
+            onOpenRun(run);
+          }
+        }}
+      />
+
+      {/* Board area — wrapped so we can control its scroll independent of the sidebar */}
+      <div className="aiwf-board-area" style={{ flex: 1, minWidth: 0, overflow: "auto" }}>
+        <div className="aiwf-board-header">
+          <span className="aiwf-board-project-name">{project.name}</span>
+          <ClaudeSessionButton
+            cwd={project.repoPath}
+            title={`${project.name} — Claude`}
+            runs={runs}
+            onOpenRun={onOpenRun}
+            onStart={(model, note) =>
+              onStartClaude(project.repoPath, `${project.name} — Claude`, model, note)
+            }
+          />
           <button
             className="icon-btn has-tip"
-            data-tip="Project options"
-            disabled={busy}
-            onClick={() => setProjMenuOpen((v) => !v)}
+            data-tip="Manage task worktrees"
+            onClick={() => setWorktreeManagerOpen(true)}
           >
-            <MoreVertical size={15} />
+            <Wrench size={15} />
           </button>
-          {projMenuOpen && (
-            <div className="aiwf-options-pop">
-              <button
-                className="aiwf-opt"
-                onClick={() => {
-                  setProjMenuOpen(false);
-                  setEditing(project);
-                }}
-              >
-                <Pencil size={13} /> Edit project
-              </button>
-              <div className="aiwf-opt-sep" />
-              <button
-                className="aiwf-opt danger"
-                onClick={() => {
-                  setProjMenuOpen(false);
-                  removeProject();
-                }}
-              >
-                <X size={13} /> Remove project
-              </button>
-            </div>
-          )}
+          <button className="icon-btn has-tip" data-tip="Documents & specs" onClick={() => setDocsOpen(true)}>
+            <BookOpen size={15} />
+          </button>
+          <div className="aiwf-options" ref={projMenuRef}>
+            <button
+              className="icon-btn has-tip"
+              data-tip="Project options"
+              disabled={busy}
+              onClick={() => setProjMenuOpen((v) => !v)}
+            >
+              <MoreVertical size={15} />
+            </button>
+            {projMenuOpen && (
+              <div className="aiwf-options-pop">
+                <button
+                  className="aiwf-opt"
+                  onClick={() => {
+                    setProjMenuOpen(false);
+                    setEditing(project);
+                  }}
+                >
+                  <Pencil size={13} /> Edit project
+                </button>
+                <div className="aiwf-opt-sep" />
+                <button
+                  className="aiwf-opt danger"
+                  onClick={() => {
+                    setProjMenuOpen(false);
+                    removeProject();
+                  }}
+                >
+                  <X size={13} /> Remove project
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-      <div className="columns">
-        {allColumns.map((phase, i) => (
-          <AiwfColumn
-            key={phase}
-            phase={phase}
-            color={COLUMN_COLORS[i % COLUMN_COLORS.length]}
-            projectId={project.id}
-            cards={activeCards.filter((c) => c.status === phase)}
-            hasSkills={(phaseSkills[phase]?.length ?? 0) > 0}
-            runByTicket={runByTicket}
-            onNew={() => setNewItem(phase)}
-            onMove={moveCard}
-            onPromoteSpec={promoteSpec}
-            onRunPhase={(key) => setPicker({ key, phase })}
-            onOpenRun={onOpenRun}
-            onSeeData={setDataCard}
-            onArchive={(key) => archiveCard(key, true)}
-            onDelete={removeCard}
-            isComplete={i === allColumns.length - 1}
-          />
-        ))}
+        <div className="columns">
+          {allColumns.map((phase, i) => (
+            <AiwfColumn
+              key={phase}
+              phase={phase}
+              color={COLUMN_COLORS[i % COLUMN_COLORS.length]}
+              projectId={project.id}
+              cards={activeCards.filter((c) => c.status === phase)}
+              hasSkills={(phaseSkills[phase]?.length ?? 0) > 0}
+              runByTicket={runByTicket}
+              onNew={() => setNewItem(phase)}
+              onMove={moveCard}
+              onPromoteSpec={promoteSpec}
+              onRunPhase={(key) => setPicker({ key, phase })}
+              onOpenRun={(run) => {
+                setActiveDoc(null);
+                onOpenRun(run);
+              }}
+              onSeeData={setDataCard}
+              onArchive={(key) => archiveCard(key, true)}
+              onDelete={removeCard}
+              isComplete={i === allColumns.length - 1}
+            />
+          ))}
+        </div>
+
+        {archivedCards.length > 0 && (
+          <div className="aiwf-archived-section">
+            <button className="aiwf-archived-toggle" onClick={() => setArchivedOpen((v) => !v)}>
+              {archivedOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <Archive size={13} />
+              Archived ({archivedCards.length})
+            </button>
+            {archivedOpen && (
+              <div className="aiwf-archived-list">
+                {archivedCards.map((c) => (
+                  <div key={c.key} className="aiwf-archived-row">
+                    <span className="card-key aiwf-archived-key">{c.key}</span>
+                    <span className="aiwf-archived-title">{c.summary}</span>
+                    <div className="aiwf-archived-actions">
+                      <button className="aiwf-opt" title="See data" onClick={() => setDataCard(c)}>
+                        <Eye size={13} /> See data
+                      </button>
+                      <button
+                        className="aiwf-opt"
+                        title="Unarchive"
+                        onClick={() => archiveCard(c.key, false)}
+                      >
+                        <ArchiveRestore size={13} /> Unarchive
+                      </button>
+                      <button
+                        className="aiwf-opt danger"
+                        title="Delete"
+                        onClick={() => {
+                          if (window.confirm(`Delete card ${c.key} "${c.summary}"? This cannot be undone.`))
+                            removeCard(c.key);
+                        }}
+                      >
+                        <Trash2 size={13} /> Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {archivedCards.length > 0 && (
-        <div className="aiwf-archived-section">
-          <button className="aiwf-archived-toggle" onClick={() => setArchivedOpen((v) => !v)}>
-            {archivedOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            <Archive size={13} />
-            Archived ({archivedCards.length})
-          </button>
-          {archivedOpen && (
-            <div className="aiwf-archived-list">
-              {archivedCards.map((c) => (
-                <div key={c.key} className="aiwf-archived-row">
-                  <span className="card-key aiwf-archived-key">{c.key}</span>
-                  <span className="aiwf-archived-title">{c.summary}</span>
-                  <div className="aiwf-archived-actions">
-                    <button className="aiwf-opt" title="See data" onClick={() => setDataCard(c)}>
-                      <Eye size={13} /> See data
-                    </button>
-                    <button className="aiwf-opt" title="Unarchive" onClick={() => archiveCard(c.key, false)}>
-                      <ArchiveRestore size={13} /> Unarchive
-                    </button>
-                    <button
-                      className="aiwf-opt danger"
-                      title="Delete"
-                      onClick={() => {
-                        if (window.confirm(`Delete card ${c.key} "${c.summary}"? This cannot be undone.`))
-                          removeCard(c.key);
-                      }}
-                    >
-                      <Trash2 size={13} /> Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {/* DocPanel — shown instead of the global RunPanel when a doc is open */}
+      {activeDoc && <DocPanel projectId={project.id} node={activeDoc} onClose={() => setActiveDoc(null)} />}
 
       {newItem && (
         <NewItemModal
