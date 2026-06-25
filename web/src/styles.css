@@ -4051,6 +4051,20 @@ a.session-ticket {
   padding-left: 36px;
 }
 
+/* NNN badge shown before spec/roadmap titles */
+.doc-tree-num {
+  color: var(--text-faint);
+  font-size: 10px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "See N more…" pagination button inside the doc tree */
+.doc-tree-see-more {
+  margin: 2px 8px 4px 24px;
+  font-size: 11px;
+}
+
 /* Sidebar thread row */
 .sidebar-thread-row {
   display: flex;
