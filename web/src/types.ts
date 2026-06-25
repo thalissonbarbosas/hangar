@@ -125,6 +125,15 @@ export interface AiwfHistoryEntry {
   summary?: string;
 }
 
+export interface AiwfDocTreeNode {
+  path: string;
+  title: string;
+  type: "doc" | "folder" | "spec" | "spec-dir";
+  exists: boolean;
+  phase?: string;
+  children?: AiwfDocTreeNode[];
+}
+
 export interface Skill {
   name: string;
   description: string;

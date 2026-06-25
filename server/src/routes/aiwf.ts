@@ -35,6 +35,8 @@ import {
   getAiwfDoc,
   listProjectDocs,
   getProjectDoc,
+  listProjectDocTree,
+  getProjectDocByPath,
 } from "../aiwf";
 import { skillExists, findSkill } from "../skills";
 import { startRun, activeRunsInDir } from "../sessions";
@@ -87,6 +89,28 @@ aiwfRouter.get("/api/aiwf/projects/:id/docs", (req, res) => {
   const project = getAiwfProjects().find((p) => p.id === req.params.id);
   if (!project) return res.status(404).json({ error: "project_not_found" });
   res.json({ docs: listProjectDocs(project.repoPath) });
+});
+
+// Sidebar doc tree — must be registered before /:slug to avoid "tree"/"content" being caught as slugs
+aiwfRouter.get("/api/aiwf/projects/:id/docs/tree", (req, res) => {
+  const project = getAiwfProjects().find((p) => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: "project_not_found" });
+  res.json({ nodes: listProjectDocTree(project.repoPath) });
+});
+
+// Doc content by relative path (for sidebar DocPanel)
+aiwfRouter.get("/api/aiwf/projects/:id/docs/content", (req, res) => {
+  const project = getAiwfProjects().find((p) => p.id === req.params.id);
+  if (!project) return res.status(404).json({ error: "project_not_found" });
+  const relPath = String(req.query.path ?? "");
+  const result = getProjectDocByPath(project.repoPath, relPath);
+  if (result === null) {
+    if (!relPath.startsWith("docs/") || relPath.includes("..")) {
+      return res.status(400).json({ error: "Invalid path" });
+    }
+    return res.status(404).json({ error: "Not found" });
+  }
+  res.json(result);
 });
 
 aiwfRouter.get("/api/aiwf/projects/:id/docs/:slug", (req, res) => {
