@@ -106,7 +106,11 @@ aiwfRouter.get("/api/aiwf/projects/:id/docs/content", (req, res) => {
   const relPath = String(req.query.path ?? "");
   // In demo mode serve synthetic markdown so DocPanel has something to render.
   if (isDemo()) {
-    const node = demoDocTree().find((n) => n.path === relPath);
+    // Flatten the tree (including children) so spec nodes are findable.
+    function flattenTree(nodes: ReturnType<typeof demoDocTree>): ReturnType<typeof demoDocTree>[0][] {
+      return nodes.flatMap((n) => [n, ...(n.children ? flattenTree(n.children) : [])]);
+    }
+    const node = flattenTree(demoDocTree()).find((n) => n.path === relPath);
     if (node?.exists) {
       return res.json({
         content: `# ${node.title}\n\nThis is a demo document for **${node.title}**.\n`,
