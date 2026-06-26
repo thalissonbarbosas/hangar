@@ -76,7 +76,7 @@ business logic to the modules below.
 - Routes split into 5 domain modules (~78-line `index.ts`). Each module owns its imports and can be tested in isolation.
 - Rate limiting on session-spawn endpoints: 30 req/min per IP. Guards against runaway loops
   or misconfigured clients — not a security boundary.
-- CORS is open (no origin restriction) — acceptable for a localhost-only tool.
+- CORS origin restricted to `localhost:5180` + `127.0.0.1:5180` — blocks CSRF from malicious web pages.
 
 ---
 
@@ -196,8 +196,8 @@ URLs (dev-status API → remote links → comments, in order).
 
 **Responsibility:** Everything touching the AI Workflow (aiwf) connection — card CRUD,
 phase-lifecycle management, worktree state for task branches, install/uninstall of the toolkit,
-doc listing (flat `listProjectDocs` for the docs modal; tree `listProjectDocTree` for the
-sidebar), and doc content serving (`getProjectDocByPath` — path-validated, `docs/`-scoped).
+doc tree listing (`listProjectDocTree` for the sidebar), and doc content serving
+(`getProjectDocByPath` — path-validated, `docs/`-scoped).
 
 **Card storage:** Markdown files in `.hangar/aiwf/<projectId>/board/`. Cards have YAML
 frontmatter (`status`, `kind`, `prUrl`, `skill`, `history[]`, `archived`).
@@ -259,8 +259,6 @@ and four overlays (board, settings, sessions, run panel).
   (PRD, architecture, design, roadmap, specs). Collapsible; state persisted to `localStorage`.
 - `DocPanel` — right-hand doc viewer (reuses RunPanel CSS shell); fetches and renders doc
   markdown by relative path; replaces RunPanel when a doc is open.
-- `AiwfDocsModal` — multi-tab docs browser (📖 Docs & Specs); serves aiwf toolkit docs and
-  per-project spec/doc files.
 - `Settings` — Jira connection, boards config, permission toggle, terminal command.
 
 **Theme:** CSS custom properties (`--bg`, `--fg`, `--accent`, …). `useTheme.ts` toggles

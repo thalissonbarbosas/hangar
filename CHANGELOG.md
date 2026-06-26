@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-26
+
+### Added
+
+- Usage cost panel in the topbar: shows Claude Code session costs broken down by day, month,
+  billing block, and session — powered by [ccusage](https://github.com/ryoppippi/ccusage), with a
+  one-click install prompt when ccusage is not detected (HAN-20)
+- Doc tree sidebar in the AIWF board: persistent left panel listing the project's PRD,
+  architecture doc, design system, threat model, roadmap, and specs; click any entry to open it
+  in a doc panel alongside the board (HAN-16, HAN-19)
+- Spec number badge and paginated "see more" on doc tree sidebar entries (HAN-19)
+- Smart action buttons on the AIWF run panel: context-aware next-step suggestions based on the
+  current phase (e.g. "Run /feature" after planning, "Run /pr" after implementation) (HAN-17)
+- Inline agent/skill picker replaces the hand-off modal dropdown — pick the next skill directly
+  from the run panel without an intermediate dialog (HAN-18)
+
+### Changed
+
+- AIWF docs modal (📖 Docs & Specs) removed; project docs and specs are now browsed through the
+  doc tree sidebar and doc panel (HAN-15, HAN-16)
+
+### Fixed
+
+- Sessions view: usage cost dates pre-populated to the current week; fetch is not triggered on
+  initial load (prevents unnecessary requests when the panel first opens)
+- ccusage detection falls back to the npx cache when ccusage is not globally installed
+- PR opened from the correct branch when a delivery skill hands off from one run to another
+- Session ID flushed to disk immediately on SDK init, preventing loss of the session ID on server
+  restart (HAN-22)
+- Scroll position preserved in the hand-off skill picker when navigating the list
+
+### Security
+
+- Path traversal guard on AIWF card key routes: `req.params.key` validated against
+  `/^[A-Za-z0-9]+-\d+$/` before reaching `path.join()` on transition, archive, delete, worktree,
+  and checkout routes (Threat 16)
+- Zod schema validation on `PUT /api/config`: invalid payloads rejected with 400 before any disk
+  write (Threat 11)
+- `bypassPermissions` defaults to `false` for fresh installs — gated mode (approve risky shell
+  commands) is now the default; Settings shows an amber warning in unrestricted mode (Threats 7,
+  8, 13)
+- `/api/fs/exists` restricted to configured `repoPaths` — paths outside registered repos return
+  400 (Threat 12)
+- CORS origin restricted to `localhost:5180` + `127.0.0.1:5180` — rejects cross-origin browser
+  requests (Threats 1–3)
+- Server bound to `127.0.0.1` — prevents accidental LAN or cloud exposure (Threat 6)
+- `execFileSync` with array args in `aiwf.ts` — eliminates shell injection from the `aiwfBin`
+  path (Threat 10)
+- `.hangar/` and subdirectories created with mode `0700` — other OS users and backup tools cannot
+  read transcript files (Threat 14)
+- Run retention policy: `runRetentionDays` config auto-deletes terminal runs older than N days on
+  startup; "Delete" button in Sessions view for on-demand erasure (Threat 15)
+- Route splitting refactor: `index.ts` now contains only middleware setup and router mounts
+  (~78 lines); all route handlers moved into domain modules under `server/src/routes/`
+
 ## [0.6.0] - 2026-06-24
 
 ### Added
