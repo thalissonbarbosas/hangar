@@ -26,6 +26,8 @@ run, with a human in the loop when it matters.
 - **Live run panel** — live output, tool calls, the captured session id and running
   cost, an auto-detected PR link, and an **Open in terminal** button for finished sessions
   (set up in **Settings → Terminal**).
+- **Usage cost panel** — a topbar button shows Claude Code session costs (requires
+  [ccusage](https://github.com/ryoppippi/ccusage)) broken down by day, month, and billing block.
 - **Human-in-the-loop** — run unrestricted, or _gated_: reads and edits auto-run while risky
   shell commands pause for approval. Agent questions surface right in the panel with answer buttons.
 - **Run isolation** — each run gets its own git worktree + branch, so multiple agents work the
@@ -142,7 +144,9 @@ chip can be edited to change its name or location (the repo path) in place. Card
 **archive**, **delete**, and **see data** actions via a `⋯` menu; a **checkout** action switches
 the project root to the card's task branch. A **Worktrees** button in the board header lists and
 removes stale task branches. A **📖 Skills guide** button in the sub-bar shows every aiwf skill
-by phase tab, with install status and descriptions.
+by phase tab, with install status and descriptions. A **doc tree sidebar** on the left of the AIWF
+board shows the project's PRD, architecture doc, roadmap, and specs — click any entry to open it in
+a doc panel alongside the board.
 
 **→ Full guide: [`docs/AI_WORKFLOW.md`](docs/AI_WORKFLOW.md).**
 
@@ -159,6 +163,7 @@ by phase tab, with install status and descriptions.
 | `isolateRuns`               | run each session in its own git worktree + branch (default on)                                        |
 | `exclusiveAgents`           | agent/skill names that need shared ports/tunnels — run one at a time                                  |
 | `maxTurns` / `maxBudgetUsd` | per-run limits (default 300 turns, no spend cap)                                                      |
+| `runRetentionDays`          | auto-delete finished runs older than N days on startup; unset = keep forever                          |
 | `terminal`                  | "Open in terminal" command template (`{{dir}}` + `{{command}}` placeholders); unset = action warns    |
 
 Environment (`.env`, see [`.env.example`](.env.example)): `JIRA_BASE_URL`, `JIRA_EMAIL`,
@@ -179,10 +184,10 @@ server follows `PORT`). For example, `WEB_PORT=8080` serves the UI on http://loc
 
 ## Permissions & safety
 
-By default agents run **unrestricted** — like `claude --dangerously-skip-permissions` — so they
-can edit files and run any shell command, including `git push`. A topbar flag makes this visible,
-and **gated** mode (Settings → Agent permissions) holds mutating/unknown shell commands for an
-explicit Allow/Deny. Run Hangar against repos you trust, and prefer gated mode if you're unsure.
+Fresh installs default to **gated** mode — reads and file edits auto-run while mutating or
+unknown shell commands pause for an explicit Allow/Deny. **Unrestricted** mode (Settings →
+Agent permissions) removes all approval prompts, like `claude --dangerously-skip-permissions`.
+A topbar flag makes the current mode visible. Run Hangar against repos you trust.
 
 ## License
 
