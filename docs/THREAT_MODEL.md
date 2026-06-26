@@ -62,7 +62,7 @@ Non-negotiable invariants that must always hold:
 
 | Surface | Exposure | Controls today |
 |---------|----------|----------------|
-| `PUT /api/config` | Any client reaching :3001 | None (no auth, no schema validation) |
+| `PUT /api/config` | Any client reaching :3001 | Zod schema validation; invalid payloads rejected 400 |
 | `PUT /api/settings/jira` | Any client reaching :3001 | Token is write-only (never returned) |
 | `POST /api/runs` | Any client reaching :3001 | Rate limit: 30 req/min |
 | `GET /api/runs/:id/stream` (SSE) | Any client reaching :3001 | None |
@@ -72,7 +72,8 @@ Non-negotiable invariants that must always hold:
 | `POST /api/aiwf/projects` | Any client reaching :3001 | repoPath existence check |
 | `POST /api/aiwf/install` | Any client reaching :3001 | None |
 | `POST /api/runs/:id/terminal` | Any client reaching :3001 | Session ID validation; dir shell-quoted |
-| `GET /api/aiwf/projects/:id/docs/:slug` | Any client reaching :3001 | Slug: `/^[A-Za-z0-9_-]+$/` |
+| `GET /api/aiwf/projects/:id/docs/tree` | Any client reaching :3001 | Scoped to registered project repoPath |
+| `GET /api/aiwf/projects/:id/docs/content` | Any client reaching :3001 | Path traversal validation; scoped to `docs/` under repoPath |
 | `POST /api/aiwf/projects/:id/cards/:key/checkout` | Any client reaching :3001 | None (git branch checkout in live project root) |
 | `DELETE /api/aiwf/projects/:id/worktrees/:key` | Any client reaching :3001 | None (forced worktree removal) |
 | `DELETE /api/aiwf/projects/:id/worktrees` | Any client reaching :3001 | None (bulk forced worktree removal) |
@@ -94,9 +95,10 @@ Non-negotiable invariants that must always hold:
 | 2 | CSRF to `PUT /api/config` rewrites `repoPaths` to a sensitive directory | Next agent run executes in the wrong repo | Medium | Config schema partially validates structure |
 | 3 | CSRF to `GET /api/runs` / `GET /api/runs/:id/stream` exfiltrates full transcript history | Leaks all file content the agent read during previous sessions | Medium | None |
 
-**Root cause:** `app.use(cors())` sets no `origin` restriction. Standard CORS blocks credentials
-by default, but `fetch("http://localhost:3001/api/...", { mode: "no-cors" })` still fires the
-request — and state-changing endpoints (POST/PUT) don't require a response body for harm.
+**Mitigation:** CORS origin is restricted to `localhost:5180` + `127.0.0.1:5180`, blocking
+cross-origin browser requests. `fetch` from any other origin is rejected before reaching route
+handlers. Malicious local processes (TCP to :3001 directly) are not blocked by CORS — the rate
+limit is the only control there.
 
 #### 1b. Malicious Local Process
 
@@ -204,12 +206,11 @@ data from your Jira instance. Agent transcripts persist this data indefinitely i
 | Requirement | Status |
 |-------------|--------|
 | Data minimization | Not addressed — full ticket body is sent to Anthropic |
-| Retention limits | Not implemented — transcripts persist until manually deleted |
+| Retention limits | Partial — `runRetentionDays` config auto-deletes terminal runs on startup; `DELETE /api/runs/:id` for manual erasure |
 | Right to erasure | Partial — `DELETE /api/runs/:id` exists but is manual and undiscoverable |
 | Data processor agreement | Anthropic's DPA covers API usage; operator is responsible for ensuring coverage |
 | Cross-border transfer | Anthropic API processes data outside the EU by default |
 
 **Recommended actions:**
-- Add a `runRetentionDays` config option (see control #7 above).
 - Document in the README that Jira ticket content is sent to Anthropic's API so operators can make an informed choice.
 - Consider a `sanitizeTicketBody` option that strips the ticket description before it becomes part of the agent prompt, relying only on the title + ticket key.

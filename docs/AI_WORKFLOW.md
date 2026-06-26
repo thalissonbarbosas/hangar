@@ -207,23 +207,32 @@ hot-reloaded — no restart needed.
 
 ## API
 
-All under `/api/aiwf/*` (defined in `server/src/index.ts`):
+All under `/api/aiwf/*` (defined in `server/src/routes/aiwf.ts`):
 
-| Method + path                                        | Purpose                                              |
-| ---------------------------------------------------- | ---------------------------------------------------- |
-| `GET /api/aiwf/status`                               | install state + column/skill presets + repo/author  |
-| `POST /api/aiwf/install`                             | run the aiwf bootstrap installer                     |
-| `POST /api/aiwf/uninstall`                           | run `aiwf uninstall-all` (toolkit only)              |
-| `GET /api/aiwf/projects`                             | list registered projects                            |
-| `POST /api/aiwf/projects`                            | register `{ name, repoPath, mode: "new"\|"adopt" }`  |
-| `PATCH /api/aiwf/projects/:id`                       | change a project's `{ name?, repoPath? }` (location) |
-| `DELETE /api/aiwf/projects/:id`                      | unregister a project (repo files untouched)          |
-| `GET /api/aiwf/projects/:id/cards`                   | list the project's cards                             |
-| `POST /api/aiwf/projects/:id/cards`                  | create a card `{ title, status?, kind?, skill? }`    |
-| `POST /api/aiwf/projects/:id/cards/:key/transition`  | move a card `{ status }`                             |
-| `POST /api/aiwf/projects/:id/cards/:key/archive`     | archive or unarchive a card `{ archived: boolean }`  |
-| `DELETE /api/aiwf/projects/:id/cards/:key`           | permanently delete a card file                       |
-| `POST /api/aiwf/projects/:id/cards/:key/run`         | run a skill on a card `{ skill, note? }`             |
+| Method + path                                          | Purpose                                              |
+| ------------------------------------------------------ | ---------------------------------------------------- |
+| `GET /api/aiwf/status`                                 | install state + column/skill presets + repo/author  |
+| `POST /api/aiwf/install`                               | run the aiwf bootstrap installer                     |
+| `POST /api/aiwf/uninstall`                             | run `aiwf uninstall-all` (toolkit only)              |
+| `GET /api/aiwf/projects`                               | list registered projects                            |
+| `POST /api/aiwf/projects`                              | register `{ name, repoPath, mode: "new"\|"adopt" }`  |
+| `PATCH /api/aiwf/projects/:id`                         | change a project's `{ name?, repoPath? }` (location) |
+| `DELETE /api/aiwf/projects/:id`                        | unregister a project (repo files untouched)          |
+| `GET /api/aiwf/projects/:id/cards`                     | list the project's cards                             |
+| `GET /api/aiwf/projects/:id/cards/:key`                | get a single card by key                             |
+| `POST /api/aiwf/projects/:id/cards`                    | create a card `{ title, status?, kind?, skill? }`    |
+| `POST /api/aiwf/projects/:id/cards/:key/transition`    | move a card `{ status }`                             |
+| `POST /api/aiwf/projects/:id/cards/:key/archive`       | archive or unarchive a card `{ archived: boolean }`  |
+| `DELETE /api/aiwf/projects/:id/cards/:key`             | permanently delete a card file                       |
+| `POST /api/aiwf/projects/:id/cards/:key/run`           | run a skill on a card `{ skill, note? }`             |
+| `POST /api/aiwf/projects/:id/cards/:key/checkout`      | checkout the card's task branch into a worktree      |
+| `POST /api/aiwf/projects/:id/checkout`                 | checkout a branch for the project                    |
+| `GET /api/aiwf/projects/:id/worktrees`                 | list active worktrees for the project                |
+| `DELETE /api/aiwf/projects/:id/worktrees/:key`         | remove a card's task worktree                        |
+| `DELETE /api/aiwf/projects/:id/worktrees`              | remove all worktrees for the project                 |
+| `GET /api/aiwf/projects/:id/branch`                    | get the current branch info for the project          |
+| `GET /api/aiwf/projects/:id/docs/tree`                 | doc tree (PRD, ARCH, roadmap, specs) for the sidebar |
+| `GET /api/aiwf/projects/:id/docs/content`              | serve a file under `docs/` for the doc panel         |
 
 ## Where it lives
 
@@ -231,7 +240,7 @@ All under `/api/aiwf/*` (defined in `server/src/index.ts`):
 
 - `server/src/aiwf.ts` — phase/skill presets, install detect/bootstrap/uninstall, the markdown card
   store (`listCards`/`createCard`/`transitionCard`/`getCard`) and `appendCardHistory`.
-- `server/src/index.ts` — the `/api/aiwf/*` routes.
+- `server/src/routes/aiwf.ts` — the `/api/aiwf/*` routes (mounted in `server/src/index.ts`).
 - `server/src/sessions.ts` — tags aiwf card runs (`aiwfProjectId`/`aiwfPhase`) and logs results to the
   card on completion.
 - `server/src/config.ts` — `aiWorkflow.projects` validation + persistence (`getAiwfProjects` /
