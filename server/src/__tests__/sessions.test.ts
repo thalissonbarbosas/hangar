@@ -590,6 +590,32 @@ describe("handoff (parentRunId)", () => {
     // Additional dirs come from parent.runtimeDirs (the mapped worktree paths).
     expect(child.additionalDirectories).toEqual(["/wt/b"]);
   });
+
+  it("reuses a pre-created task worktree when parent used cwdOverride (delivery-skill handoff)", async () => {
+    // Simulates: /fix delivery skill ran on a Jira ticket via resolveCardWorktree, which sets
+    // cwdOverride + skipWorktree:true + branch:"fix/pp-1" but leaves parent.worktrees empty.
+    // Handing off to /pr must stay on "fix/pp-1", not create a new hangar/<ticket>-<runid> branch.
+    mockCfg = baseCfg({ isolateRuns: true });
+    const parent = sessions.startRun({
+      kind: "skill",
+      name: "fix",
+      ticket,
+      cwdOverride: "/task-wt",
+      skipWorktree: true,
+      branch: "fix/pp-1",
+    });
+    await waitForState(parent, "done");
+    createWorktree.mockClear();
+
+    const child = sessions.startRun({ kind: "skill", name: "pr", parentRunId: parent.id });
+    await waitForState(child, "done");
+
+    // No new worktree — the child must reuse the parent's task worktree.
+    expect(createWorktree).not.toHaveBeenCalled();
+    expect(child.skipWorktree).toBe(true);
+    expect(child.branch).toBe("fix/pp-1");
+    expect(child.cwd).toBe("/task-wt");
+  });
 });
 
 describe("missing working directory", () => {

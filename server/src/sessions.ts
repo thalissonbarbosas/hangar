@@ -511,10 +511,14 @@ export function startRun(opts: StartOpts): Run {
     ticketKey = parent.ticketKey;
     ticketUrl = parent.ticketUrl;
     title = parent.ticketKey ? undefined : `${opts.name} ← ${parent.agentName}`;
-    // If the parent already created a worktree, reuse it so the handoff stays on the same
-    // branch. Without this, drive() would create a new worktree (new branch) and a follow-up
-    // "ship it" would open a second PR instead of pushing to the existing one.
-    if (parent.worktrees?.length) {
+    // Reuse the parent's branch/worktree so the handoff stays on the same branch and a
+    // follow-up "ship it" pushes to the existing branch rather than opening a second PR.
+    // Two cases: parent explicitly created a worktree (parent.worktrees), OR parent ran in a
+    // pre-created task worktree via cwdOverride (skipWorktree=true + branch set — delivery
+    // skills on Jira/AIWF cards use this path). Without the second condition, handing off
+    // from /fix → /pr would create a fresh hangar/<ticket>-<runid> branch and open the PR
+    // from the wrong branch.
+    if (parent.worktrees?.length || (parent.skipWorktree && parent.branch)) {
       skipWorktree = true;
       branch = parent.branch;
     }
