@@ -12,6 +12,18 @@ const MODES: { value: Mode; label: string }[] = [
   { value: "session", label: "Session" },
 ];
 
+function currentWeekRange(): { since: string; until: string } {
+  const today = new Date();
+  const day = today.getDay(); // 0=Sun … 6=Sat
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + diffToMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  return { since: fmt(monday), until: fmt(sunday) };
+}
+
 // Mirrors the server-side DATE_RE: YYYY-MM-DD only (YYYYMMDD not shown in the UI).
 const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
@@ -42,8 +54,9 @@ export function UsageCostOverlay() {
   const [installed, setInstalled] = useState<boolean | null>(null); // null = loading
   const [version, setVersion] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("daily");
-  const [since, setSince] = useState("");
-  const [until, setUntil] = useState("");
+  const { since: defaultSince, until: defaultUntil } = currentWeekRange();
+  const [since, setSince] = useState(defaultSince);
+  const [until, setUntil] = useState(defaultUntil);
   const [activeOnly, setActiveOnly] = useState(false);
   const [recent, setRecent] = useState(false);
   const [data, setData] = useState<UsageData | null>(null);
@@ -62,12 +75,6 @@ export function UsageCostOverlay() {
       })
       .catch(() => setInstalled(false));
   }, []);
-
-  // Auto-fetch when installed or mode/toggle changes (date filters require explicit Run click).
-  useEffect(() => {
-    if (installed) fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [installed, mode, activeOnly, recent]);
 
   function validateDates(): boolean {
     if ((since && !DATE_RE.test(since)) || (until && !DATE_RE.test(until))) {
