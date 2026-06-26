@@ -143,11 +143,7 @@ export function UsageCostOverlay() {
           </p>
           {error && <p style={{ color: "var(--danger)", fontSize: 13, margin: "0 0 10px" }}>{error}</p>}
           <button className="btn" disabled={installing} onClick={install}>
-            {installing ? (
-              <RefreshCw size={14} className="spin" />
-            ) : (
-              <Download size={14} />
-            )}
+            {installing ? <RefreshCw size={14} className="spin" /> : <Download size={14} />}
             {installing ? "Installing…" : "Install ccusage globally"}
           </button>
         </section>
@@ -185,7 +181,15 @@ export function UsageCostOverlay() {
 
         {/* Filter row: since / until / blocks toggles / Run */}
         <div className="row" style={{ marginBottom: 14, gap: 10, alignItems: "center" }}>
-          <label style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <label
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
             Since
           </label>
           <input
@@ -195,7 +199,15 @@ export function UsageCostOverlay() {
             onChange={(e) => setSince(e.target.value)}
             style={{ width: 120 }}
           />
-          <label style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          <label
+            style={{
+              fontSize: 12,
+              color: "var(--text-muted)",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
             Until
           </label>
           <input
