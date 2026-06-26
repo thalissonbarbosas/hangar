@@ -670,6 +670,48 @@ describe("detectPr", () => {
   });
 });
 
+describe("sessionId persistence on server restart", () => {
+  it("flushes sessionId to disk immediately on SDK init so a fast Ctrl+C cannot lose it", async () => {
+    // Simulates the user restarting the server while a session is mid-run: the SDK fires
+    // the system init (setting sessionId), but the server is killed before the 1-second
+    // coalesced write fires. The fix: persist immediately on init so the ID survives.
+    holdOpen = true;
+    sdkScript = [{ type: "system", subtype: "init", session_id: "sess-persist", model: "m" }];
+    const run = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await waitForState(run, "running");
+    // Give the for-await loop a tick to process the system init message before we check.
+    await new Promise((r) => setTimeout(r, 20));
+
+    // The record must have sessionId and the "system" event immediately (not after 1s timer).
+    const saved = savedRecords.get(run.id)!;
+    expect(saved).toBeDefined();
+    expect(saved.sessionId).toBe("sess-persist");
+    const events = saved.events as Array<Record<string, unknown>>;
+    expect(events.some((e) => e.kind === "system" && e.sessionId === "sess-persist")).toBe(true);
+  });
+
+  it("preserves sessionId through a restart: loadPersistedRuns restores it on the next boot", async () => {
+    // Full round-trip: run gets sessionId, server is "killed" (we just stop it), then
+    // loadPersistedRuns loads the persisted record and the sessionId is still present.
+    holdOpen = true;
+    sdkScript = [{ type: "system", subtype: "init", session_id: "sess-roundtrip", model: "m" }];
+    const run = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await waitForState(run, "running");
+    await new Promise((r) => setTimeout(r, 20)); // let init be processed
+
+    // Simulate the restart: load the saved record as if it's a fresh boot.
+    const record = savedRecords.get(run.id)! as Record<string, unknown>;
+    storeRecords = [record];
+    sessions.loadPersistedRuns();
+
+    const restored = sessions.getRun(run.id)!;
+    expect(restored).toBeDefined();
+    expect(restored.sessionId).toBe("sess-roundtrip");
+    // The "system" event must be in the restored events so the RunPanel UI can display it.
+    expect(restored.events.some((e) => e.kind === "system" && e.sessionId === "sess-roundtrip")).toBe(true);
+  });
+});
+
 describe("loadPersistedRuns", () => {
   it("restores saved runs and marks mid-flight ones stopped", () => {
     storeRecords = [
