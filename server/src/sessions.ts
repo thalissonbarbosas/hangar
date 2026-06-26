@@ -784,6 +784,9 @@ async function streamTurn(run: Run, options: Record<string, unknown>, seedText: 
       if (msg.type === "system" && msg.subtype === "init") {
         run.sessionId = msg.session_id;
         emit(run, "system", { message: "Session initialized", sessionId: msg.session_id, model: msg.model });
+        // Immediately flush to disk so a server restart (Ctrl+C) before the 1-second coalesced
+        // write fires still preserves the resumable sessionId and the "system" event.
+        persist(run, true);
       } else if (msg.type === "assistant") {
         for (const block of msg.message?.content ?? []) {
           if (block.type === "text" && block.text) {
