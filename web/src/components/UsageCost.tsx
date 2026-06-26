@@ -105,6 +105,9 @@ export function UsageCostOverlay() {
       .then((s) => {
         setInstalled(s.installed);
         setVersion(s.version);
+        if (!s.installed) {
+          setError("Installed but ccusage was not detected — restart the server and reload.");
+        }
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setInstalling(false));

@@ -80,19 +80,37 @@ describe("GET /api/usage/status", () => {
     expect(res.body).toEqual({ installed: true, version: "20.0.14" });
   });
 
-  it("returns installed:false when ccusage is not in PATH (ENOENT)", async () => {
+  it("falls back to npx --no-install when ccusage binary is not in PATH", async () => {
+    const enoent = Object.assign(new Error("not found"), { code: "ENOENT" });
+    execFileMock.mockRejectedValueOnce(enoent); // direct ccusage → not in PATH
+    execFileMock.mockResolvedValueOnce({ stdout: "ccusage 20.0.14\n", stderr: "" }); // npx → found
+    const res = await request(app).get("/api/usage/status");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ installed: true, version: "ccusage 20.0.14" });
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      2,
+      "npx",
+      ["--no-install", "ccusage", "--version"],
+      expect.any(Object),
+    );
+  });
+
+  it("returns installed:false when both direct and npx fallback fail (ENOENT)", async () => {
     const err = Object.assign(new Error("not found"), { code: "ENOENT" });
-    execFileMock.mockRejectedValueOnce(err);
+    execFileMock.mockRejectedValueOnce(err); // direct ccusage → not found
+    execFileMock.mockRejectedValueOnce(err); // npx fallback → also not found
     const res = await request(app).get("/api/usage/status");
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ installed: false, version: null });
   });
 
-  it("returns installed:false for any other execFile error", async () => {
+  it("returns installed:false for any other execFile error (no npx fallback attempted)", async () => {
+    // Non-ENOENT errors are re-thrown immediately without trying npx.
     execFileMock.mockRejectedValueOnce(new Error("timeout"));
     const res = await request(app).get("/api/usage/status");
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ installed: false, version: null });
+    expect(execFileMock).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -190,19 +208,36 @@ describe("GET /api/usage/data", () => {
     expect(res.body.error).toMatch(/Invalid until/);
   });
 
-  it("returns 503 when ccusage binary is absent (ENOENT)", async () => {
+  it("falls back to npx --no-install when ccusage binary is not in PATH", async () => {
+    const enoent = Object.assign(new Error("not found"), { code: "ENOENT" });
+    execFileMock.mockRejectedValueOnce(enoent); // direct ccusage → not in PATH
+    execFileMock.mockResolvedValueOnce({ stdout: JSON.stringify(dailySample), stderr: "" }); // npx → data
+    const res = await request(app).get("/api/usage/data?mode=daily");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual(dailySample);
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      2,
+      "npx",
+      ["--no-install", "ccusage", "daily", "--json", "--no-color"],
+      expect.any(Object),
+    );
+  });
+
+  it("returns 503 when both direct and npx fallback fail (ENOENT)", async () => {
     const err = Object.assign(new Error("not found"), { code: "ENOENT" });
-    execFileMock.mockRejectedValueOnce(err);
+    execFileMock.mockRejectedValueOnce(err); // direct ccusage → not found
+    execFileMock.mockRejectedValueOnce(err); // npx fallback → also not found
     const res = await request(app).get("/api/usage/data?mode=daily");
     expect(res.status).toBe(503);
     expect(res.body.error).toMatch(/ccusage not installed/);
   });
 
-  it("returns 500 on a non-ENOENT ccusage failure", async () => {
+  it("returns 500 on a non-ENOENT ccusage failure (no npx fallback attempted)", async () => {
     execFileMock.mockRejectedValueOnce(new Error("ccusage exited with code 1"));
     const res = await request(app).get("/api/usage/data?mode=daily");
     expect(res.status).toBe(500);
     expect(res.body.error).toBeDefined();
+    expect(execFileMock).toHaveBeenCalledTimes(1);
   });
 });
 

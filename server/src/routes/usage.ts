@@ -4,8 +4,6 @@ import { promisify } from "util";
 
 // All shell execution goes through execFileAsync with an explicit args array — never shell-string
 // interpolation — so user-supplied query params cannot reach the shell as code.
-// We invoke `ccusage` directly (not via `npx`) so that ENOENT propagates cleanly when the binary
-// is absent; `npx ccusage` would silently download the package, defeating install detection.
 const execFileAsync = promisify(execFile);
 
 export const usageRouter = Router();
@@ -15,13 +13,36 @@ const VALID_MODES = new Set(["daily", "monthly", "weekly", "blocks", "session"])
 // Does not reject e.g. Feb 31 (ccusage handles gracefully), but rejects month 00/13+.
 const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$|^\d{4}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/;
 
+// Run ccusage with args, trying the direct binary first then the npx cache.
+// The npx fallback (--no-install prevents downloading) handles the case where the
+// user ran ccusage via npx at some point — it lives in the npx cache but is not
+// a global binary in PATH. If both paths fail, rethrows the original ENOENT.
+async function execCcusage(args: string[], timeoutMs = 30000): Promise<string> {
+  let notFoundErr: NodeJS.ErrnoException | undefined;
+  try {
+    const { stdout } = await execFileAsync("ccusage", args, { timeout: timeoutMs });
+    return stdout;
+  } catch (err) {
+    const e = err as NodeJS.ErrnoException;
+    if (e.code !== "ENOENT") throw err;
+    notFoundErr = e;
+  }
+  try {
+    const { stdout } = await execFileAsync("npx", ["--no-install", "ccusage", ...args], {
+      timeout: timeoutMs,
+    });
+    return stdout;
+  } catch {
+    throw notFoundErr!;
+  }
+}
+
 // GET /api/usage/status — detect whether ccusage is installed and return its version.
 usageRouter.get("/api/usage/status", async (_req, res) => {
   try {
-    const { stdout } = await execFileAsync("ccusage", ["--version"], { timeout: 5000 });
+    const stdout = await execCcusage(["--version"], 5000);
     res.json({ installed: true, version: stdout.trim() || null });
   } catch {
-    // ENOENT (not found) or any other failure → treat as not installed
     res.json({ installed: false, version: null });
   }
 });
@@ -59,7 +80,7 @@ usageRouter.get("/api/usage/data", async (req, res) => {
   if (mode === "blocks" && req.query.recent === "true") args.push("--recent");
 
   try {
-    const { stdout } = await execFileAsync("ccusage", args, { timeout: 30000 });
+    const stdout = await execCcusage(args);
     res.json(JSON.parse(stdout));
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
