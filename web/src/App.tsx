@@ -13,6 +13,7 @@ import {
   Sparkles,
   Search,
   Workflow,
+  CircleDollarSign,
 } from "lucide-react";
 import { api } from "./api";
 import {
@@ -34,12 +35,13 @@ import { SessionsView } from "./components/SessionsView";
 import { SkillRunner } from "./components/SkillRunner";
 import { WorkflowsBar } from "./components/WorkflowsBar";
 import { AiWorkflowView, AiWorkflowBar } from "./components/AiWorkflow";
+import { UsageCostOverlay } from "./components/UsageCost";
 import { useTheme } from "./useTheme";
 import { filterByBoard } from "./utils";
 
 // Two connections (sources) share the board surface; overlays take over the main area.
 type Connection = "jira" | "aiworkflow";
-type Overlay = "settings" | "sessions" | "run" | null;
+type Overlay = "settings" | "sessions" | "run" | "usage" | null;
 
 const SELECTED_BOARDS_KEY = "hangar.selectedBoards";
 const ASSIGNEE_KEY = "hangar.assignee";
@@ -472,6 +474,13 @@ export function App() {
 
         <div className="topbar-actions">
           <button
+            className={`icon-btn has-tip${overlay === "usage" ? " on" : ""}`}
+            data-tip="Usage cost"
+            onClick={() => setOverlay((o) => (o === "usage" ? null : "usage"))}
+          >
+            <CircleDollarSign size={17} />
+          </button>
+          <button
             className={`icon-btn has-tip${overlay === "run" ? " on" : ""}`}
             data-tip="Run a skill (no ticket)"
             onClick={() => setOverlay((o) => (o === "run" ? null : "run"))}
@@ -598,6 +607,10 @@ export function App() {
             boards={boards}
             onRun={runStandalone}
           />
+        </div>
+      ) : overlay === "usage" ? (
+        <div className="settings-area">
+          <UsageCostOverlay />
         </div>
       ) : connection === "aiworkflow" ? (
         <AiWorkflowView
