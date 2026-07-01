@@ -468,6 +468,37 @@ describe("error path", () => {
   });
 });
 
+describe("restartRun", () => {
+  it("starts a fresh run from an errored run's original options", async () => {
+    sdkThrow = true;
+    const original = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await waitForState(original, "error", "done");
+    expect(original.state).toBe("error");
+    expect(original.startOpts).toMatchObject({ kind: "agent", name: "debugger" });
+
+    // Restart succeeds this time (default success script).
+    sdkThrow = false;
+    sdkScript = [...successScript];
+    const fresh = sessions.restartRun(original)!;
+    expect(fresh).toBeDefined();
+    expect(fresh.id).not.toBe(original.id); // brand-new run, not the same one
+    expect(fresh.kind).toBe("agent");
+    expect(fresh.agentName).toBe("debugger");
+    expect(fresh.ticketKey).toBe("PP-1");
+    await waitForState(fresh, "done");
+    expect(fresh.state).toBe("done");
+    // The original errored run is untouched and still present.
+    expect(sessions.getRun(original.id)!.state).toBe("error");
+  });
+
+  it("returns undefined for a run with no recorded launch options", async () => {
+    const run = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await waitForState(run, "done");
+    run.startOpts = undefined; // simulate a legacy run persisted before startOpts existed
+    expect(sessions.restartRun(run)).toBeUndefined();
+  });
+});
+
 describe("stopRun", () => {
   it("interrupts a running session and marks it stopped", async () => {
     holdOpen = true;

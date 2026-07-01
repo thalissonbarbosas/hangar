@@ -203,6 +203,7 @@ export const api = {
     sendJson<StartRunResult>("POST", "/api/runs", { kind: "chat", cwd, title, model, note }),
   handoff: (parentRunId: string, name: string, kind: RunKind, note: string) =>
     sendJson<StartRunResult>("POST", "/api/runs", { parentRunId, name, kind, note }),
+  restartRun: (runId: string) => sendJson<StartRunResult>("POST", `/api/runs/${runId}/restart`, {}),
   runs: () => getJson<{ runs: RunSummary[] }>("/api/runs"),
   resolvePermission: (runId: string, requestId: string, decision: "allow" | "deny") =>
     sendJson<{ ok: boolean }>("POST", `/api/runs/${runId}/permissions/${requestId}`, { decision }),
