@@ -8,6 +8,22 @@ export function projectColor(key: string): string {
   return PROJ_COLORS[h % PROJ_COLORS.length];
 }
 
+/**
+ * Collapse entries that share a `name` down to a single representative, preserving order.
+ * Board agent/skill access is name-based (see `filterByBoard`, and `board.skills`/`board.agents`
+ * store plain names), so two same-named entries are indistinguishable downstream. Rendering both
+ * as separate checkboxes made a single name-keyed selection look like it toggled several rows at
+ * once. Dedupe so each name maps to exactly one control.
+ */
+export function dedupeByName<T extends { name: string }>(items: T[]): T[] {
+  const seen = new Set<string>();
+  return items.filter((it) => {
+    if (seen.has(it.name)) return false;
+    seen.add(it.name);
+    return true;
+  });
+}
+
 /** Return the display project key for a skill: "aiwf", a repo name, or null for ungrouped user skills. */
 export function skillProject(s: { aiwf?: boolean; repo?: string }): string | null {
   if (s.aiwf) return "aiwf";
