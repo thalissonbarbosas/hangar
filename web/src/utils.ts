@@ -1,11 +1,32 @@
 import { Agent, BoardConfig, Skill } from "./types";
 
-const PROJ_COLORS = ["#4f7cff", "#10b981", "#e08e0b", "#ec4899", "#8b5cf6", "#0ea5e9", "#f43f5e", "#14b8a6"];
+/** Convert an HSL triple to a `#rrggbb` hex string (MDN algorithm). */
+function hslToHex(hue: number, sat: number, light: number): string {
+  const s = sat / 100;
+  const l = light / 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + hue / 30) % 12;
+    const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(255 * c)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
 
+/**
+ * Deterministic per-project color. Distinct project keys get distinct, evenly
+ * spread hues across the full color wheel instead of colliding onto a small
+ * fixed palette. Multiplying the hash by 137 (coprime with 360) keeps even
+ * near-identical keys far apart on the wheel. Saturation/lightness are tuned to
+ * stay legible as text on both the light and dark themes.
+ */
 export function projectColor(key: string): string {
   let h = 0;
   for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) & 0x7fffffff;
-  return PROJ_COLORS[h % PROJ_COLORS.length];
+  const hue = (h * 137) % 360;
+  return hslToHex(hue, 65, 55);
 }
 
 /**
