@@ -610,6 +610,19 @@ describe("projectRunNote", () => {
     expect(note).toContain(aiwf.boardDir(project));
     expect(aiwf.projectRunNote("roadmap", project)).toContain(aiwf.boardDir(project));
   });
+  it("appends the autopilot board-sync instruction with the board path and the card-key prefix", () => {
+    const note = aiwf.projectRunNote("autopilot", project);
+    expect(note).toContain(aiwf.boardDir(project));
+    // prefix from the project name "Demo Project" -> "DP"; assert the created/finished columns too.
+    expect(note).toContain("DP-");
+    expect(note).toContain("Implementation");
+    expect(note).toContain("Delivery");
+  });
+  it("puts the user note before the autopilot seed instruction", () => {
+    const note = aiwf.projectRunNote("autopilot", project, "ship phases 1-2") ?? "";
+    expect(note).toContain("ship phases 1-2");
+    expect(note.indexOf("ship phases 1-2")).toBeLessThan(note.indexOf(aiwf.boardDir(project)));
+  });
 });
 
 describe("columnsFor / boardDir", () => {
