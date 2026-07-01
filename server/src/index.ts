@@ -56,6 +56,10 @@ if (require.main === module) {
     console.error("[hangar] uncaughtException:", err);
   });
 
+  // Pre-warm the ESM-only Agent SDK so the first run doesn't pay the import cost on its
+  // critical path. Non-blocking; streamTurn() still awaits import() and hits the module cache.
+  void import("@anthropic-ai/claude-agent-sdk").catch(() => {});
+
   app.listen(PORT, "127.0.0.1", () => {
     const jira = loadJiraEnv();
     console.log(`Hangar server on http://127.0.0.1:${PORT}`);

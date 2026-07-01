@@ -871,7 +871,13 @@ async function drive(run: Run, ctx: DriveCtx): Promise<void> {
   if (!run.skipWorktree && (getConfig().isolateRuns ?? true)) {
     const label = run.ticketKey || run.title || "adhoc";
     const basename = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
-    const primary = await createWorktree(run.cwd, label, run.id);
+    // Create the primary and every additional-repo worktree concurrently — they're
+    // independent git repos, so serializing the checkouts only adds startup latency.
+    // Promise.all preserves array order, so results and emits stay primary-then-additional.
+    const [primary, ...extra] = await Promise.all([
+      createWorktree(run.cwd, label, run.id),
+      ...additionalDirectories.map((d) => createWorktree(d, label, run.id)),
+    ]);
     if (primary) {
       run.worktrees = [primary];
       run.branch = primary.branch;
@@ -881,8 +887,8 @@ async function drive(run: Run, ctx: DriveCtx): Promise<void> {
       emit(run, "info", { message: "Working dir isn't a git repo — running in place (no worktree)." });
     }
     const mapped: string[] = [];
-    for (const d of additionalDirectories) {
-      const wt = await createWorktree(d, label, run.id);
+    additionalDirectories.forEach((d, i) => {
+      const wt = extra[i];
       if (wt) {
         (run.worktrees ??= []).push(wt);
         mapped.push(wt.path);
@@ -890,7 +896,7 @@ async function drive(run: Run, ctx: DriveCtx): Promise<void> {
       } else {
         mapped.push(d);
       }
-    }
+    });
     additionalDirectories = mapped;
   }
   run.runtimeDirs = additionalDirectories; // reused on resume

@@ -319,6 +319,19 @@ describe("worktree isolation", () => {
     expect(lastQueryOptions!.additionalDirectories).toEqual(["/wt/b"]);
   });
 
+  it("keeps the original path for an additional dir whose worktree fails (order preserved)", async () => {
+    mockCfg = baseCfg({ isolateRuns: true });
+    // Primary succeeds; the additional repo's worktree fails (returns null) → original path kept.
+    createWorktree
+      .mockResolvedValueOnce({ path: "/wt/a", branch: "hangar/PP-1-abc", repoRoot: "/repo/a" })
+      .mockResolvedValueOnce(null);
+    const run = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await waitForState(run, "done");
+    expect(run.cwd).toBe("/wt/a");
+    expect(run.worktrees).toHaveLength(1);
+    expect(lastQueryOptions!.additionalDirectories).toEqual(["/repo/b"]);
+  });
+
   it("falls back to running in place when cwd isn't a git repo", async () => {
     mockCfg = baseCfg({ isolateRuns: true });
     createWorktree.mockResolvedValue(null);
