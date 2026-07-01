@@ -349,6 +349,22 @@ export function App() {
       })
       .catch((e) => setError(String(e.message ?? e)));
   }
+  function restart(runId: string) {
+    const prev = activeRun;
+    setError(null);
+    api
+      .restartRun(runId)
+      .then((r) => {
+        setActiveRun({
+          runId: r.runId,
+          ticketKey: prev?.ticketKey ?? "",
+          agentName: prev?.agentName ?? "",
+          ticketUrl: prev?.ticketUrl,
+        });
+        refreshRuns();
+      })
+      .catch((e) => setError(String(e.message ?? e)));
+  }
   function stop(runId: string) {
     api
       .stopRun(runId)
@@ -674,6 +690,7 @@ export function App() {
           agents={activeRunAgents}
           skills={activeRunSkills}
           onHandoff={handoff}
+          onRestart={() => restart(activeRun.runId)}
           onClose={() => setActiveRun(null)}
           onOpenInTerminal={() => openInTerminal(activeRun.runId)}
           terminalConfigured={terminalConfigured}
