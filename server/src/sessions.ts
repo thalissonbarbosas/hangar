@@ -73,6 +73,7 @@ export interface Run {
   inputOpen?: boolean; // the streaming-input queue is accepting messages
   aiwfProjectId?: string; // set for aiwf card runs — used to log results into the card's history
   aiwfPhase?: string; // the phase column the card was in when this session started
+  startOpts?: StartOpts; // original launch options, so an errored run can be restarted fresh
   // Observed by the workflow engine to advance steps on state changes. Idempotent.
   onState?: (run: Run, state: RunState) => void;
   // runtime handles (loosely typed to avoid importing ESM-only SDK types)
@@ -370,6 +371,7 @@ export function seedDemoRuns(): void {
       model: seed.model,
       cwd: seed.cwd,
       branch: seed.branch,
+      startOpts: seed.startOpts as StartOpts | undefined,
       state: seed.state as RunState,
       phase: seed.phase,
       prUrl: seed.prUrl,
@@ -561,6 +563,7 @@ export function startRun(opts: StartOpts): Run {
     skillSource: opts.skillSource,
     aiwfProjectId: opts.aiwfProjectId,
     aiwfPhase: opts.aiwfPhase,
+    startOpts: opts, // remembered so an errored run can be restarted as a fresh session
     state: "starting",
     startedAt: Date.now(),
     events: [],
@@ -605,6 +608,16 @@ export function startRun(opts: StartOpts): Run {
   }
 
   return run;
+}
+
+/**
+ * Start a brand-new run from an errored run's original launch options — a fresh Claude session
+ * and worktree, same agent/skill + ticket/context. Returns undefined when the run wasn't
+ * recorded with launch options (legacy runs persisted before this field existed).
+ */
+export function restartRun(run: Run): Run | undefined {
+  if (!run.startOpts) return undefined;
+  return startRun(run.startOpts);
 }
 
 function requestPermission(run: Run, tool: string, input: Record<string, unknown>): Promise<unknown> {
