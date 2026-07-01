@@ -249,7 +249,8 @@ export function ClaudeSessionButton({
 
 function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCtx; skills: Skill[] }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  // top: popup opens below the button; bottom: popup opens above it (viewport-flipped)
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
   // NoteModal is only reachable for agent/skill assignment — chat sessions never flow here.
   const [pendingNote, setPendingNote] = useState<{ name: string; kind: "agent" | "skill" } | null>(null);
   const [activeSkillProj, setActiveSkillProj] = useState<string | null>(null);
@@ -276,7 +277,18 @@ function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCt
   function toggle() {
     if (open) return setOpen(false);
     const r = btnRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - 460)) });
+    if (r) {
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - 460));
+      // Estimate popup height: assign-col max-height (340px) + heading + padding
+      const estimatedH = 380;
+      const spaceBelow = window.innerHeight - r.bottom;
+      // Flip upward when there's not enough room below but more room above
+      if (spaceBelow < estimatedH && r.top > spaceBelow) {
+        setPos({ bottom: window.innerHeight - r.top + 4, left });
+      } else {
+        setPos({ top: r.bottom + 4, left });
+      }
+    }
     setOpen(true);
   }
 
@@ -327,7 +339,7 @@ function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCt
           <div
             className="assign-pop"
             ref={popRef}
-            style={{ position: "fixed", top: pos.top, left: pos.left }}
+            style={{ position: "fixed", top: pos.top, bottom: pos.bottom, left: pos.left }}
           >
             {ctx.workflows.length > 0 && (
               <div className="assign-col">
@@ -371,7 +383,7 @@ function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCt
               {skillProjKeys.length > 1 && (
                 <div className="assign-skill-tabs">
                   {skillProjKeys.map((proj) => {
-                    const isOther = proj === " other";
+                    const isOther = proj === "other";
                     const color = !isOther ? projectColor(proj) : undefined;
                     return (
                       <button
