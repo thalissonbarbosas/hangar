@@ -50,11 +50,14 @@ describe("demo config & tickets", () => {
     }
   });
 
-  it("seeds runs covering the active, awaiting-input, and done states", () => {
+  it("seeds runs covering the active, awaiting-input, done, and error states", () => {
     const seeds = demoRunSeeds();
     expect(seeds.length).toBeGreaterThan(0);
     const states = new Set(seeds.map((s) => s.state));
-    expect(states).toEqual(new Set(["running", "awaiting_input", "done"]));
+    expect(states).toEqual(new Set(["running", "awaiting_input", "done", "error"]));
+    // The errored run carries restart options so the panel's Restart button is enabled.
+    const errored = seeds.find((s) => s.state === "error");
+    expect(errored?.startOpts).toMatchObject({ kind: "agent", name: "debugger" });
     for (const seed of seeds) {
       expect(seed.id).toBeTruthy();
       expect(seed.ticketKey).toMatch(/^DEMO-/);

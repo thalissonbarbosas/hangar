@@ -148,6 +148,9 @@ export interface DemoRunSeed {
   startedMinsAgo: number;
   endedMinsAgo?: number;
   events: DemoEvent[];
+  // Original launch options, so an errored demo run can be restarted from the panel.
+  // Kept loose to avoid a circular type import; cast to StartOpts in seedDemoRuns.
+  startOpts?: Record<string, unknown>;
 }
 
 const DEMO_CWD = "~/demo/acme-web";
@@ -285,6 +288,41 @@ export function demoRunSeeds(): DemoRunSeed[] {
           ],
         },
         { kind: "state", state: "awaiting_input" },
+      ],
+    },
+    {
+      id: "demo-run-error",
+      ticketKey: "DEMO-102",
+      ticketUrl: "#",
+      agentName: "debugger",
+      kind: "agent",
+      model: "opus",
+      note: "Investigate the failing nightly build.",
+      state: "error",
+      phase: "Error",
+      cwd: DEMO_CWD,
+      startedMinsAgo: 12,
+      endedMinsAgo: 11,
+      // Standalone-style options so a restart re-runs the same agent + task from scratch.
+      startOpts: {
+        kind: "agent",
+        name: "debugger",
+        note: "Investigate the failing nightly build.",
+        cwd: DEMO_CWD,
+      },
+      events: [
+        { kind: "system", message: "session started", sessionId: "demo-sess-102" },
+        { kind: "worktree", repo: "acme-web", branch: "hangar/debugger-e102err" },
+        {
+          kind: "assistant_text",
+          text: "Pulling the nightly build logs to see where it broke.\n\n",
+        },
+        { kind: "tool_use", tool: "Bash", input: "npm run build" },
+        {
+          kind: "error",
+          message: "Session ended unexpectedly: the build process was killed (out of memory).",
+        },
+        { kind: "state", state: "error" },
       ],
     },
   ];

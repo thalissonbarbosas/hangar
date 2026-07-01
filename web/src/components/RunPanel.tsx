@@ -19,6 +19,7 @@ import {
   MessageCircleQuestion,
   User,
   RotateCcw,
+  RefreshCw,
 } from "lucide-react";
 import { api } from "../api";
 import { Agent, RunEvent, RunKind, RunState, Skill, isActive } from "../types";
@@ -74,6 +75,7 @@ export function RunPanel({
   agents,
   skills,
   onHandoff,
+  onRestart,
   onClose,
   onOpenInTerminal,
   terminalConfigured,
@@ -85,6 +87,7 @@ export function RunPanel({
   agents: Agent[];
   skills: Skill[];
   onHandoff: (name: string, kind: RunKind, note: string) => void;
+  onRestart: () => void;
   onClose: () => void;
   onOpenInTerminal?: () => void;
   terminalConfigured?: boolean;
@@ -217,6 +220,15 @@ export function RunPanel({
             </span>
           </div>
           <div className="run-head-actions">
+            {state === "error" && (
+              <button
+                className="btn-ghost sm"
+                onClick={onRestart}
+                title="Start a fresh session — same agent and context, brand-new session"
+              >
+                <RefreshCw size={13} /> Restart
+              </button>
+            )}
             {!isActive(state) && sessionId && (
               <button
                 className="btn-ghost sm"
