@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { api } from "../api";
 import { Agent, BoardConfig, FullConfig, Skill, WorkflowConfig, WorkflowStep } from "../types";
-import { projectColor, skillProject } from "../utils";
+import { dedupeByName, projectColor, skillProject } from "../utils";
 
 type Saved = "idle" | "saving" | "saved" | "error";
 
@@ -307,7 +307,6 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
   useEffect(() => {
     Promise.all([api.config(), api.agents(), api.skills(), api.aiwfStatus()]).then(([c, a, s, ast]) => {
       setExclusive(c.exclusiveAgents ?? []);
-      setAgents(a.agents);
       const found = new Set(ast.skillGroups?.flatMap((g: { skills: string[] }) => g.skills) ?? []);
       const enriched = s.skills.map((sk) => (found.has(sk.name) ? { ...sk, aiwf: true } : sk));
       enriched.sort((a, b) => {
@@ -316,7 +315,10 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
         if (pa !== pb) return pa.localeCompare(pb);
         return a.name.localeCompare(b.name);
       });
-      setSkills(enriched);
+      // Exclusive runtime is name-based (matched by name in sessions), so collapse
+      // same-named agents/skills to one checkbox each.
+      setAgents(dedupeByName(a.agents));
+      setSkills(dedupeByName(enriched));
     });
   }, []);
 
@@ -851,7 +853,9 @@ function AgentAccessSection({ onSaved }: { onSaved: () => void }) {
   useEffect(() => {
     Promise.all([api.config(), api.agents()]).then(([c, a]) => {
       setBoards(c.boards);
-      setAgents(a.agents);
+      // Board agents are name-based, so same-named agents would render as separate
+      // checkboxes that all share one selection — collapse them to one row per name.
+      setAgents(dedupeByName(a.agents));
     });
   }, []);
 
@@ -935,7 +939,9 @@ function BoardSkillsSection({ onSaved }: { onSaved: () => void }) {
         if (pa !== pb) return pa.localeCompare(pb);
         return a.name.localeCompare(b.name);
       });
-      setSkills(enriched);
+      // Board skills are name-based, so same-named skills would render as separate
+      // checkboxes that all share one selection — collapse them to one row per name.
+      setSkills(dedupeByName(enriched));
     });
   }, []);
 
