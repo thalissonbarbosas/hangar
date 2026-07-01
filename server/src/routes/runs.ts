@@ -7,6 +7,7 @@ import { loadAgent } from "../agents";
 import { skillExists, findSkill } from "../skills";
 import {
   startRun,
+  restartRun,
   getRun,
   listRuns,
   runToJson,
@@ -124,6 +125,20 @@ runsRouter.post("/api/runs", runCreateLimiter, async (req, res) => {
           skipWorktree: kind === "chat" ? true : undefined,
         });
   res.json({ runId: run.id });
+});
+
+// Restart an errored run as a fresh session — same agent/skill + ticket/context, brand-new
+// Claude session and worktree. Only errored runs are restartable (a live run would be duplicated).
+runsRouter.post("/api/runs/:id/restart", runCreateLimiter, (req, res) => {
+  const run = getRun(req.params.id);
+  if (!run) return res.status(404).json({ error: "No such run" });
+  if (run.state !== "error") {
+    return res.status(409).json({ error: "Only errored sessions can be restarted." });
+  }
+  const fresh = restartRun(run);
+  if (!fresh)
+    return res.status(409).json({ error: "This run can't be restarted — no launch options recorded." });
+  res.json({ runId: fresh.id });
 });
 
 runsRouter.get("/api/runs", (_req, res) => {
