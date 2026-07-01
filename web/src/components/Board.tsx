@@ -371,7 +371,7 @@ function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCt
               {skillProjKeys.length > 1 && (
                 <div className="assign-skill-tabs">
                   {skillProjKeys.map((proj) => {
-                    const isOther = proj === " other";
+                    const isOther = proj === "other";
                     const color = !isOther ? projectColor(proj) : undefined;
                     return (
                       <button
