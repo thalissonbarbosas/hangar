@@ -117,6 +117,36 @@ export interface Ticket {
   specChildren?: SpecSlice[]; // aiwf: slice files inside a directory spec (undefined for single-file specs)
 }
 
+export type DoctorStatus = "ok" | "warn" | "error";
+
+/** One read-only environment health check surfaced in the Doctor settings section. */
+export interface DoctorCheck {
+  id: string; // stable key, e.g. "auth", "worktrees", "disk"
+  label: string; // human title
+  status: DoctorStatus;
+  detail: string; // one-line finding
+  hint?: string; // optional remediation guidance
+}
+
+/** A stopped/errored run that still carries a Claude sessionId and can be brought back. */
+export interface RecoverableSession {
+  id: string;
+  title: string; // ticketKey || title || agentName
+  ticketKey?: string;
+  agentName: string;
+  kind: "agent" | "skill" | "chat";
+  state: "stopped" | "error";
+  cwd: string;
+  cwdExists: boolean; // false ⇒ unrecoverable (worktree pruned)
+  endedAt?: number;
+}
+
+export interface DoctorReport {
+  checks: DoctorCheck[];
+  recoverableSessions: RecoverableSession[];
+  generatedAt: number; // epoch ms
+}
+
 export interface AiwfDocTreeNode {
   /** Relative path from the project root — e.g. "docs/ARCHITECTURE.md" */
   path: string;

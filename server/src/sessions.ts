@@ -5,7 +5,7 @@ import { expandHome, getConfig, boardPaths, getAiwfProjects } from "./config";
 import { loadAgent, AgentDetail } from "./agents";
 import { createWorktree, removeWorktree, Worktree } from "./worktree";
 import { saveRunRecord, deleteRunRecord, loadRunRecords, RunRecord } from "./store";
-import { Ticket } from "./types";
+import { RecoverableSession, Ticket } from "./types";
 import { demoRunSeeds } from "./demo";
 import { isSafeBashCommand } from "./safe-shell";
 import { appendCardHistory } from "./aiwf";
@@ -939,6 +939,16 @@ async function drive(run: Run, ctx: DriveCtx): Promise<void> {
 
 /** Continue a finished session with a follow-up message (SDK `resume`), reusing its worktree. */
 async function resumeRun(run: Run, text: string): Promise<void> {
+  // The worktree may have been pruned since the run ended (e.g. after a restart). Resuming into
+  // a missing cwd fails opaquely inside the SDK, so surface a clear error and stop here instead.
+  if (!existsSync(run.cwd)) {
+    run.state = "error";
+    run.error = `Working directory is gone: ${run.cwd}. Its worktree was removed — start a fresh run.`;
+    run.endedAt = Date.now();
+    emit(run, "error", { message: run.error });
+    notifyState(run, run.state);
+    return;
+  }
   run.stopRequested = false;
   run.endedAt = undefined;
   run.error = undefined;
@@ -991,4 +1001,39 @@ export function sendMessage(run: Run, text: string): "answer" | "steer" | "resum
     return "resume";
   }
   return "none";
+}
+
+const RECOVERABLE_STATES: RunState[] = ["stopped", "error"];
+
+/**
+ * Sessions the Doctor can offer to bring back: runs that ended (stopped/error) but still carry a
+ * Claude `sessionId`, so the SDK can resume them. `cwdExists` flags whether the worktree survives
+ * — a false value means the session is listed but not resumable (its working dir was pruned).
+ */
+export function recoverableRuns(): RecoverableSession[] {
+  return [...runs.values()]
+    .filter((r) => RECOVERABLE_STATES.includes(r.state) && !!r.sessionId)
+    .sort((a, b) => (b.endedAt ?? b.startedAt) - (a.endedAt ?? a.startedAt))
+    .map((r) => ({
+      id: r.id,
+      title: r.ticketKey || r.title || r.agentName,
+      ticketKey: r.ticketKey || undefined,
+      agentName: r.agentName,
+      kind: r.kind,
+      state: r.state as "stopped" | "error",
+      cwd: r.cwd,
+      cwdExists: existsSync(r.cwd),
+      endedAt: r.endedAt,
+    }));
+}
+
+/**
+ * Bring a recoverable session back: reattach its Claude session (SDK `resume`) with a short
+ * continuation nudge so no work is repeated. Refuses when the run is active, lost its `sessionId`,
+ * or its worktree is gone. Returns which path was taken.
+ */
+export function recoverRun(run: Run): "started" | "not_recoverable" {
+  if (ACTIVE.includes(run.state) || !run.sessionId || !existsSync(run.cwd)) return "not_recoverable";
+  const mode = sendMessage(run, "Resume this session and continue where you left off.");
+  return mode === "resume" ? "started" : "not_recoverable";
 }

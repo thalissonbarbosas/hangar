@@ -449,6 +449,57 @@ describe("sendMessage — steer & resume", () => {
   });
 });
 
+describe("recoverableRuns / recoverRun", () => {
+  async function erroredRun() {
+    sdkScript = [
+      { type: "system", subtype: "init", session_id: "sess-1", model: "m" },
+      { type: "result", subtype: "error_max_turns", total_cost_usd: 0.1, session_id: "sess-1" },
+    ];
+    const run = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await waitForState(run, "error", "done");
+    expect(run.state).toBe("error");
+    expect(run.sessionId).toBe("sess-1");
+    return run;
+  }
+
+  it("lists a stopped/errored run with a sessionId, flagging cwd existence", async () => {
+    const run = await erroredRun();
+    let list = sessions.recoverableRuns();
+    expect(list.find((r) => r.id === run.id)).toMatchObject({ cwdExists: true, state: "error" });
+    // Worktree gone → still listed, but not recoverable.
+    existsSyncMock.mockReturnValue(false);
+    list = sessions.recoverableRuns();
+    expect(list.find((r) => r.id === run.id)!.cwdExists).toBe(false);
+  });
+
+  it("omits runs with no sessionId and active runs", async () => {
+    const run = await erroredRun();
+    run.sessionId = undefined;
+    expect(sessions.recoverableRuns().find((r) => r.id === run.id)).toBeUndefined();
+  });
+
+  it("recoverRun resumes when the worktree exists", async () => {
+    const run = await erroredRun();
+    sdkScript = [
+      { type: "system", subtype: "init", session_id: "sess-1", model: "m" },
+      { type: "result", subtype: "success", result: "resumed", total_cost_usd: 0.02, session_id: "sess-1" },
+    ];
+    const resumed = new Promise<void>((res) => run.listeners.add((e) => e.kind === "result" && res()));
+    expect(sessions.recoverRun(run)).toBe("started");
+    await resumed;
+    expect(lastQueryOptions!.resume).toBe("sess-1");
+  });
+
+  it("recoverRun refuses when the worktree is gone or there is no sessionId", async () => {
+    const run = await erroredRun();
+    existsSyncMock.mockReturnValue(false);
+    expect(sessions.recoverRun(run)).toBe("not_recoverable");
+    existsSyncMock.mockReturnValue(true);
+    run.sessionId = undefined;
+    expect(sessions.recoverRun(run)).toBe("not_recoverable");
+  });
+});
+
 describe("error path", () => {
   it("marks the run errored when a non-success result arrives", async () => {
     sdkScript = [
