@@ -32,6 +32,7 @@ import {
 import { api } from "../api";
 import { Avatar } from "./Avatar";
 import { NoteModal } from "./NoteModal";
+import { AgentSkillPicker } from "./AgentSkillPicker";
 import { WorktreeManagerModal } from "./WorktreeManagerModal";
 import { projectColor, skillProject } from "../utils";
 
@@ -127,26 +128,48 @@ function ItemRow({
   );
 }
 
-// A compact inline popover that starts a plain Claude session scoped to a repo path.
+// A compact inline popover that starts a session scoped to a repo path — a plain Claude chat, or
+// (via the picker) a standalone agent/skill run in that same repo.
 const LS_KEY = (cwd: string) => `hangar-chat:${cwd}`;
+
+// Options handed to onStart. name/kind undefined → plain chat; modelTouched tells the caller
+// whether the operator explicitly picked a model (so an agent's frontmatter model can win when not).
+export type ClaudeSessionStart = {
+  name?: string;
+  kind?: RunKind | null;
+  model: string;
+  modelTouched: boolean;
+  note?: string;
+};
 
 // Reused by the Jira board header and each AI Workflow project pill, so it's exported.
 export function ClaudeSessionButton({
   cwd,
   title,
   runs,
+  agents,
+  skills,
   onStart,
   onOpenRun,
 }: {
   cwd: string;
   title: string;
   runs: RunSummary[];
-  onStart: (model: string, note?: string) => Promise<string>;
+  agents: Agent[];
+  skills: Skill[];
+  onStart: (opts: ClaudeSessionStart) => Promise<string>;
   onOpenRun: (run: RunSummary) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [model, setModel] = useState<"haiku" | "sonnet" | "opus">("sonnet");
+  const [modelTouched, setModelTouched] = useState(false);
+  const [name, setName] = useState("");
+  const [kind, setKind] = useState<RunKind | null>(null);
   const [note, setNote] = useState("");
+
+  // A selected agent/skill needs a task note (the standalone run path rejects an empty note).
+  const hasSelection = !!name && !!kind;
+  const canRun = !hasSelection || !!note.trim();
 
   // Find the last session started from this button (stored by runId in localStorage).
   const lastRun = useMemo(() => {
@@ -164,12 +187,21 @@ export function ClaudeSessionButton({
     return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
-  function start() {
-    onStart(model, note.trim() || undefined).then((runId) => {
-      localStorage.setItem(LS_KEY(cwd), runId);
-    });
-    setOpen(false);
+  function reset() {
+    setName("");
+    setKind(null);
     setNote("");
+    setModelTouched(false);
+  }
+
+  function start() {
+    onStart({ name: name || undefined, kind, model, modelTouched, note: note.trim() || undefined }).then(
+      (runId) => {
+        localStorage.setItem(LS_KEY(cwd), runId);
+      },
+    );
+    setOpen(false);
+    reset();
   }
 
   return (
@@ -217,16 +249,38 @@ export function ClaudeSessionButton({
                   </button>
                 </div>
               )}
+              <div className="field" style={{ marginTop: 10 }}>
+                <label>Agent or Skill (optional)</label>
+                <AgentSkillPicker
+                  agents={agents}
+                  skills={skills}
+                  selectedName={name}
+                  selectedKind={kind}
+                  onSelect={(n, k) => {
+                    setName(n);
+                    setKind(k);
+                  }}
+                />
+              </div>
               <div className="seg" style={{ marginTop: 10 }}>
                 {(["haiku", "sonnet", "opus"] as const).map((m) => (
-                  <button key={m} className={model === m ? "on" : undefined} onClick={() => setModel(m)}>
+                  <button
+                    key={m}
+                    className={model === m ? "on" : undefined}
+                    onClick={() => {
+                      setModel(m);
+                      setModelTouched(true);
+                    }}
+                  >
                     {m[0].toUpperCase() + m.slice(1)}
                   </button>
                 ))}
               </div>
               <textarea
                 className="claude-session-note"
-                placeholder="What would you like to work on?"
+                placeholder={
+                  hasSelection ? "Describe the task for this agent/skill…" : "What would you like to work on?"
+                }
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 style={{ marginTop: 10 }}
@@ -235,7 +289,7 @@ export function ClaudeSessionButton({
                 <button className="btn-ghost" onClick={() => setOpen(false)}>
                   Cancel
                 </button>
-                <button className="btn" onClick={start}>
+                <button className="btn" onClick={start} disabled={!canRun}>
                   Start session
                 </button>
               </div>
@@ -718,7 +772,7 @@ export function Board({
   onStartWorkflow: (ticketKey: string, workflowId: string) => void;
   onMoveTicket: (ticketKey: string, targetStatus: string) => void;
   onOpenRun: (run: RunSummary) => void;
-  onStartClaude: (cwd: string, title: string, model: string, note?: string) => Promise<string>;
+  onStartClaude: (cwd: string, title: string, opts: ClaudeSessionStart) => Promise<string>;
 }) {
   // Restrict the Assign menu to the board's enabled agents (empty/undefined = all).
   const boardAgents = board.agents?.length ? agents.filter((a) => board.agents!.includes(a.name)) : agents;
@@ -768,8 +822,10 @@ export function Board({
             cwd={primaryCwd}
             title={`${board.name} — Claude`}
             runs={runs}
+            agents={boardAgents}
+            skills={boardSkills}
             onOpenRun={onOpenRun}
-            onStart={(model, note) => onStartClaude(primaryCwd, `${board.name} — Claude`, model, note)}
+            onStart={(opts) => onStartClaude(primaryCwd, `${board.name} — Claude`, opts)}
           />
         )}
       </h2>

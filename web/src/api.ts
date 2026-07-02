@@ -200,8 +200,14 @@ export const api = {
     getJson<{ exists: boolean }>(`/api/fs/exists?path=${encodeURIComponent(path)}`),
   startRun: (ticket: Ticket, name: string, kind: RunKind = "agent", note?: string) =>
     sendJson<StartRunResult>("POST", "/api/runs", { ticket, name, kind, note }),
-  startStandalone: (name: string, kind: RunKind, note: string, cwd?: string, title?: string) =>
-    sendJson<StartRunResult>("POST", "/api/runs", { name, kind, note, cwd, title }),
+  startStandalone: (
+    name: string,
+    kind: RunKind,
+    note: string,
+    cwd?: string,
+    title?: string,
+    model?: string,
+  ) => sendJson<StartRunResult>("POST", "/api/runs", { name, kind, note, cwd, title, model }),
   startClaude: (cwd: string, title: string, model?: string, note?: string) =>
     sendJson<StartRunResult>("POST", "/api/runs", { kind: "chat", cwd, title, model, note }),
   handoff: (parentRunId: string, name: string, kind: RunKind, note: string) =>
