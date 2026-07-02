@@ -85,7 +85,7 @@ interface CardCtx {
   columnSkills?: Record<string, string[]>; // aiwf: stage-aware skill filter, keyed by column
   workflows: WorkflowConfig[];
   runByTicket: Map<string, RunSummary>;
-  onAssign: (ticketKey: string, name: string, kind: RunKind, note?: string) => void;
+  onAssign: (ticketKey: string, name: string, kind: RunKind, note?: string, attachments?: string[]) => void;
   onStartWorkflow: (ticketKey: string, workflowId: string) => void;
   onMoveTicket: (ticketKey: string, targetStatus: string) => void;
   onOpenRun: (run: RunSummary) => void;
@@ -478,8 +478,8 @@ function AssignMenu({ ticketKey, ctx, skills }: { ticketKey: string; ctx: CardCt
               ticketKey={ticketKey}
               name={p.name}
               kind={p.kind}
-              onRun={(note) => {
-                ctx.onAssign(ticketKey, p.name, p.kind, note);
+              onRun={(note, attachments) => {
+                ctx.onAssign(ticketKey, p.name, p.kind, note, attachments);
                 setPendingNote(null);
               }}
               onCancel={() => setPendingNote(null)}
@@ -769,7 +769,7 @@ export function Board({
   columnSkills?: Record<string, string[]>; // aiwf: stage-aware skill filter per column
   runs: RunSummary[];
   runByTicket: Map<string, RunSummary>;
-  onAssign: (ticketKey: string, name: string, kind: RunKind, note?: string) => void;
+  onAssign: (ticketKey: string, name: string, kind: RunKind, note?: string, attachments?: string[]) => void;
   onStartWorkflow: (ticketKey: string, workflowId: string) => void;
   onMoveTicket: (ticketKey: string, targetStatus: string) => void;
   onOpenRun: (run: RunSummary) => void;

@@ -1733,6 +1733,79 @@ html[data-theme="light"] .model-haiku {
   gap: 10px;
   margin-top: 14px;
 }
+.attachment-bar {
+  margin-top: 8px;
+  border: 1px dashed var(--border);
+  border-radius: var(--r-md);
+  padding: 8px;
+  transition: border-color 120ms ease;
+}
+.attachment-bar.dragging {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.attachment-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: 400 12px var(--font);
+  padding: 2px;
+}
+.attachment-add:hover:not(:disabled) {
+  color: var(--text);
+}
+.attachment-chips {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 3px 6px;
+  font: 400 12px var(--font);
+  color: var(--text);
+}
+.attachment-chip.failed {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.attachment-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+.attachment-size {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.attachment-chip.failed .attachment-size {
+  color: var(--danger);
+}
+.attachment-remove {
+  display: inline-flex;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0;
+}
+.attachment-remove:hover {
+  color: var(--text);
+}
 
 /* ---- session / run links ---- */
 a.session-ticket {
