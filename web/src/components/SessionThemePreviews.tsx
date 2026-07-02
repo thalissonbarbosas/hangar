@@ -20,23 +20,23 @@ export function ClassicPreview() {
 export function TerminalPreview() {
   return (
     <svg viewBox="0 0 160 96" role="img" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="160" height="96" fill="#0a0c10" />
-      <text x="8" y="26" fontFamily="monospace" fontSize="8" fill="#5ef2a0">
+      <rect x="0" y="0" width="160" height="96" fill="var(--tp-bg)" />
+      <text x="8" y="26" fontFamily="monospace" fontSize="8" fill="var(--tp-prompt)">
         ▸
       </text>
-      <rect x="18" y="22" width="96" height="3" rx="1.5" fill="#d3dae6" />
-      <rect x="18" y="28" width="70" height="3" rx="1.5" fill="#d3dae6" />
-      <text x="8" y="46" fontFamily="monospace" fontSize="8" fill="#5ef2a0">
+      <rect x="18" y="22" width="96" height="3" rx="1.5" fill="var(--tp-fg)" />
+      <rect x="18" y="28" width="70" height="3" rx="1.5" fill="var(--tp-fg)" />
+      <text x="8" y="46" fontFamily="monospace" fontSize="8" fill="var(--tp-prompt)">
         $
       </text>
-      <rect x="18" y="42" width="54" height="3" rx="1.5" fill="#6b7488" />
-      <rect x="10" y="56" width="2" height="14" fill="#5ef2a0" />
-      <rect x="18" y="58" width="86" height="3" rx="1.5" fill="#d3dae6" />
-      <rect x="18" y="64" width="60" height="3" rx="1.5" fill="#d3dae6" />
-      <text x="8" y="84" fontFamily="monospace" fontSize="8" fill="#5ef2a0">
+      <rect x="18" y="42" width="54" height="3" rx="1.5" fill="var(--tp-dim)" />
+      <rect x="10" y="56" width="2" height="14" fill="var(--tp-prompt)" />
+      <rect x="18" y="58" width="86" height="3" rx="1.5" fill="var(--tp-fg)" />
+      <rect x="18" y="64" width="60" height="3" rx="1.5" fill="var(--tp-fg)" />
+      <text x="8" y="84" fontFamily="monospace" fontSize="8" fill="var(--tp-prompt)">
         $
       </text>
-      <rect x="18" y="80" width="40" height="3" rx="1.5" fill="#6b7488" />
+      <rect x="18" y="80" width="40" height="3" rx="1.5" fill="var(--tp-dim)" />
     </svg>
   );
 }
