@@ -809,7 +809,9 @@ async function streamTurn(run: Run, options: Record<string, unknown>, seedText: 
           if (block.type === "text" && block.text) {
             emit(run, "assistant_text", { text: block.text });
           } else if (block.type === "tool_use") {
-            emit(run, "tool_use", { tool: block.name, input: previewInput(block.name, block.input) });
+            // Emit only the tool name — raw input (bash commands, args) is noise in the panel and
+            // is shown in the permission card when approval is needed.
+            emit(run, "tool_use", { tool: block.name });
             if (block.name === "TodoWrite") updatePhase(run, block.input);
           }
         }
