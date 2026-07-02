@@ -4136,6 +4136,17 @@ html[data-session-theme="terminal"] .run-panel {
   /* Anchor inherited color to the console fg so color-inheriting descendants (rq-text, run-phase, run-title) stay legible under the light app theme. */
   color: var(--text);
 }
+/* Light app theme: a paper console — flip only the term tokens, the neutral remap above reuses them. */
+html[data-theme="light"][data-session-theme="terminal"] .run-panel {
+  --term-bg: #f6f7f9;
+  --term-fg: #1f2430;
+  --term-dim: #6b7280;
+  --term-prompt: #0f9d63;
+  --term-panel: #ffffff;
+  --term-border: #dfe3ea;
+  --surface-3: #eceff4;
+  --border-strong: #ccd2dd;
+}
 /* Present the terminal session as a centered modal window, not a right-docked panel. */
 html[data-session-theme="terminal"] .run-overlay {
   justify-content: center;
@@ -4279,8 +4290,19 @@ html[data-session-theme="terminal"] .run-composer textarea {
   overflow: hidden;
   background: var(--surface-3);
 }
+/* Terminal preview swatch — token-driven so it tracks the app light/dark theme like the console does. */
 .session-theme-preview[data-preview="terminal"] {
-  background: #0a0c10;
+  --tp-bg: #0a0c10;
+  --tp-fg: #d3dae6;
+  --tp-dim: #6b7488;
+  --tp-prompt: #5ef2a0;
+  background: var(--tp-bg);
+}
+html[data-theme="light"] .session-theme-preview[data-preview="terminal"] {
+  --tp-bg: #f6f7f9;
+  --tp-fg: #1f2430;
+  --tp-dim: #6b7280;
+  --tp-prompt: #0f9d63;
 }
 .session-theme-preview svg {
   display: block;
