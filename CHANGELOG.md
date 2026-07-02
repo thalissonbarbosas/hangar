@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   agent's messages plus a live, rotating "working" status with a spinner while tools run — the raw
   tool input is no longer streamed or persisted (HAN-34)
 
+### Fixed
+
+- Terminal session theme now presents the session as a centered modal window in the middle of the
+  screen instead of the right-docked run panel, matching its console-window look (HAN-35)
+
 ### Added
 
 - Terminal session theme: the live session stream can render as a monospace console —

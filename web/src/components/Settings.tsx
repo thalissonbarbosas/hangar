@@ -58,19 +58,37 @@ type SectionKey =
   | "appearance"
   | "update";
 
-const SECTIONS: { key: SectionKey; label: string; icon: typeof Plug }[] = [
-  { key: "jira", label: "Jira connection", icon: Plug },
-  { key: "appearance", label: "Session theme", icon: Palette },
-  { key: "boards", label: "Boards & columns", icon: Columns3 },
-  { key: "agents", label: "Board agents", icon: Users },
-  { key: "board-skills", label: "Board skills", icon: Sparkles },
-  { key: "workflows", label: "Workflows", icon: WorkflowIcon },
-  { key: "permissions", label: "Agent permissions", icon: ShieldAlert },
-  { key: "isolation", label: "Run isolation", icon: GitBranch },
-  { key: "runtime", label: "Exclusive runtime", icon: Boxes },
-  { key: "limits", label: "Run limits", icon: Gauge },
-  { key: "terminal", label: "Terminal", icon: TerminalSquare },
-  { key: "update", label: "Updates", icon: Download },
+type SectionItem = { key: SectionKey; label: string; icon: typeof Plug };
+
+// Sections are grouped by domain so the nav reads as labelled categories rather than one flat list.
+const SECTION_GROUPS: { label: string; items: SectionItem[] }[] = [
+  { label: "Connection", items: [{ key: "jira", label: "Jira connection", icon: Plug }] },
+  {
+    label: "Boards",
+    items: [
+      { key: "boards", label: "Boards & columns", icon: Columns3 },
+      { key: "agents", label: "Board agents", icon: Users },
+      { key: "board-skills", label: "Board skills", icon: Sparkles },
+      { key: "workflows", label: "Workflows", icon: WorkflowIcon },
+    ],
+  },
+  {
+    label: "Runs",
+    items: [
+      { key: "permissions", label: "Agent permissions", icon: ShieldAlert },
+      { key: "isolation", label: "Run isolation", icon: GitBranch },
+      { key: "runtime", label: "Exclusive runtime", icon: Boxes },
+      { key: "limits", label: "Run limits", icon: Gauge },
+    ],
+  },
+  { label: "Appearance", items: [{ key: "appearance", label: "Session theme", icon: Palette }] },
+  {
+    label: "System",
+    items: [
+      { key: "terminal", label: "Terminal", icon: TerminalSquare },
+      { key: "update", label: "Updates", icon: Download },
+    ],
+  },
 ];
 
 export function Settings({
@@ -87,19 +105,24 @@ export function Settings({
   return (
     <div className="settings-tabbed">
       <nav className="settings-nav">
-        {SECTIONS.map((s) => {
-          const Icon = s.icon;
-          return (
-            <button
-              key={s.key}
-              className={`settings-nav-item${section === s.key ? " on" : ""}`}
-              onClick={() => setSection(s.key)}
-            >
-              <Icon size={16} />
-              <span>{s.label}</span>
-            </button>
-          );
-        })}
+        {SECTION_GROUPS.map((group) => (
+          <div className="settings-nav-group" key={group.label}>
+            <div className="settings-nav-group-label">{group.label}</div>
+            {group.items.map((s) => {
+              const Icon = s.icon;
+              return (
+                <button
+                  key={s.key}
+                  className={`settings-nav-item${section === s.key ? " on" : ""}`}
+                  onClick={() => setSection(s.key)}
+                >
+                  <Icon size={16} />
+                  <span>{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </nav>
       <div className="settings-panel">
         {/* Re-mounting per tab keeps each section's config fetch fresh (no stale clobbering). */}

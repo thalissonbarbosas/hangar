@@ -1825,7 +1825,20 @@ a.session-ticket {
   top: 0;
   display: flex;
   flex-direction: column;
+  gap: 14px;
+}
+.settings-nav-group {
+  display: flex;
+  flex-direction: column;
   gap: 3px;
+}
+.settings-nav-group-label {
+  padding: 0 12px 4px;
+  font: 700 10px var(--font);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 .settings-nav-item {
   display: flex;
@@ -4109,6 +4122,28 @@ html[data-session-theme="terminal"] .run-panel {
   --term-panel: #12161f;
   --term-border: #222a37;
   background: var(--term-bg);
+}
+/* Present the terminal session as a centered modal window, not a right-docked panel. */
+html[data-session-theme="terminal"] .run-overlay {
+  justify-content: center;
+  align-items: center;
+  padding: 5vh 4vw;
+}
+html[data-session-theme="terminal"] .run-panel {
+  width: min(960px, 94vw);
+  max-width: 94vw;
+  height: min(82vh, 860px);
+  border: 1px solid var(--term-border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  animation: run-modal-pop 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes run-modal-pop {
+  from {
+    transform: translateY(8px) scale(0.98);
+    opacity: 0;
+  }
 }
 html[data-session-theme="terminal"] .run-body {
   background: var(--term-bg);
