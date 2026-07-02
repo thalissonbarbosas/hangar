@@ -667,6 +667,24 @@ describe("card store", () => {
     expect(() => aiwf.transitionCard(project, "NOPE-9", "Review")).toThrow(/Card not found/);
   });
 
+  it("stamps completedAt entering Complete and clears it when moving back out", () => {
+    aiwf.createCard(project, { title: "Finish me" });
+    expect(aiwf.getCard(project, "DP-1")?.completedAt).toBeUndefined();
+
+    aiwf.transitionCard(project, "DP-1", "Complete");
+    const completedAt = aiwf.getCard(project, "DP-1")?.completedAt;
+    expect(typeof completedAt).toBe("number");
+    expect(completedAt).toBeGreaterThan(0);
+
+    // Re-completing keeps the original stamp.
+    aiwf.transitionCard(project, "DP-1", "Complete");
+    expect(aiwf.getCard(project, "DP-1")?.completedAt).toBe(completedAt);
+
+    // Moving back out of Complete clears it.
+    aiwf.transitionCard(project, "DP-1", "Review");
+    expect(aiwf.getCard(project, "DP-1")?.completedAt).toBeUndefined();
+  });
+
   it("getCard returns null for a missing card", () => {
     expect(aiwf.getCard(project, "DP-99")).toBeNull();
   });

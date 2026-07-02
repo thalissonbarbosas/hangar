@@ -188,6 +188,9 @@ HANGAR_HISTORY-->
 
 `status` is the card's current phase column; `kind` is `thread` (runs skills) or `task` (manual).
 `archived: true` marks a card as soft-hidden from the active columns (omitted on active cards).
+`completedAt` (epoch ms) is stamped when a card enters the terminal `Complete` column and cleared
+if it moves back out; the Complete column orders cards by it, newest first (falling back to the
+latest history entry, then title, for cards completed before the field existed).
 Cards integrate directly with Hangar's run engine, so the run panel, sessions view, and all run
 features work unchanged for aiwf cards.
 
