@@ -106,6 +106,7 @@ export interface Ticket {
   skill?: string;
   history?: AiwfHistoryEntry[];
   archived?: boolean; // aiwf: soft-hidden from active board columns (reversible)
+  completedAt?: number; // aiwf: epoch ms the card entered the terminal Complete column
   hasWorktree?: boolean; // aiwf: true when a task-scoped worktree exists for this card
   taskBranch?: string; // aiwf: the task-branch name when hasWorktree is true
   specChildren?: SpecSlice[]; // aiwf: slice files for directory specs
