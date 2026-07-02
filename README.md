@@ -76,6 +76,12 @@ Open **http://localhost:5180** and click **⚙ Settings** to finish setup:
 - **Boards & agents** — add boards, edit project key / name / repo paths, and edit the column
   statuses. **Pull projects / statuses from Jira** discovers real values. Saved to
   `hangar.config.json` and hot-reloaded — no restart.
+- **Updates** — pull the latest Hangar code into the directory where the app runs. Shows the
+  current version and how many commits you're behind, then **Update now** does a fast-forward
+  `git pull` (refused if the tree is dirty or has diverged). Sessions live under `.hangar/` and
+  are never touched — `tsx watch` restarts the server on the new code and all session records are
+  restored (any that were running are marked stopped, transcripts kept). If a lockfile changed,
+  it prompts you to run `npm run install:all`.
 
 A ticket whose status isn't in a board's column list lands in an `(unmapped)` column, so nothing
 silently disappears. The board still loads (columns + agents) before Jira is configured.

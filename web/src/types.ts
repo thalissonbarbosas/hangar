@@ -217,3 +217,25 @@ export interface WorkflowRunSummary {
 
 export const WORKFLOW_ACTIVE: WorkflowStatus[] = ["running", "awaiting_input"];
 export const isWorkflowActive = (s: WorkflowStatus) => WORKFLOW_ACTIVE.includes(s);
+
+export interface UpdateStatus {
+  git: boolean;
+  branch: string | null;
+  upstream: string | null;
+  currentCommit: string | null;
+  version: string | null;
+  behind: number;
+  ahead: number;
+  dirty: boolean;
+  fetchedAt: string;
+  fetchError: string | null;
+}
+
+export interface UpdateResult {
+  ok: boolean;
+  fromCommit: string;
+  toCommit: string;
+  changedFiles: number;
+  depsChanged: boolean;
+  restartExpected: boolean;
+}
