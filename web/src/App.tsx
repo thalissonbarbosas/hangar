@@ -38,6 +38,7 @@ import { AiWorkflowView, AiWorkflowBar } from "./components/AiWorkflow";
 import { UsageCostOverlay } from "./components/UsageCost";
 import { useTheme } from "./useTheme";
 import { useSessionTheme } from "./useSessionTheme";
+import { useTerminalTheme } from "./useTerminalTheme";
 import { useRichText } from "./useRichText";
 import { filterByBoard } from "./utils";
 
@@ -69,6 +70,7 @@ interface ActiveRun {
 export function App() {
   const { theme, toggle } = useTheme();
   const { sessionTheme, setSessionTheme } = useSessionTheme();
+  const { terminalTheme, toggleTerminalTheme } = useTerminalTheme();
   const { richText, setRichText } = useRichText();
   const [connection, setConnection] = useState<Connection>(
     () => (localStorage.getItem(CONNECTION_KEY) as Connection) || "jira",
@@ -746,6 +748,9 @@ export function App() {
           onOpenInTerminal={() => openInTerminal(activeRun.runId)}
           terminalConfigured={terminalConfigured}
           richText={richText}
+          sessionTheme={sessionTheme}
+          terminalTheme={terminalTheme}
+          onToggleTerminalTheme={toggleTerminalTheme}
         />
       )}
     </div>
