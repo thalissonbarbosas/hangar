@@ -39,7 +39,7 @@ import { UsageCostOverlay } from "./components/UsageCost";
 import { useTheme } from "./useTheme";
 import { useSessionTheme } from "./useSessionTheme";
 import { useRichText } from "./useRichText";
-import { filterByBoard } from "./utils";
+import { filterByBoard, filterAiwfSkills } from "./utils";
 
 // Two connections (sources) share the board surface; overlays take over the main area.
 type Connection = "jira" | "aiworkflow";
@@ -166,6 +166,17 @@ export function App() {
     const board = boards.find((b) => b.key === boardKey) ?? null;
     return filterByBoard(board, agents, enrichedSkills);
   }, [activeRun, boards, agents, enrichedSkills]);
+
+  // The currently-selected AI Workflow project, and the skills its orphan-session picker offers:
+  // AIWF toolkit skills plus this project's own repo skills (never other projects' skills).
+  const aiwfProject = useMemo(
+    () => aiwfProjects.find((p) => p.id === aiwfSelected) ?? null,
+    [aiwfProjects, aiwfSelected],
+  );
+  const aiwfSkills = useMemo(
+    () => filterAiwfSkills(aiwfProject, enrichedSkills),
+    [aiwfProject, enrichedSkills],
+  );
 
   const refreshRuns = useCallback(() => {
     api
@@ -679,10 +690,10 @@ export function App() {
         </div>
       ) : connection === "aiworkflow" ? (
         <AiWorkflowView
-          project={aiwfProjects.find((p) => p.id === aiwfSelected) ?? null}
+          project={aiwfProject}
           status={aiwf}
           agents={agents}
-          skills={enrichedSkills}
+          skills={aiwfSkills}
           runs={runs}
           sidebarOpen={aiwfSidebarOpen}
           onOpenRun={openRun}
