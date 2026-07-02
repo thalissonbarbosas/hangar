@@ -906,28 +906,13 @@ html[data-theme="light"] .model-haiku {
   color: var(--text-faint);
   font-size: 12px;
 }
-.run-line.tool {
+.run-activity {
   display: flex;
   align-items: center;
   gap: 7px;
   font-size: 12px;
-  color: var(--text-muted);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
-  padding: 6px 9px;
-}
-.run-line.tool .tool-name {
-  font: 600 12px var(--mono);
-  color: var(--text);
-}
-.run-line .tool-input {
-  font-family: var(--mono);
-  font-size: 11px;
+  font-style: italic;
   color: var(--text-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .run-line.gate {
   display: flex;
@@ -4159,29 +4144,10 @@ html[data-session-theme="terminal"] .run-line.muted {
   font-family: var(--mono);
   color: var(--term-dim);
 }
-/* Tool calls render as an echoed command: `$ tool input` on one flat monospace row. */
-html[data-session-theme="terminal"] .run-line.tool {
-  background: none;
-  border: none;
-  border-radius: 0;
-  padding: 0 0 0 16px;
-  position: relative;
-  color: var(--term-dim);
-}
-html[data-session-theme="terminal"] .run-line.tool > svg {
-  display: none;
-}
-html[data-session-theme="terminal"] .run-line.tool::before {
-  content: "$";
-  position: absolute;
-  left: 0;
-  top: 0;
-  color: var(--term-prompt);
-  font-weight: 600;
-}
-html[data-session-theme="terminal"] .run-line.tool .tool-name {
+/* Live activity indicator sits flush against the console surface in monospace. */
+html[data-session-theme="terminal"] .run-activity {
   font-family: var(--mono);
-  color: var(--term-fg);
+  color: var(--term-dim);
 }
 /* Result blocks drop the rounded card for a ruled console block with a left accent. */
 html[data-session-theme="terminal"] .run-result {
