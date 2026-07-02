@@ -256,6 +256,15 @@ export async function clearWorkflowRuns(scope: "finished" | "all"): Promise<numb
   return n;
 }
 
+// Graceful-shutdown cleanup: stop live workflow runs and remove worktrees, but keep persisted records across the restart.
+export async function shutdownWorkflowRuns(): Promise<void> {
+  for (const wf of [...workflowRuns.values()]) {
+    if (ACTIVE.includes(wf.status)) await stopWorkflowRun(wf.id);
+    await cleanup(wf);
+    saveWorkflowRecord(wf);
+  }
+}
+
 /** Load persisted workflow runs on startup; any mid-flight are marked stopped (their steps' processes are gone). */
 export function loadPersistedWorkflowRuns(): void {
   for (const wf of loadWorkflowRecords()) {
