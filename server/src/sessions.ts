@@ -437,6 +437,21 @@ export async function clearRuns(scope: "finished" | "all", ids?: Set<string>): P
   return n;
 }
 
+// Graceful-shutdown cleanup: stop live runs and remove worktrees, but keep persisted records so sessions survive the restart.
+export async function shutdownRuns(): Promise<void> {
+  for (const run of [...runs.values()]) {
+    if (ACTIVE.includes(run.state)) await stopRun(run);
+    await cleanupWorktrees(run);
+    const t = saveTimers.get(run.id);
+    if (t) {
+      clearTimeout(t);
+      saveTimers.delete(run.id);
+    }
+    // Flush latest state synchronously so a coalesced (debounced) write isn't lost on exit.
+    saveRunRecord(toRecord(run));
+  }
+}
+
 function dequeue(runId: string): void {
   const i = exclusiveQueue.findIndex((e) => e.runId === runId);
   if (i >= 0) exclusiveQueue.splice(i, 1);
