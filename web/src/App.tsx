@@ -28,7 +28,7 @@ import {
   WorkflowRunSummary,
   isActive,
 } from "./types";
-import { Board } from "./components/Board";
+import { Board, ClaudeSessionStart } from "./components/Board";
 import { Settings } from "./components/Settings";
 import { RunPanel } from "./components/RunPanel";
 import { SessionsView } from "./components/SessionsView";
@@ -329,13 +329,25 @@ export function App() {
       .catch((e) => setError(String(e.message ?? e)));
   }
 
-  // Plain Claude session scoped to a project's repo (Jira board header / AIWF project pill).
-  function openClaudeSession(cwd: string, title: string, model: string, note?: string): Promise<string> {
+  // Session scoped to a project's repo (Jira board header / AIWF project pill). A plain Claude
+  // chat by default, or a standalone agent/skill run when one is picked. For an agent, the model
+  // override is sent only when the operator explicitly picked one — otherwise its frontmatter wins.
+  function openClaudeSession(cwd: string, title: string, opts: ClaudeSessionStart): Promise<string> {
     setError(null);
-    return api
-      .startClaude(cwd, title, model, note || undefined)
+    const call =
+      opts.name && opts.kind
+        ? api.startStandalone(
+            opts.name,
+            opts.kind,
+            opts.note ?? "",
+            cwd,
+            title,
+            opts.kind === "agent" && !opts.modelTouched ? undefined : opts.model,
+          )
+        : api.startClaude(cwd, title, opts.model, opts.note || undefined);
+    return call
       .then((r) => {
-        setActiveRun({ runId: r.runId, ticketKey: title, agentName: "claude" });
+        setActiveRun({ runId: r.runId, ticketKey: title, agentName: opts.name ?? "claude" });
         refreshRuns();
         return r.runId;
       })
@@ -665,6 +677,7 @@ export function App() {
         <AiWorkflowView
           project={aiwfProjects.find((p) => p.id === aiwfSelected) ?? null}
           status={aiwf}
+          agents={agents}
           skills={enrichedSkills}
           runs={runs}
           sidebarOpen={aiwfSidebarOpen}

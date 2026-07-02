@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { api, CheckoutFailed } from "../api";
 import {
+  Agent,
   AiwfDocTreeNode,
   AiwfProject,
   AiwfSkillGroup,
@@ -45,7 +46,7 @@ import {
 } from "../types";
 import { Markdown } from "./Markdown";
 import { WorktreeManagerModal } from "./WorktreeManagerModal";
-import { ClaudeSessionButton } from "./Board";
+import { ClaudeSessionButton, ClaudeSessionStart } from "./Board";
 import { DocPanel } from "./DocPanel";
 
 // ---------------------------------------------------------------------------
@@ -547,6 +548,7 @@ function specLine(desc?: string): string | null {
 export function AiWorkflowView({
   project,
   status,
+  agents,
   skills,
   runs,
   sidebarOpen,
@@ -559,13 +561,14 @@ export function AiWorkflowView({
 }: {
   project: AiwfProject | null;
   status: AiwfStatus | null;
+  agents: Agent[];
   skills: Skill[];
   runs: RunSummary[];
   sidebarOpen: boolean;
   onOpenRun: (run: RunSummary) => void;
   onOpenSession: (a: OpenSession) => void;
   onReload: () => void;
-  onStartClaude: (cwd: string, title: string, model: string, note?: string) => Promise<string>;
+  onStartClaude: (cwd: string, title: string, opts: ClaudeSessionStart) => Promise<string>;
   onError: (msg: string) => void;
   /** Called when a doc is opened so the global RunPanel can be cleared. */
   onClearRun?: () => void;
@@ -806,10 +809,10 @@ export function AiWorkflowView({
             cwd={project.repoPath}
             title={`${project.name} — Claude`}
             runs={runs}
+            agents={agents}
+            skills={skills}
             onOpenRun={onOpenRun}
-            onStart={(model, note) =>
-              onStartClaude(project.repoPath, `${project.name} — Claude`, model, note)
-            }
+            onStart={(opts) => onStartClaude(project.repoPath, `${project.name} — Claude`, opts)}
           />
           <button
             className="icon-btn has-tip"
