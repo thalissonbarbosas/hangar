@@ -9,6 +9,8 @@ import {
   RunSummary,
   Skill,
   Ticket,
+  UpdateResult,
+  UpdateStatus,
   WorkflowRunSummary,
   WorktreeEntry,
 } from "./types";
@@ -204,6 +206,8 @@ export const api = {
   handoff: (parentRunId: string, name: string, kind: RunKind, note: string) =>
     sendJson<StartRunResult>("POST", "/api/runs", { parentRunId, name, kind, note }),
   runs: () => getJson<{ runs: RunSummary[] }>("/api/runs"),
+  updateStatus: () => getJson<UpdateStatus>("/api/update/status"),
+  applyUpdate: () => sendJson<UpdateResult>("POST", "/api/update/pull", {}),
   resolvePermission: (runId: string, requestId: string, decision: "allow" | "deny") =>
     sendJson<{ ok: boolean }>("POST", `/api/runs/${runId}/permissions/${requestId}`, { decision }),
   sendMessage: (runId: string, text: string) =>
