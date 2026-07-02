@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { AiwfProject, BoardConfig, RunState, RunSummary, isActive } from "../types";
 import { projectColor } from "../utils";
+import { AutoGrowTextarea } from "./AutoGrowTextarea";
 
 // Stable key for runs without a ticketKey (standalone / ad-hoc skill runs).
 const ADHOC_KEY = "__adhoc__";
@@ -319,7 +320,7 @@ export function SessionsView({
                 </button>
               </div>
               <p className="hint">Send a message to resume this session from where it left off.</p>
-              <textarea
+              <AutoGrowTextarea
                 className="note-input"
                 autoFocus
                 rows={4}

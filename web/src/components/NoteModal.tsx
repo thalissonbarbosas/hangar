@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Bot, Sparkles, X, Play } from "lucide-react";
+import { AutoGrowTextarea } from "./AutoGrowTextarea";
 
 export function NoteModal({
   ticketKey,
@@ -30,7 +31,7 @@ export function NoteModal({
           </button>
         </div>
         <p className="hint">This note is added to the task context — it doesn't replace anything.</p>
-        <textarea
+        <AutoGrowTextarea
           className="note-input"
           autoFocus
           rows={5}
