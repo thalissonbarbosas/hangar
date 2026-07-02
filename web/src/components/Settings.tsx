@@ -280,7 +280,7 @@ const SESSION_THEMES: { key: SessionTheme; title: string; desc: string }[] = [
   {
     key: "terminal",
     title: "Terminal",
-    desc: "Monospace console. Prompt-prefixed lines, echoed tool calls, flat dark surface.",
+    desc: "Monospace console. Prompt-prefixed lines, echoed tool calls, flat surface that follows the app theme.",
   },
   {
     key: "classic",
