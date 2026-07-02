@@ -208,10 +208,11 @@ export function ClaudeSessionButton({
     <>
       <button
         className="icon-btn has-tip board-title-btn"
-        data-tip="Start a Claude session"
+        data-tip={lastRun ? `Claude session: ${STATE_LABEL[lastRun.state]}` : "Start a Claude session"}
         onClick={() => setOpen(true)}
       >
         <MessageSquare size={14} />
+        {lastRun && <span className={`run-dot session-status-dot ${lastRun.state}`} />}
       </button>
       {open &&
         createPortal(

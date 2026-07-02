@@ -3112,6 +3112,18 @@ html[data-session-theme="terminal"] .run-raw {
 .board-title-btn {
   /* Render action icons at full strength (active), not dimmed/disabled-looking. */
   opacity: 1;
+  position: relative;
+}
+
+/* Status circle on the start-session button reflecting the project's session state. */
+.session-status-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--surface);
+  box-sizing: border-box;
 }
 
 /* Worktree manager modal */
