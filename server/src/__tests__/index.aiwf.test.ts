@@ -167,6 +167,52 @@ describe("AI Workflow routes", () => {
     ).toBe(404);
   });
 
+  it("resumes the card's session when given a valid resumeRunId (HAN-55)", async () => {
+    const created = await request(app).post("/api/aiwf/projects/p1/cards").send({ title: "Resume me" });
+    const key = created.body.ticket.key;
+
+    // First run starts a fresh (new) session in place.
+    const first = await request(app)
+      .post(`/api/aiwf/projects/p1/cards/${key}/run`)
+      .send({ skill: "roadmap" });
+    expect(first.status).toBe(200);
+    expect(first.body.mode).toBe("new");
+    await tick(); // let the mocked session finish so it has a sessionId and is resumable
+
+    // Move the card, then resume that same session with the next skill.
+    await request(app).post(`/api/aiwf/projects/p1/cards/${key}/transition`).send({ status: "Review" });
+    const resume = await request(app)
+      .post(`/api/aiwf/projects/p1/cards/${key}/run`)
+      .send({ skill: "review", resumeRunId: first.body.runId });
+    expect(resume.status).toBe(200);
+    expect(resume.body.mode).toBe("resume");
+    expect(resume.body.runId).toBe(first.body.runId); // same session, not a new run
+    await tick();
+
+    // The resumed session's history entry is tagged with the card's NEW phase, not the old one.
+    const afterResume = await request(app).get(`/api/aiwf/projects/p1/cards/${key}`);
+    const phases = afterResume.body.ticket.history.map((h: { phase: string }) => h.phase);
+    expect(phases).toContain("Review");
+
+    // A resumeRunId that belongs to another card is ignored — falls back to a new session.
+    const other = await request(app).post("/api/aiwf/projects/p1/cards").send({ title: "Other" });
+    const foreign = await request(app)
+      .post(`/api/aiwf/projects/p1/cards/${other.body.ticket.key}/run`)
+      .send({ skill: "roadmap", resumeRunId: first.body.runId });
+    expect(foreign.status).toBe(200);
+    expect(foreign.body.mode).toBe("new");
+    expect(foreign.body.runId).not.toBe(first.body.runId);
+    await tick();
+
+    // A stale/unknown resumeRunId also falls back to a new session.
+    const stale = await request(app)
+      .post(`/api/aiwf/projects/p1/cards/${key}/run`)
+      .send({ skill: "roadmap", resumeRunId: "no-such-run" });
+    expect(stale.status).toBe(200);
+    expect(stale.body.mode).toBe("new");
+    await tick();
+  });
+
   it("delivery skills get a task worktree; non-delivery skills run in place", async () => {
     const created = await request(app).post("/api/aiwf/projects/p1/cards").send({ title: "Ship it" });
     const key = created.body.ticket.key;

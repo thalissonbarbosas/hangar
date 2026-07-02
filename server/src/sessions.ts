@@ -1037,3 +1037,26 @@ export function recoverRun(run: Run): "started" | "not_recoverable" {
   const mode = sendMessage(run, "Resume this session and continue where you left off.");
   return mode === "resume" ? "started" : "not_recoverable";
 }
+
+// Continue a card's session with the next phase's skill (resume a finished run or steer an active one); returns "none" when there's nothing to resume.
+export function resumeCardRun(
+  run: Run,
+  opts: { skill: string; phase: string; title: string; note?: string },
+): "answer" | "steer" | "resume" | "none" {
+  const lines = [
+    `Use the "${opts.skill}" skill to continue on this card.`,
+    `Card: ${run.ticketKey} — ${opts.title}`,
+    `Phase: ${opts.phase}`,
+  ];
+  if (opts.note?.trim()) lines.push("Operator note:", opts.note.trim());
+  const mode = sendMessage(run, lines.join("\n"));
+  // Stamp the new phase only once the session actually continued (a "none" no-op falls back to a new session).
+  if (mode !== "none") run.aiwfPhase = opts.phase;
+  return mode;
+}
+
+/** Whether a run belonging to `ticketKey` can continue in the same session (resume or steer). */
+export function canResumeCardRun(run: Run | undefined, ticketKey: string): boolean {
+  if (!run || run.ticketKey !== ticketKey || !existsSync(run.cwd)) return false;
+  return ACTIVE.includes(run.state) || !!run.sessionId;
+}
