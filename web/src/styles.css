@@ -4148,8 +4148,8 @@ html[data-session-theme="terminal"] .run-panel {
   /* Anchor inherited color to the console fg so color-inheriting descendants (rq-text, run-phase, run-title) stay legible under the light app theme. */
   color: var(--text);
 }
-/* Light app theme: a paper console — flip only the term tokens, the neutral remap above reuses them. */
-html[data-theme="light"][data-session-theme="terminal"] .run-panel {
+/* Terminal light mode: a paper console — its own toggle, independent of the app light/dark theme. */
+html[data-terminal-theme="light"][data-session-theme="terminal"] .run-panel {
   --term-bg: #f6f7f9;
   --term-fg: #1f2430;
   --term-dim: #6b7280;
@@ -4186,7 +4186,7 @@ html[data-session-theme="terminal"] .run-body {
   font-family: var(--mono);
   font-size: 12.5px;
   line-height: 1.5;
-  gap: 3px;
+  gap: 11px;
 }
 /* Prompt-gutter line: assistant text (the `▸` marker below needs position:relative). */
 html[data-session-theme="terminal"] .run-line.text {
@@ -4201,14 +4201,16 @@ html[data-session-theme="terminal"] .run-user {
   max-width: 100%;
   align-items: stretch;
 }
+/* The operator's own prompt gets a raised console surface + prompt-green rule so it stands apart from the agent stream. */
 html[data-session-theme="terminal"] .run-user-text {
   position: relative;
-  padding: 0 0 0 16px;
+  padding: 7px 11px 7px 24px;
   font-family: var(--mono);
   color: var(--term-fg);
-  background: none;
+  background: var(--surface-3);
   border: none;
-  border-radius: 0;
+  border-left: 2px solid var(--term-prompt);
+  border-radius: var(--r-sm);
 }
 html[data-session-theme="terminal"] .run-line.text::before {
   content: "▸";
@@ -4220,8 +4222,8 @@ html[data-session-theme="terminal"] .run-line.text::before {
 html[data-session-theme="terminal"] .run-user-text::before {
   content: "$";
   position: absolute;
-  left: 0;
-  top: 0;
+  left: 9px;
+  top: 7px;
   color: var(--term-prompt);
   font-weight: 600;
 }
@@ -4302,7 +4304,7 @@ html[data-session-theme="terminal"] .run-composer textarea {
   overflow: hidden;
   background: var(--surface-3);
 }
-/* Terminal preview swatch — token-driven so it tracks the app light/dark theme like the console does. */
+/* Terminal preview swatch — token-driven so it tracks the terminal light/dark toggle like the console does. */
 .session-theme-preview[data-preview="terminal"] {
   --tp-bg: #0a0c10;
   --tp-fg: #d3dae6;
@@ -4310,7 +4312,7 @@ html[data-session-theme="terminal"] .run-composer textarea {
   --tp-prompt: #5ef2a0;
   background: var(--tp-bg);
 }
-html[data-theme="light"] .session-theme-preview[data-preview="terminal"] {
+html[data-terminal-theme="light"] .session-theme-preview[data-preview="terminal"] {
   --tp-bg: #f6f7f9;
   --tp-fg: #1f2430;
   --tp-dim: #6b7280;
