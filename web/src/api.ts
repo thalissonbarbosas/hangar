@@ -156,11 +156,12 @@ export const api = {
     }),
   deleteAiwfCard: (id: string, key: string) =>
     sendJson<{ ok: boolean }>("DELETE", `/api/aiwf/projects/${id}/cards/${encodeURIComponent(key)}`, {}),
-  aiwfRunCard: (id: string, key: string, skill: string, note?: string) =>
-    sendJson<{ runId: string }>("POST", `/api/aiwf/projects/${id}/cards/${encodeURIComponent(key)}/run`, {
-      skill,
-      note,
-    }),
+  aiwfRunCard: (id: string, key: string, skill: string, note?: string, resumeRunId?: string) =>
+    sendJson<{ runId: string; mode?: "resume" | "new" }>(
+      "POST",
+      `/api/aiwf/projects/${id}/cards/${encodeURIComponent(key)}/run`,
+      { skill, note, resumeRunId },
+    ),
   listAiwfWorktrees: (id: string) =>
     getJson<{ worktrees: WorktreeEntry[] }>(`/api/aiwf/projects/${id}/worktrees`),
   deleteAiwfWorktree: (id: string, key: string) =>

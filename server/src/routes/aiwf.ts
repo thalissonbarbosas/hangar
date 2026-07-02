@@ -35,7 +35,7 @@ import {
   getProjectDocByPath,
 } from "../aiwf";
 import { skillExists, findSkill } from "../skills";
-import { startRun, activeRunsInDir } from "../sessions";
+import { startRun, activeRunsInDir, getRun, canResumeCardRun, resumeCardRun } from "../sessions";
 import { demoDocTree, isDemo } from "../demo";
 import { AiwfProject } from "../types";
 import { removeWorktree, currentBranch, checkoutBranch } from "../worktree";
@@ -475,6 +475,16 @@ aiwfRouter.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, async
     return res.status(400).json({ error: `Skill "${skill}" not found — install AI Workflow first.` });
   }
 
+  // Same session: continue the card's existing run, falling back to a new session when it's gone.
+  const resumeRunId = typeof req.body?.resumeRunId === "string" ? req.body.resumeRunId : undefined;
+  if (resumeRunId) {
+    const prior = getRun(resumeRunId);
+    if (canResumeCardRun(prior, card.key)) {
+      const mode = resumeCardRun(prior!, { skill, phase: card.status, title: card.summary, note: userNote });
+      if (mode !== "none") return res.json({ runId: prior!.id, mode: "resume" });
+    }
+  }
+
   // Delivery skills get a persistent task worktree shared across all runs on this card (any kind:
   // spec, thread, task). Other skills keep the per-run isolateRuns path so analysis agents and
   // Docker environments are unaffected. When isolateRuns is false the block is skipped entirely
@@ -510,5 +520,5 @@ aiwfRouter.post("/api/aiwf/projects/:id/cards/:key/run", runCreateLimiter, async
     aiwfProjectId: p.id,
     aiwfPhase: card.status,
   });
-  res.json({ runId: run.id });
+  res.json({ runId: run.id, mode: "new" });
 });
