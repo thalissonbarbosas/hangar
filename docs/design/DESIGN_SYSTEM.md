@@ -380,3 +380,24 @@ In `styles.css`, update `.board-title`:
 ```css
 .board-title { font-size: 15px; font-weight: 700; } /* was 600 */
 ```
+
+---
+
+## Session themes
+
+The live session stream (the RunPanel body) has two looks, selectable in **Settings → Session
+theme** and stored per-browser in `localStorage` (`hangar-session-theme`). The choice applies
+via a `data-session-theme` attribute on `<html>` — mirroring the light/dark `data-theme`
+mechanism — and is **orthogonal** to light/dark: all four combinations render.
+
+| Theme | `data-session-theme` | Look |
+|-------|----------------------|------|
+| **Terminal** (default) | `terminal` | Monospace console. Prompt-prefixed lines (`▸` assistant, `$` user/tool), tool calls echoed as commands, flat dark surface, ruled result blocks with a semantic left border. |
+| **Classic** | `classic` | Chat-style feed — proportional text, soft cards, rounded tool chips. The absence of terminal overrides. |
+
+The Terminal surface introduces a few local tokens (scoped to
+`html[data-session-theme="terminal"] .run-panel`), independent of the neutral scale so the
+console reads as a true terminal regardless of the app theme: `--term-bg` `#0a0c10`, `--term-fg`
+`#d3dae6`, `--term-dim` `#6b7488`, `--term-prompt` `#5ef2a0` (phosphor green), `--term-panel`
+`#12161f`, `--term-border` `#222a37`. Semantic success/danger colors are reused for result-block
+left borders.

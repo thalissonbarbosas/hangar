@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Terminal session theme: the live session stream can render as a monospace console —
+  prompt-prefixed lines, tool calls echoed as commands, and a flat dark surface. Switch between
+  the new **Terminal** look (default) and the previous **Classic** look in
+  **Settings → Session theme**, each shown with a preview thumbnail; the choice is per-browser
+  and independent of the light/dark toggle (HAN-30)
 - "Clear" button in the session side panel (run panel): deletes every session tied to the current
   task at once — stopping any active ones — then closes the panel (HAN-31)
 
