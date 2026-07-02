@@ -33,8 +33,9 @@ Client-only local state — a `useAttachments` list of `{ path, name, size }`. N
 ### Architecture
 
 - **`web/src/components/AttachmentBar.tsx`** (new) — reusable, controlled:
-  - Props: `attachments: Attachment[]`, `onAdd(files: File[])`, `onRemove(path: string)`,
-    optional `disabled`.
+  - Props: `items: AttachmentItem[]`, `onAdd(files: File[])`, `onRemove(id: string)`,
+    optional `disabled`. (Removal is keyed by a generated `id`, not `path`: in-flight and failed
+    chips have no `path` yet but must still be removable.)
   - Renders a drop zone (`onDragOver` preventDefault + `dragging` class, `onDrop` reads
     `e.dataTransfer.files`) and a row of chips (filename + size + `X` remove button, `lucide-react`
     `Paperclip`/`X`). Also offers a click-to-browse `<input type="file" multiple hidden>` fallback
