@@ -931,14 +931,14 @@ html[data-theme="light"] .model-haiku {
   margin-top: 4px;
 }
 .run-result.done {
-  background: color-mix(in srgb, var(--success) 10%, transparent);
+  background: color-mix(in srgb, var(--success) 9%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--success) 28%, var(--border));
 }
 .run-result.error {
   display: flex;
   align-items: center;
   gap: 7px;
-  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--border));
   color: var(--danger);
   font-size: 13px;
@@ -3193,6 +3193,18 @@ html[data-session-theme="terminal"] .run-raw {
 .board-title-btn {
   /* Render action icons at full strength (active), not dimmed/disabled-looking. */
   opacity: 1;
+  position: relative;
+}
+
+/* Status circle on the start-session button reflecting the project's session state. */
+.session-status-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--surface);
+  box-sizing: border-box;
 }
 
 /* Worktree manager modal */
@@ -3397,22 +3409,6 @@ html[data-session-theme="terminal"] .run-raw {
 .aiwf-kind.task {
   color: #e08e0b;
   border-color: color-mix(in srgb, #e08e0b 40%, transparent);
-}
-.aiwf-history {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
-}
-.aiwf-hist {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  color: var(--text-dim);
-  background: var(--accent-soft);
-  border-radius: 5px;
-  padding: 1px 5px;
 }
 .btn-ghost.sm {
   padding: 3px 8px;
@@ -3695,7 +3691,7 @@ html[data-session-theme="terminal"] .run-raw {
   animation: fade 140ms ease;
 }
 .aiwf-data-panel {
-  width: max(380px, 42vw);
+  width: max(360px, 50vw);
   max-width: 96vw;
   height: 100%;
   background: var(--surface);
@@ -3803,50 +3799,41 @@ html[data-session-theme="terminal"] .run-raw {
 .aiwf-data-history {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-.aiwf-data-hist-row {
-  display: flex;
-  flex-direction: column;
   gap: 2px;
-  padding: 8px 10px;
-  background: var(--accent-soft);
-  border-radius: 8px;
-}
-.aiwf-data-hist-trail {
-  font-size: 13px;
-  font-weight: 500;
-}
-.aiwf-data-hist-time {
-  font-size: 11px;
-  color: var(--text-dim);
-}
-.aiwf-data-hist-summary {
-  font-size: 12px;
-  color: var(--text);
-  margin-top: 4px;
-  line-height: 1.55;
-}
-/* keep prose compact inside the small history rows */
-.aiwf-data-hist-summary p {
-  margin: 0 0 4px;
-}
-.aiwf-data-hist-summary p:last-child {
-  margin-bottom: 0;
-}
-.aiwf-data-hist-summary ul,
-.aiwf-data-hist-summary ol {
-  margin: 2px 0 4px 16px;
+  list-style: none;
+  margin: 0;
   padding: 0;
 }
-.aiwf-data-hist-summary li {
-  margin-bottom: 2px;
+.aiwf-data-hist-item {
+  display: flex;
 }
-.aiwf-data-hist-summary code {
-  font: 500 11px var(--mono);
-  background: var(--surface-3);
-  padding: 1px 4px;
-  border-radius: 3px;
+.aiwf-data-hist-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.aiwf-data-hist-link:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.aiwf-data-hist-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aiwf-data-hist-title-plain {
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text-dim);
 }
 
 /* ---- AI Workflow skills guide modal ---- */
@@ -4055,33 +4042,9 @@ html[data-session-theme="terminal"] .run-raw {
 
 /* ---- Session transcript sidebar ---- */
 
-/* Dark overlay behind the transcript panel — above the card data overlay (z 70) */
+/* Reuses run-panel session view; only raise stacking above the card data overlay (z 70). */
 .session-transcript-overlay {
-  position: fixed;
-  inset: 0;
-  background: color-mix(in srgb, #000 38%, transparent);
-  display: flex;
-  justify-content: flex-end;
   z-index: 80;
-  animation: fade 140ms ease;
-}
-
-/* Wider panel variant for the transcript (inherits aiwf-data-panel slide-in) */
-.session-transcript-panel {
-  width: min(600px, 92vw);
-}
-
-/* Transcript message blocks */
-.session-transcript-body {
-  overflow-y: auto;
-}
-.session-transcript-msg {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-}
-.session-transcript-msg:last-child {
-  border-bottom: none;
 }
 
 /* ============================ Doc tree sidebar ============================ */
@@ -4186,22 +4149,9 @@ html[data-session-theme="terminal"] .run-raw {
 .doc-panel-body pre {
   overflow-x: auto;
 }
-
-/* "View session" button on each history row */
-.aiwf-data-hist-view-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--accent);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  margin-top: 2px;
-}
-.aiwf-data-hist-view-btn:hover {
-  text-decoration: underline;
+/* AIWF docs are prose, not a console stream — always use the UI font even under the terminal session theme. Inline code/pre keep their mono via .md code / .md pre code. */
+html[data-session-theme="terminal"] .run-body.doc-panel-body {
+  font-family: var(--font);
 }
 
 /* ============================ session theme: Terminal ============================ */
@@ -4317,13 +4267,13 @@ html[data-session-theme="terminal"] .run-activity {
   font-family: var(--mono);
   color: var(--term-dim);
 }
-/* Result blocks drop the rounded card for a ruled console block with a left accent. */
+/* Result blocks keep the console block look but get a filled panel so they read as a card. */
 html[data-session-theme="terminal"] .run-result {
   border-radius: 0;
-  background: none;
+  background: var(--term-panel);
   border: none;
   border-left: 2px solid var(--term-border);
-  padding: 4px 0 4px 12px;
+  padding: 8px 12px;
 }
 html[data-session-theme="terminal"] .run-result.done {
   border-left-color: var(--success);

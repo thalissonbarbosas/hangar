@@ -454,6 +454,21 @@ export async function clearRuns(scope: "finished" | "all", ids?: Set<string>): P
   return n;
 }
 
+// Graceful-shutdown cleanup: stop live runs and remove worktrees, but keep persisted records so sessions survive the restart.
+export async function shutdownRuns(): Promise<void> {
+  for (const run of [...runs.values()]) {
+    if (ACTIVE.includes(run.state)) await stopRun(run);
+    await cleanupWorktrees(run);
+    const t = saveTimers.get(run.id);
+    if (t) {
+      clearTimeout(t);
+      saveTimers.delete(run.id);
+    }
+    // Flush latest state synchronously so a coalesced (debounced) write isn't lost on exit.
+    saveRunRecord(toRecord(run));
+  }
+}
+
 function dequeue(runId: string): void {
   const i = exclusiveQueue.findIndex((e) => e.runId === runId);
   if (i >= 0) exclusiveQueue.splice(i, 1);
@@ -1062,4 +1077,27 @@ export function recoverRun(run: Run): "started" | "not_recoverable" {
   if (ACTIVE.includes(run.state) || !run.sessionId || !existsSync(run.cwd)) return "not_recoverable";
   const mode = sendMessage(run, "Resume this session and continue where you left off.");
   return mode === "resume" ? "started" : "not_recoverable";
+}
+
+// Continue a card's session with the next phase's skill (resume a finished run or steer an active one); returns "none" when there's nothing to resume.
+export function resumeCardRun(
+  run: Run,
+  opts: { skill: string; phase: string; title: string; note?: string },
+): "answer" | "steer" | "resume" | "none" {
+  const lines = [
+    `Use the "${opts.skill}" skill to continue on this card.`,
+    `Card: ${run.ticketKey} — ${opts.title}`,
+    `Phase: ${opts.phase}`,
+  ];
+  if (opts.note?.trim()) lines.push("Operator note:", opts.note.trim());
+  const mode = sendMessage(run, lines.join("\n"));
+  // Stamp the new phase only once the session actually continued (a "none" no-op falls back to a new session).
+  if (mode !== "none") run.aiwfPhase = opts.phase;
+  return mode;
+}
+
+/** Whether a run belonging to `ticketKey` can continue in the same session (resume or steer). */
+export function canResumeCardRun(run: Run | undefined, ticketKey: string): boolean {
+  if (!run || run.ticketKey !== ticketKey || !existsSync(run.cwd)) return false;
+  return ACTIVE.includes(run.state) || !!run.sessionId;
 }

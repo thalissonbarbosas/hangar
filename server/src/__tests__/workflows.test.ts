@@ -265,6 +265,18 @@ describe("list / get / stop / delete / clear", () => {
     expect(await workflows.clearWorkflowRuns("all")).toBe(1);
     expect(workflows.getWorkflowRun(active.id)).toBeUndefined();
   });
+
+  it("shutdownWorkflowRuns stops runs and cleans worktrees but keeps the record", async () => {
+    mockCfg = cfgWith([{ name: "debugger", kind: "agent" }], true);
+    createWorktree.mockResolvedValueOnce({ path: "/wt", branch: "b", repoRoot: "/repo/a" });
+    const wf = await workflows.startWorkflow("PP", "wf1", ticket);
+    await workflows.shutdownWorkflowRuns();
+    expect(stopRun).toHaveBeenCalled();
+    expect(removeWorktree).toHaveBeenCalled();
+    // The record must survive the restart — never deleted on shutdown.
+    expect(deleted).not.toContain(wf.id);
+    expect(saved.some((r) => (r as { id: string }).id === wf.id)).toBe(true);
+  });
 });
 
 describe("loadPersistedWorkflowRuns", () => {

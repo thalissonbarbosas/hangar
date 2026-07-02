@@ -674,6 +674,44 @@ describe("deleteRun / clearRuns", () => {
   });
 });
 
+describe("shutdownRuns — sessions survive a graceful restart", () => {
+  it("preserves persisted records on graceful shutdown (does NOT delete them)", async () => {
+    const done = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await waitForState(done, "done");
+    expect(savedRecords.has(done.id)).toBe(true);
+
+    await sessions.shutdownRuns();
+
+    // The record must still be on "disk" so loadPersistedRuns can restore it after the restart.
+    expect(savedRecords.has(done.id)).toBe(true);
+    const restored = savedRecords.get(done.id)! as Record<string, unknown>;
+    expect(restored.state).toBe("done");
+  });
+
+  it("stops an active run and cleans its worktree but keeps the record", async () => {
+    mockCfg = baseCfg({ isolateRuns: true });
+    createWorktree.mockResolvedValueOnce({ path: "/wt/a", branch: "b", repoRoot: "/repo/a" });
+    holdOpen = true;
+    sdkScript = [{ type: "system", subtype: "init", session_id: "s", model: "m" }];
+    const active = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await waitForState(active, "running");
+
+    await sessions.shutdownRuns();
+
+    expect(interrupt).toHaveBeenCalled();
+    expect(removeWorktree).toHaveBeenCalled();
+    expect(savedRecords.has(active.id)).toBe(true);
+  });
+
+  it("contrast: clearRuns('all') DOES delete the persisted record", async () => {
+    const done = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await waitForState(done, "done");
+    expect(savedRecords.has(done.id)).toBe(true);
+    await sessions.clearRuns("all");
+    expect(savedRecords.has(done.id)).toBe(false);
+  });
+});
+
 describe("seedDemoRuns & loadPersistedRuns", () => {
   it("seedDemoRuns loads fictional runs idempotently", () => {
     process.env.HANGAR_DEMO = "1";
