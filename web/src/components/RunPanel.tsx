@@ -20,9 +20,13 @@ import {
   RotateCcw,
   RefreshCw,
   Trash2,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { api } from "../api";
 import { Agent, RunEvent, RunKind, RunState, Skill, isActive } from "../types";
+import type { SessionTheme } from "../useSessionTheme";
+import type { TerminalTheme } from "../useTerminalTheme";
 import { HandoffModal } from "./HandoffModal";
 import { Markdown } from "./Markdown";
 
@@ -98,6 +102,9 @@ export function RunPanel({
   onOpenInTerminal,
   terminalConfigured,
   richText = true,
+  sessionTheme,
+  terminalTheme,
+  onToggleTerminalTheme,
 }: {
   runId: string;
   ticketKey: string;
@@ -112,6 +119,9 @@ export function RunPanel({
   onOpenInTerminal?: () => void;
   terminalConfigured?: boolean;
   richText?: boolean;
+  sessionTheme?: SessionTheme;
+  terminalTheme?: TerminalTheme;
+  onToggleTerminalTheme?: () => void;
 }) {
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [submitting, setSubmitting] = useState<Set<string>>(new Set());
@@ -245,6 +255,15 @@ export function RunPanel({
             </span>
           </div>
           <div className="run-head-actions">
+            {sessionTheme === "terminal" && onToggleTerminalTheme && (
+              <button
+                className="icon-btn"
+                onClick={onToggleTerminalTheme}
+                title={terminalTheme === "dark" ? "Switch terminal to light" : "Switch terminal to dark"}
+              >
+                {terminalTheme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+              </button>
+            )}
             {state === "error" && (
               <button
                 className="btn-ghost sm"
@@ -529,20 +548,37 @@ function renderEvents(
   richText: boolean,
 ) {
   const out: JSX.Element[] = [];
+  // Track streamed assistant text so the success result can skip repeating the final message.
+  const assistantSeen = new Set<string>();
 
   for (const e of events) {
     if (e.kind === "assistant_text") {
+      const text = s(e.text);
+      assistantSeen.add(norm(text));
       out.push(
         <div className="run-line text" key={e.seq}>
-          {renderText(s(e.text), richText)}
+          {renderText(text, richText)}
         </div>,
       );
       continue;
     }
-    const el = renderOther(e, resolved, resolvedQuestions, submitting, decide, answer, richText);
+    const el = renderOther(
+      e,
+      resolved,
+      resolvedQuestions,
+      submitting,
+      decide,
+      answer,
+      richText,
+      assistantSeen,
+    );
     if (el) out.push(el);
   }
   return out;
+}
+
+function norm(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 function renderOther(
@@ -553,6 +589,7 @@ function renderOther(
   decide: (id: string, d: "allow" | "deny") => void,
   answer: (text: string) => void,
   richText: boolean,
+  assistantSeen: Set<string>,
 ): JSX.Element | null {
   switch (e.kind) {
     case "permission_request": {
@@ -608,19 +645,22 @@ function renderOther(
           <Square size={14} /> Session stopped by operator
         </div>
       );
-    case "result":
+    case "result": {
+      const resultText = s(e.result);
+      const duplicate = norm(resultText).length > 0 && assistantSeen.has(norm(resultText));
       return e.subtype === "success" ? (
         <div className="run-result done" key={e.seq}>
           <div className="run-result-head">
-            <CheckCircle2 size={15} /> Result
+            <CheckCircle2 size={15} /> {duplicate ? "Done" : "Result"}
           </div>
-          <div className="run-result-body">{renderText(s(e.result), richText)}</div>
+          {!duplicate && <div className="run-result-body">{renderText(resultText, richText)}</div>}
         </div>
       ) : (
         <div className="run-result error" key={e.seq}>
           <AlertCircle size={15} /> {limitMessage(s(e.subtype))}
         </div>
       );
+    }
     case "error":
       return (
         <div className="run-result error" key={e.seq}>
