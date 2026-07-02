@@ -94,7 +94,9 @@ When a ticket is assigned an agent/skill, `sessions.ts` spawns a `query()`:
 - **Limits** (config `maxTurns` default 300, optional `maxBudgetUsd`).
 
 Runs emit each completed assistant message as a single `assistant_text` SSE event (whole message,
-not token-by-token); `includePartialMessages` is not used. Events are also persisted via `store.ts`.
+not token-by-token); `includePartialMessages` is not used. Individual tool calls are not rendered as
+transcript lines and `tool_use` events carry only the tool name (no raw input) — the panel shows the
+agent's messages plus a live rotating "working" status while tools run. Events are also persisted via `store.ts`.
 **Auth uses the host's existing Claude Code login / `ANTHROPIC_API_KEY`** — Hangar does not manage
 its own key.
 

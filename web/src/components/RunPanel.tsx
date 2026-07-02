@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   X,
   Bot,
-  Wrench,
   ShieldQuestion,
   CheckCircle2,
   AlertCircle,
@@ -29,6 +28,23 @@ import { Markdown } from "./Markdown";
 
 // Default prompt sent by the one-click "Resume" — picks the session back up without a custom steer.
 const RESUME_MESSAGE = "Continue.";
+
+// Funny "working" words shown (rotating) while the agent runs tools, in place of echoing every
+// command — mirrors how Claude Code narrates activity.
+const ACTIVITY_WORDS = [
+  "Percolating",
+  "Herding",
+  "Noodling",
+  "Conjuring",
+  "Simmering",
+  "Ruminating",
+  "Tinkering",
+  "Whirring",
+  "Cogitating",
+  "Puttering",
+  "Marinating",
+  "Vibing",
+];
 
 // Static map of skill → suggested follow-on skills, in display order.
 const SKILL_NEXT_MAP: Record<string, string[]> = {
@@ -147,6 +163,10 @@ export function RunPanel({
   const pendingQuestion = useMemo(
     () => events.some((e) => e.kind === "question" && !resolvedQuestions.has(s(e.requestId))),
     [events, resolvedQuestions],
+  );
+  const pendingPermission = useMemo(
+    () => events.some((e) => e.kind === "permission_request" && !resolvedDecisions.has(s(e.requestId))),
+    [events, resolvedDecisions],
   );
 
   const state = useMemo<RunState>(
@@ -342,6 +362,9 @@ export function RunPanel({
             </div>
           )}
           {renderEvents(events, resolvedDecisions, resolvedQuestions, submitting, decide, sendFollowup)}
+          {isActive(state) && !pendingQuestion && !pendingPermission && events.length > 0 && (
+            <ActivityStatus />
+          )}
         </div>
 
         {(sessionId || isActive(state)) && (
@@ -377,6 +400,22 @@ export function RunPanel({
           />
         )}
       </aside>
+    </div>
+  );
+}
+
+// Live "working" indicator shown while the agent runs tools. Owns its own ticking state so the
+// rotating word re-renders only this line, not the whole transcript.
+function ActivityStatus() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setI((n) => n + 1), 2500);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div className="run-activity">
+      <Loader2 size={14} className="spin" />
+      {ACTIVITY_WORDS[i % ACTIVITY_WORDS.length]}…
     </div>
   );
 }
@@ -499,14 +538,6 @@ function renderOther(
   answer: (text: string) => void,
 ): JSX.Element | null {
   switch (e.kind) {
-    case "tool_use":
-      return (
-        <div className="run-line tool" key={e.seq}>
-          <Wrench size={13} />
-          <span className="tool-name">{s(e.tool)}</span>
-          <span className="tool-input">{s(e.input)}</span>
-        </div>
-      );
     case "permission_request": {
       const id = s(e.requestId);
       const decision = resolved.get(id);
