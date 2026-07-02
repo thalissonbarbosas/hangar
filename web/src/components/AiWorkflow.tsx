@@ -1276,7 +1276,6 @@ function AiwfCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const active = run ? isActive(run.state) : false;
-  const history = card.history ?? [];
 
   // Close the menu on outside click.
   useEffect(() => {
@@ -1360,16 +1359,6 @@ function AiwfCard({
         </div>
       </div>
       <div className="card-summary">{card.summary}</div>
-
-      {history.length > 0 && (
-        <div className="aiwf-history">
-          {history.slice(-4).map((h, idx) => (
-            <span key={idx} className="aiwf-hist" title={h.summary || `${h.phase} · /${h.skill}`}>
-              <CheckCircle2 size={10} /> {h.phase}·/{h.skill}
-            </span>
-          ))}
-        </div>
-      )}
 
       <div className="card-actions">
         {run ? (
