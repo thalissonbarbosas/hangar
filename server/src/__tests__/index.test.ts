@@ -259,6 +259,23 @@ describe("runs lifecycle", () => {
     expect((await request(app).get("/api/runs/ghost/stream")).status).toBe(404);
   });
 
+  it("rejects restart of a missing run (404)", async () => {
+    expect((await request(app).post("/api/runs/ghost/restart")).status).toBe(404);
+  });
+
+  it("rejects restart of a non-errored (done) run (409)", async () => {
+    // A chat run in /tmp (a real dir) completes as "done" via the mocked SDK; only errored
+    // runs are restartable, so restart must be refused.
+    const start = await request(app)
+      .post("/api/runs")
+      .send({ kind: "chat", cwd: "/tmp", title: "Demo — Claude" });
+    const runId = start.body.runId;
+    await new Promise((r) => setTimeout(r, 20)); // let the mocked SDK finish → done
+    expect((await request(app).get(`/api/runs/${runId}`)).body.state).toBe("done");
+    const res = await request(app).post(`/api/runs/${runId}/restart`);
+    expect(res.status).toBe(409);
+  });
+
   it("starts a standalone run, then stops it and deletes it", async () => {
     const start = await request(app)
       .post("/api/runs")
