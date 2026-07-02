@@ -252,12 +252,12 @@ export function App() {
     setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   }
 
-  function assign(ticketKey: string, name: string, kind: RunKind, note?: string) {
+  function assign(ticketKey: string, name: string, kind: RunKind, note?: string, attachments?: string[]) {
     const ticket = tickets.find((t) => t.key === ticketKey);
     if (!ticket) return;
     setError(null);
     api
-      .startRun(ticket, name, kind, note)
+      .startRun(ticket, name, kind, note, attachments)
       .then((r) => {
         setActiveRun({ runId: r.runId, ticketKey, agentName: name, ticketUrl: ticket.url });
         refreshRuns();
