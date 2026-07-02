@@ -406,6 +406,21 @@ export function App() {
       .catch(() => {});
   }
 
+  // Delete every session tied to a task: all runs sharing the run's ticketKey (or just the run
+  // itself when it's ad-hoc). Stops active ones, then closes the panel.
+  function clearTaskSessions(runId: string) {
+    const run = runs.find((r) => r.id === runId);
+    if (!run) return;
+    const ids = run.ticketKey ? runs.filter((r) => r.ticketKey === run.ticketKey).map((r) => r.id) : [runId];
+    api
+      .clearRuns("all", ids)
+      .then(() => {
+        setActiveRun(null);
+        refreshRuns();
+      })
+      .catch(() => {});
+  }
+
   const runByTicket = useMemo(() => {
     const m = new Map<string, RunSummary>();
     for (const r of [...runs].sort((a, b) => b.startedAt - a.startedAt)) {
@@ -692,6 +707,7 @@ export function App() {
           onHandoff={handoff}
           onRestart={() => restart(activeRun.runId)}
           onClose={() => setActiveRun(null)}
+          onClearTask={() => clearTaskSessions(activeRun.runId)}
           onOpenInTerminal={() => openInTerminal(activeRun.runId)}
           terminalConfigured={terminalConfigured}
         />

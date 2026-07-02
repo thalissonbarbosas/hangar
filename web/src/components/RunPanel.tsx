@@ -20,6 +20,7 @@ import {
   User,
   RotateCcw,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { api } from "../api";
 import { Agent, RunEvent, RunKind, RunState, Skill, isActive } from "../types";
@@ -77,6 +78,7 @@ export function RunPanel({
   onHandoff,
   onRestart,
   onClose,
+  onClearTask,
   onOpenInTerminal,
   terminalConfigured,
 }: {
@@ -89,6 +91,7 @@ export function RunPanel({
   onHandoff: (name: string, kind: RunKind, note: string) => void;
   onRestart: () => void;
   onClose: () => void;
+  onClearTask?: () => void;
   onOpenInTerminal?: () => void;
   terminalConfigured?: boolean;
 }) {
@@ -264,6 +267,15 @@ export function RunPanel({
             {isActive(state) && (
               <button className="btn-ghost danger sm" onClick={() => api.stopRun(runId)} title="Stop session">
                 <Square size={13} /> Stop
+              </button>
+            )}
+            {onClearTask && (
+              <button
+                className="btn-ghost danger sm"
+                onClick={onClearTask}
+                title="Delete all sessions for this task"
+              >
+                <Trash2 size={13} /> Clear
               </button>
             )}
             <button className="icon-btn" onClick={onClose} title="Close">
