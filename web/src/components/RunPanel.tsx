@@ -93,7 +93,6 @@ export function RunPanel({
   const [submitting, setSubmitting] = useState<Set<string>>(new Set());
   const [handoff, setHandoff] = useState(false);
   const [reconnect, setReconnect] = useState(0);
-  const [composer, setComposer] = useState("");
   const [sending, setSending] = useState(false);
   const [terminalWarning, setTerminalWarning] = useState(false);
   const [streamError, setStreamError] = useState<"not_found" | "error" | null>(null);
@@ -188,17 +187,18 @@ export function RunPanel({
   }
 
   // Send a follow-up: answers an open question, steers a running turn, or resumes a finished
-  // session. Reconnect to stream the resulting events back in.
-  async function sendFollowup(text: string) {
+  // session. Reconnect to stream the resulting events back in. Returns true on success so the
+  // composer can clear itself only when the message was actually sent.
+  async function sendFollowup(text: string): Promise<boolean> {
     const t = text.trim();
-    if (!t || sending) return;
+    if (!t || sending) return false;
     setSending(true);
     try {
       await api.sendMessage(runId, t);
-      setComposer("");
       setReconnect((n) => n + 1);
+      return true;
     } catch {
-      /* ignore — surfaced via the run state */
+      return false; // surfaced via the run state
     } finally {
       setSending(false);
     }
@@ -331,40 +331,12 @@ export function RunPanel({
         )}
 
         {(sessionId || isActive(state)) && (
-          <form
-            className={`run-composer${pendingQuestion ? " asking" : ""}`}
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendFollowup(composer);
-            }}
-          >
-            <textarea
-              value={composer}
-              onChange={(e) => setComposer(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  sendFollowup(composer);
-                }
-              }}
-              rows={1}
-              placeholder={
-                pendingQuestion
-                  ? "Type your answer…"
-                  : isActive(state)
-                    ? "Send a message to the session…"
-                    : "Send a follow-up (resumes the session)…"
-              }
-            />
-            <button
-              className="btn sm"
-              type="submit"
-              disabled={!composer.trim() || sending}
-              title="Send (Enter)"
-            >
-              <Send size={14} />
-            </button>
-          </form>
+          <Composer
+            pendingQuestion={pendingQuestion}
+            active={isActive(state)}
+            sending={sending}
+            onSend={sendFollowup}
+          />
         )}
 
         {handoff && (
@@ -382,6 +354,60 @@ export function RunPanel({
         )}
       </aside>
     </div>
+  );
+}
+
+// The message composer owns its own draft state so keystrokes re-render only this small input,
+// not the whole transcript (which re-parses every assistant message's Markdown and made typing lag).
+function Composer({
+  pendingQuestion,
+  active,
+  sending,
+  onSend,
+}: {
+  pendingQuestion: boolean;
+  active: boolean;
+  sending: boolean;
+  onSend: (text: string) => Promise<boolean>;
+}) {
+  const [draft, setDraft] = useState("");
+
+  async function submit() {
+    if (!draft.trim() || sending) return;
+    const ok = await onSend(draft);
+    if (ok) setDraft("");
+  }
+
+  return (
+    <form
+      className={`run-composer${pendingQuestion ? " asking" : ""}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      <textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            submit();
+          }
+        }}
+        rows={1}
+        placeholder={
+          pendingQuestion
+            ? "Type your answer…"
+            : active
+              ? "Send a message to the session…"
+              : "Send a follow-up (resumes the session)…"
+        }
+      />
+      <button className="btn sm" type="submit" disabled={!draft.trim() || sending} title="Send (Enter)">
+        <Send size={14} />
+      </button>
+    </form>
   );
 }
 
