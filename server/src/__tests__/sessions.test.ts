@@ -208,8 +208,10 @@ describe("startRun — ticket-based, bypass mode, success", () => {
     expect(run.events.some((e) => e.kind === "assistant_text" && e.text === "hi")).toBe(true);
     // no partial-token streaming
     expect(run.events.some((e) => e.kind === "assistant_delta")).toBe(false);
-    // tool_use emitted
-    expect(run.events.some((e) => e.kind === "tool_use" && e.tool === "TodoWrite")).toBe(true);
+    // tool_use emitted with the tool name but no raw input
+    const toolEvent = run.events.find((e) => e.kind === "tool_use" && e.tool === "TodoWrite");
+    expect(toolEvent).toBeDefined();
+    expect(toolEvent!.input).toBeUndefined();
     // includePartialMessages is not set
     expect((lastQueryOptions as Record<string, unknown>).includePartialMessages).toBeUndefined();
     // system prompt built from agent body

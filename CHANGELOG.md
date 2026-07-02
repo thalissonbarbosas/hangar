@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Session panel no longer echoes raw tool commands (bash lines, tool arguments). It shows only the
+  agent's messages plus a live, rotating "working" status with a spinner while tools run — the raw
+  tool input is no longer streamed or persisted (HAN-34)
+
 ### Added
 
 - Terminal session theme: the live session stream can render as a monospace console —
