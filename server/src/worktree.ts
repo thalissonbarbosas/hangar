@@ -128,6 +128,26 @@ export async function removeWorktree(wt: Worktree): Promise<void> {
   }
 }
 
+/**
+ * Count registered worktrees whose checkout directory no longer exists on disk (git-side
+ * orphans left by an unclean exit). Read-only — never prunes. Returns 0 for non-git dirs.
+ */
+export async function countWorktreeOrphans(dir: string): Promise<number> {
+  try {
+    const root = await gitRoot(dir);
+    if (!root) return 0;
+    const { stdout } = await exec("git", ["-C", root, "worktree", "list", "--porcelain"]);
+    let orphans = 0;
+    for (const block of stdout.trim().split(/\n\n+/)) {
+      const wtMatch = block.match(/^worktree (.+)$/m);
+      if (wtMatch && wtMatch[1] !== root && !fs.existsSync(wtMatch[1])) orphans++;
+    }
+    return orphans;
+  } catch {
+    return 0;
+  }
+}
+
 /** Run `git worktree prune` in the repo containing `dir` to remove stale worktree entries.
  *  Best-effort — errors are swallowed. */
 export async function pruneWorktrees(dir: string): Promise<void> {

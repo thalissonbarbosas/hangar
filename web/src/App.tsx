@@ -625,7 +625,12 @@ export function App() {
 
       {overlay === "settings" ? (
         <div className="settings-area">
-          <Settings onSaved={loadMeta} sessionTheme={sessionTheme} onSessionThemeChange={setSessionTheme} />
+          <Settings
+            onSaved={loadMeta}
+            sessionTheme={sessionTheme}
+            onSessionThemeChange={setSessionTheme}
+            onOpenRun={openRunById}
+          />
         </div>
       ) : overlay === "sessions" ? (
         <div className="settings-area">

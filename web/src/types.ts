@@ -193,6 +193,34 @@ export interface RunSummary {
 export const ACTIVE_STATES: RunState[] = ["queued", "starting", "running", "awaiting_input"];
 export const isActive = (s: RunState) => ACTIVE_STATES.includes(s);
 
+export type DoctorStatus = "ok" | "warn" | "error";
+
+export interface DoctorCheck {
+  id: string;
+  label: string;
+  status: DoctorStatus;
+  detail: string;
+  hint?: string;
+}
+
+export interface RecoverableSession {
+  id: string;
+  title: string;
+  ticketKey?: string;
+  agentName: string;
+  kind: RunKind;
+  state: "stopped" | "error";
+  cwd: string;
+  cwdExists: boolean;
+  endedAt?: number;
+}
+
+export interface DoctorReport {
+  checks: DoctorCheck[];
+  recoverableSessions: RecoverableSession[];
+  generatedAt: number;
+}
+
 export type WorkflowStatus = "running" | "awaiting_input" | "done" | "error" | "stopped";
 
 export interface WorkflowRunSummary {
