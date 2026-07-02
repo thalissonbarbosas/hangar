@@ -37,6 +37,7 @@ import { WorkflowsBar } from "./components/WorkflowsBar";
 import { AiWorkflowView, AiWorkflowBar } from "./components/AiWorkflow";
 import { UsageCostOverlay } from "./components/UsageCost";
 import { useTheme } from "./useTheme";
+import { useSessionTheme } from "./useSessionTheme";
 import { filterByBoard } from "./utils";
 
 // Two connections (sources) share the board surface; overlays take over the main area.
@@ -65,6 +66,7 @@ interface ActiveRun {
 
 export function App() {
   const { theme, toggle } = useTheme();
+  const { sessionTheme, setSessionTheme } = useSessionTheme();
   const [connection, setConnection] = useState<Connection>(
     () => (localStorage.getItem(CONNECTION_KEY) as Connection) || "jira",
   );
@@ -581,7 +583,7 @@ export function App() {
 
       {overlay === "settings" ? (
         <div className="settings-area">
-          <Settings onSaved={loadMeta} />
+          <Settings onSaved={loadMeta} sessionTheme={sessionTheme} onSessionThemeChange={setSessionTheme} />
         </div>
       ) : overlay === "sessions" ? (
         <div className="settings-area">

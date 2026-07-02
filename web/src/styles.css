@@ -4112,3 +4112,166 @@ a.session-ticket {
 .aiwf-data-hist-view-btn:hover {
   text-decoration: underline;
 }
+
+/* ============================ session theme: Terminal ============================ */
+/* Console-authentic restyle of the session stream, keyed on data-session-theme. Classic is the
+   absence of these overrides. Orthogonal to the app-wide light/dark theme. */
+html[data-session-theme="terminal"] .run-panel {
+  --term-bg: #0a0c10;
+  --term-fg: #d3dae6;
+  --term-dim: #6b7488;
+  --term-prompt: #5ef2a0;
+  --term-panel: #12161f;
+  --term-border: #222a37;
+  background: var(--term-bg);
+}
+html[data-session-theme="terminal"] .run-body {
+  background: var(--term-bg);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  gap: 3px;
+}
+/* Prompt-gutter lines: assistant text, user input, tool echoes. */
+html[data-session-theme="terminal"] .run-line.text,
+html[data-session-theme="terminal"] .run-user-text {
+  position: relative;
+  padding-left: 16px;
+  font-family: var(--mono);
+  color: var(--term-fg);
+}
+html[data-session-theme="terminal"] .run-line.text::before {
+  content: "▸";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--term-prompt);
+}
+html[data-session-theme="terminal"] .run-user-text::before {
+  content: "$";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--term-prompt);
+  font-weight: 600;
+}
+html[data-session-theme="terminal"] .run-line.muted {
+  font-family: var(--mono);
+  color: var(--term-dim);
+}
+/* Tool calls render as an echoed command: `$ tool input` on one flat monospace row. */
+html[data-session-theme="terminal"] .run-line.tool {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0 0 0 16px;
+  position: relative;
+  color: var(--term-dim);
+}
+html[data-session-theme="terminal"] .run-line.tool > svg {
+  display: none;
+}
+html[data-session-theme="terminal"] .run-line.tool::before {
+  content: "$";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--term-prompt);
+  font-weight: 600;
+}
+html[data-session-theme="terminal"] .run-line.tool .tool-name {
+  font-family: var(--mono);
+  color: var(--term-fg);
+}
+/* Result blocks drop the rounded card for a ruled console block with a left accent. */
+html[data-session-theme="terminal"] .run-result {
+  border-radius: 0;
+  background: none;
+  border: none;
+  border-left: 2px solid var(--term-border);
+  padding: 4px 0 4px 12px;
+}
+html[data-session-theme="terminal"] .run-result.done {
+  border-left-color: var(--success);
+}
+html[data-session-theme="terminal"] .run-result.error {
+  border-left-color: var(--danger);
+}
+html[data-session-theme="terminal"] .run-result.stopped {
+  border-left-color: var(--term-dim);
+}
+html[data-session-theme="terminal"] .run-result-body {
+  font-family: var(--mono);
+  color: var(--term-fg);
+}
+/* Interactive cards keep their affordances; only the frame matches the console. */
+html[data-session-theme="terminal"] .perm-request,
+html[data-session-theme="terminal"] .run-question {
+  background: var(--term-panel);
+  border-color: var(--term-border);
+}
+html[data-session-theme="terminal"] .run-composer textarea {
+  font-family: var(--mono);
+}
+
+/* ---- Session theme picker (Settings → Session theme) ---- */
+.session-theme-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 4px;
+}
+.session-theme-card {
+  flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  padding: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition:
+    border-color var(--t),
+    box-shadow var(--t);
+}
+.session-theme-card:hover {
+  border-color: var(--border-strong);
+}
+.session-theme-card.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.session-theme-preview {
+  width: 100%;
+  aspect-ratio: 160 / 96;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  background: var(--surface-3);
+}
+.session-theme-preview[data-preview="terminal"] {
+  background: #0a0c10;
+}
+.session-theme-preview svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.session-theme-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text);
+}
+.session-theme-title svg {
+  color: var(--accent);
+}
+.session-theme-desc {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
