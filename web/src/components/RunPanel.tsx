@@ -29,6 +29,7 @@ import type { SessionTheme } from "../useSessionTheme";
 import type { TerminalTheme } from "../useTerminalTheme";
 import { HandoffModal } from "./HandoffModal";
 import { Markdown } from "./Markdown";
+import { AutoGrowTextarea } from "./AutoGrowTextarea";
 
 // Default prompt sent by the one-click "Resume" — picks the session back up without a custom steer.
 const RESUME_MESSAGE = "Continue.";
@@ -478,7 +479,7 @@ function Composer({
         submit();
       }}
     >
-      <textarea
+      <AutoGrowTextarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
