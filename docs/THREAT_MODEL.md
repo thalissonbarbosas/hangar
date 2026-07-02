@@ -129,7 +129,7 @@ limit is the only control there.
 
 | # | Attack | Impact | Likelihood | Defense |
 |---|--------|--------|------------|---------|
-| 10 | `aiwf.ts` builds shell strings: `` execSync(`"${aiwfBin}" version`) `` and `` execAsync(`"${aiwfBin}" uninstall-all`) `` — if `aiwfBin` (a filesystem path) contains shell metacharacters, it executes arbitrary code | Arbitrary shell execution under the server process | Very Low (requires crafted homedir path) | None — `aiwfBin` comes from `path.join(os.homedir(), ".local", "bin", "aiwf")`; unusual but not impossible |
+| 10 | `aiwf.ts` calls `execFileSync(aiwfBin, ["version"])` and `execFileAsync(aiwfBin, ["uninstall-all"])` — array-args form; no shell interpolation of `aiwfBin` | Eliminated by current implementation | Very Low | `execFileSync`/`execFileAsync` with array args — no shell string built; `aiwfBin` is never interpolated into a shell command |
 
 ---
 
@@ -174,7 +174,7 @@ limit is the only control there.
 - **`.gitignore` for secrets** — `.env`, `hangar.config.json`, and `.hangar/` are all gitignored.
 - **Rate limiting** on session-spawn endpoints (30 req/min per IP via `express-rate-limit`).
 - **`execFile` with array args** for all git worktree operations — no shell interpolation.
-- **Slug allowlist** in doc/spec serving — `getProjectDoc` rejects anything outside `/^[A-Za-z0-9_-]+$/`.
+- **Path-containment guard** in doc serving — `getProjectDocByPath` requires the path to start with `docs/`, passes through `path.normalize`, and verifies the resolved absolute path stays under `<repoPath>/docs/`.
 - **Shell-quoted `dir`** in terminal command template; session ID validated against UUID-ish charset before interpolation.
 - **Demo mode isolation** — `HANGAR_DEMO=1` never spawns real processes, reads real config, or writes real state.
 - **`bypassPermissions: false` (gated mode)** — now the default for fresh installs; holds mutating/unknown shell commands for Allow/Deny approval. Settings shows an amber warning when unrestricted mode is enabled (Threats 7, 8, 13).

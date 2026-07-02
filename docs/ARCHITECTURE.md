@@ -202,9 +202,9 @@ doc tree listing (`listProjectDocTree` for the sidebar), and doc content serving
 **Card storage:** Markdown files in `.hangar/aiwf/<projectId>/board/`. Cards have YAML
 frontmatter (`status`, `kind`, `prUrl`, `skill`, `history[]`, `archived`).
 
-**Worktree state:** Tracked in `.hangar/aiwf/<projectId>/worktrees/<cardKey>.json`. Each entry
-holds `worktreePath`, `taskBranch`, and `createdAt`. This registry is the source of truth for
-which cards have live task branches.
+**Worktree state:** Tracked in `.hangar/card-state/aiwf-<projectId>/<key>.json`. Each entry
+holds `worktreePath` and `taskBranch`. This registry is the source of truth for which cards have
+live task branches.
 
 **Spec cards:** Read from `<repoPath>/docs/specs/` — read-only, sourced from the repo, not the
 data dir. A spec directory (multiple `.md` files inside) is presented as a single card with
@@ -259,7 +259,7 @@ and four overlays (board, settings, sessions, run panel).
   (PRD, architecture, design, roadmap, specs). Collapsible; state persisted to `localStorage`.
 - `DocPanel` — right-hand doc viewer (reuses RunPanel CSS shell); fetches and renders doc
   markdown by relative path; replaces RunPanel when a doc is open.
-- `Settings` — Jira connection, boards config, permission toggle, terminal command.
+- `Settings` — Jira connection, boards config, permission toggle, terminal command, updates pull, Doctor health checks, session-theme picker.
 
 **Theme:** CSS custom properties (`--bg`, `--fg`, `--accent`, …). `useTheme.ts` toggles
 light/dark and persists to `localStorage`. No external CSS framework.
