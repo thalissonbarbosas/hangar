@@ -1563,29 +1563,27 @@ function CardDataModal({
             {history.length === 0 ? (
               <span className="aiwf-data-muted">No runs yet</span>
             ) : (
-              <div className="aiwf-data-history">
-                {history.map((h, idx) => (
-                  <div key={idx} className="aiwf-data-hist-row">
-                    <span className="aiwf-data-hist-trail">
-                      {h.phase} · /{h.skill}
-                    </span>
-                    <span className="aiwf-data-hist-time">{new Date(h.at).toLocaleString()}</span>
-                    {h.summary && (
-                      <div className="aiwf-data-hist-summary">
-                        <Markdown>{h.summary}</Markdown>
-                      </div>
-                    )}
-                    {h.runId && (
-                      <button
-                        className="aiwf-data-hist-view-btn"
-                        onClick={() => onViewSession(h.runId!, `${h.phase} · /${h.skill}`)}
-                      >
-                        <Activity size={11} /> View session
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <ul className="aiwf-data-history">
+                {history.map((h, idx) => {
+                  const title = `${h.phase} · /${h.skill}`;
+                  return (
+                    <li key={idx} className="aiwf-data-hist-item">
+                      {h.runId ? (
+                        <button
+                          className="aiwf-data-hist-link"
+                          onClick={() => onViewSession(h.runId!, title)}
+                          title="View session transcript"
+                        >
+                          <Activity size={12} />
+                          <span className="aiwf-data-hist-title">{title}</span>
+                        </button>
+                      ) : (
+                        <span className="aiwf-data-hist-title aiwf-data-hist-title-plain">{title}</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
         </div>
@@ -1655,29 +1653,30 @@ function SessionTranscriptSidebar({
   const messages = events.filter((e) => e.kind === "assistant_text");
 
   return createPortal(
-    <div className="session-transcript-overlay" onClick={onClose}>
-      <aside className="aiwf-data-panel session-transcript-panel" onClick={(e) => e.stopPropagation()}>
-        <header className="spec-head">
-          <div className="spec-head-main">
-            <Activity size={14} />
-            <span className="spec-head-title">{label}</span>
+    <div className="run-overlay session-transcript-overlay" onClick={onClose}>
+      <aside className="run-panel" onClick={(e) => e.stopPropagation()}>
+        <header className="run-head">
+          <div className="run-head-main">
+            <span className="run-title">
+              <Activity size={14} /> {label}
+            </span>
           </div>
-          <button className="icon-btn" onClick={onClose}>
-            <X size={16} />
+          <button className="icon-btn" onClick={onClose} title="Close">
+            <X size={17} />
           </button>
         </header>
-        <div className="spec-body session-transcript-body" ref={bodyRef}>
+        <div className="run-body" ref={bodyRef}>
           {!loaded && (
-            <span className="aiwf-data-muted">
-              <Loader2 size={13} className="spin" /> Loading transcript…
-            </span>
+            <div className="run-line muted">
+              <Loader2 size={14} className="spin" /> Loading transcript…
+            </div>
           )}
-          {streamError && <span className="aiwf-data-muted">Session transcript unavailable.</span>}
+          {streamError && <div className="run-line muted">Session transcript unavailable.</div>}
           {loaded && !streamError && messages.length === 0 && (
-            <span className="aiwf-data-muted">No assistant messages in this session.</span>
+            <div className="run-line muted">No assistant messages in this session.</div>
           )}
           {messages.map((e, idx) => (
-            <div key={idx} className="session-transcript-msg">
+            <div key={idx} className="run-line text">
               <Markdown>{String(e.text ?? "")}</Markdown>
             </div>
           ))}
