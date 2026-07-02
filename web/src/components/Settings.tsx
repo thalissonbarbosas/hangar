@@ -23,6 +23,7 @@ import {
   Gauge,
   Users,
   TerminalSquare,
+  Palette,
   Workflow as WorkflowIcon,
 } from "lucide-react";
 import { api } from "../api";
@@ -37,6 +38,8 @@ import {
   WorkflowConfig,
   WorkflowStep,
 } from "../types";
+import { SessionTheme } from "../useSessionTheme";
+import { ClassicPreview, TerminalPreview } from "./SessionThemePreviews";
 import { dedupeByName, projectColor, skillProject } from "../utils";
 
 type Saved = "idle" | "saving" | "saved" | "error";
@@ -52,10 +55,12 @@ type SectionKey =
   | "runtime"
   | "limits"
   | "terminal"
+  | "appearance"
   | "update";
 
 const SECTIONS: { key: SectionKey; label: string; icon: typeof Plug }[] = [
   { key: "jira", label: "Jira connection", icon: Plug },
+  { key: "appearance", label: "Session theme", icon: Palette },
   { key: "boards", label: "Boards & columns", icon: Columns3 },
   { key: "agents", label: "Board agents", icon: Users },
   { key: "board-skills", label: "Board skills", icon: Sparkles },
@@ -68,7 +73,15 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof Plug }[] = [
   { key: "update", label: "Updates", icon: Download },
 ];
 
-export function Settings({ onSaved }: { onSaved: () => void }) {
+export function Settings({
+  onSaved,
+  sessionTheme,
+  onSessionThemeChange,
+}: {
+  onSaved: () => void;
+  sessionTheme: SessionTheme;
+  onSessionThemeChange: (t: SessionTheme) => void;
+}) {
   const [section, setSection] = useState<SectionKey>("jira");
 
   return (
@@ -100,9 +113,66 @@ export function Settings({ onSaved }: { onSaved: () => void }) {
         {section === "runtime" && <RuntimeSection onSaved={onSaved} />}
         {section === "limits" && <LimitsSection onSaved={onSaved} />}
         {section === "terminal" && <TerminalSection onSaved={onSaved} />}
+        {section === "appearance" && (
+          <AppearanceSection sessionTheme={sessionTheme} onChange={onSessionThemeChange} />
+        )}
         {section === "update" && <UpdateSection />}
       </div>
     </div>
+  );
+}
+
+/* ---------------- Session theme (Classic vs Terminal) ---------------- */
+
+const SESSION_THEMES: { key: SessionTheme; title: string; desc: string }[] = [
+  {
+    key: "terminal",
+    title: "Terminal",
+    desc: "Monospace console. Prompt-prefixed lines, echoed tool calls, flat dark surface.",
+  },
+  {
+    key: "classic",
+    title: "Classic",
+    desc: "Chat-style feed. Proportional text, soft cards and tool chips.",
+  },
+];
+
+function AppearanceSection({
+  sessionTheme,
+  onChange,
+}: {
+  sessionTheme: SessionTheme;
+  onChange: (t: SessionTheme) => void;
+}) {
+  return (
+    <section className="card-panel">
+      <h2>
+        <Palette size={17} /> Session theme
+      </h2>
+      <p className="hint">
+        Choose how the live session stream renders. This is a per-browser preference and is independent of the
+        app-wide light/dark toggle.
+      </p>
+      <div className="session-theme-picker">
+        {SESSION_THEMES.map((t) => (
+          <button
+            key={t.key}
+            className={`session-theme-card${sessionTheme === t.key ? " on" : ""}`}
+            aria-pressed={sessionTheme === t.key}
+            onClick={() => onChange(t.key)}
+          >
+            <div className="session-theme-preview" data-preview={t.key} aria-hidden="true">
+              {t.key === "terminal" ? <TerminalPreview /> : <ClassicPreview />}
+            </div>
+            <div className="session-theme-title">
+              {t.title}
+              {sessionTheme === t.key && <Check size={14} />}
+            </div>
+            <div className="session-theme-desc">{t.desc}</div>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 

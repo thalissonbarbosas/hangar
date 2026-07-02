@@ -116,6 +116,9 @@ hands it off to your shell (set it up in **Settings → Terminal**):
 
 <img src="docs/screenshots/sessions.png" alt="The sessions view" width="880" />
 
+Prefer a terminal aesthetic? **Settings → Session theme** switches the live session stream
+between a monospace **Terminal** console (the default) and the **Classic** chat-style feed.
+
 **Configure everything in the UI** — boards, columns, repo paths, and agents, no file editing required:
 
 <img src="docs/screenshots/settings.png" alt="Settings" width="880" />
