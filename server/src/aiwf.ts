@@ -302,6 +302,10 @@ function cardToTicket(
     history,
     // archived is omitted when false/absent so non-archived cards stay clean
     ...(fm.archived === "true" ? { archived: true } : {}),
+    // completedAt is set only for cards in the terminal Complete column
+    ...(fm.completedAt && Number.isFinite(Number(fm.completedAt))
+      ? { completedAt: Number(fm.completedAt) }
+      : {}),
   };
 }
 
@@ -394,6 +398,15 @@ export function transitionCard(project: AiwfProject, key: string, status: string
   if (!file) throw new Error(`Card not found: ${key}`);
   const { fm, description, history } = parseCardFile(fs.readFileSync(file, "utf8"));
   fm.status = status;
+  // Stamp when the card enters the terminal Complete column so that column can order by
+  // completion date; clear it when moving back out so a re-completed card gets a fresh stamp.
+  const cols = columnsFor(project);
+  const terminal = cols[cols.length - 1];
+  if (status === terminal) {
+    if (!fm.completedAt) fm.completedAt = String(Date.now());
+  } else {
+    delete fm.completedAt;
+  }
   fs.writeFileSync(file, serializeCard(fm, description, history));
 }
 
