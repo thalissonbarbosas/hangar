@@ -1126,6 +1126,14 @@ function CompleteWorktreeModal({
 
 const COMPLETE_CAP = 5; // max cards shown in the complete column before "See more" kicks in
 
+// Completion timestamp for ordering the Complete column: the stamped completedAt, else the last
+// history entry's time, else 0 (unknown — sorts last).
+function completedTs(c: Ticket): number {
+  if (c.completedAt) return c.completedAt;
+  const history = c.history ?? [];
+  return history.length ? history[history.length - 1].at : 0;
+}
+
 function AiwfColumn({
   phase,
   color,
@@ -1162,8 +1170,11 @@ function AiwfColumn({
   const [over, setOver] = useState(false);
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
 
-  // Sort complete-column cards by summary descending; leave other columns untouched.
-  const sorted = isComplete ? [...cards].sort((a, b) => b.summary.localeCompare(a.summary)) : cards;
+  // Sort complete-column cards by completion date (newest first); leave other columns untouched.
+  // Fall back to the latest history entry, then title, for cards completed before completedAt existed.
+  const sorted = isComplete
+    ? [...cards].sort((a, b) => completedTs(b) - completedTs(a) || a.summary.localeCompare(b.summary))
+    : cards;
   const visible = isComplete ? sorted.slice(0, COMPLETE_CAP) : sorted;
   const hidden = isComplete ? Math.max(0, sorted.length - COMPLETE_CAP) : 0;
 
