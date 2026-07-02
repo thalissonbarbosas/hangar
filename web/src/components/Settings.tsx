@@ -105,11 +105,15 @@ export function Settings({
   onSaved,
   sessionTheme,
   onSessionThemeChange,
+  richText,
+  onRichTextChange,
   onOpenRun,
 }: {
   onSaved: () => void;
   sessionTheme: SessionTheme;
   onSessionThemeChange: (t: SessionTheme) => void;
+  richText: boolean;
+  onRichTextChange: (v: boolean) => void;
   onOpenRun: (runId: string) => void;
 }) {
   const [section, setSection] = useState<SectionKey>("jira");
@@ -149,7 +153,12 @@ export function Settings({
         {section === "limits" && <LimitsSection onSaved={onSaved} />}
         {section === "terminal" && <TerminalSection onSaved={onSaved} />}
         {section === "appearance" && (
-          <AppearanceSection sessionTheme={sessionTheme} onChange={onSessionThemeChange} />
+          <AppearanceSection
+            sessionTheme={sessionTheme}
+            onChange={onSessionThemeChange}
+            richText={richText}
+            onRichTextChange={onRichTextChange}
+          />
         )}
         {section === "doctor" && <DoctorSection onOpenRun={onOpenRun} />}
         {section === "update" && <UpdateSection />}
@@ -292,9 +301,13 @@ const SESSION_THEMES: { key: SessionTheme; title: string; desc: string }[] = [
 function AppearanceSection({
   sessionTheme,
   onChange,
+  richText,
+  onRichTextChange,
 }: {
   sessionTheme: SessionTheme;
   onChange: (t: SessionTheme) => void;
+  richText: boolean;
+  onRichTextChange: (v: boolean) => void;
 }) {
   return (
     <section className="card-panel">
@@ -324,6 +337,13 @@ function AppearanceSection({
           </button>
         ))}
       </div>
+      <label className="switch-row">
+        <input type="checkbox" checked={richText} onChange={(e) => onRichTextChange(e.target.checked)} />
+        <span>
+          <b>Rich text</b> — render assistant messages and results as formatted Markdown (headings, lists,
+          code, links). Turn off to show raw plain text. Applies to both themes.
+        </span>
+      </label>
     </section>
   );
 }

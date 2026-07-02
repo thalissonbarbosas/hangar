@@ -38,6 +38,7 @@ import { AiWorkflowView, AiWorkflowBar } from "./components/AiWorkflow";
 import { UsageCostOverlay } from "./components/UsageCost";
 import { useTheme } from "./useTheme";
 import { useSessionTheme } from "./useSessionTheme";
+import { useRichText } from "./useRichText";
 import { filterByBoard } from "./utils";
 
 // Two connections (sources) share the board surface; overlays take over the main area.
@@ -68,6 +69,7 @@ interface ActiveRun {
 export function App() {
   const { theme, toggle } = useTheme();
   const { sessionTheme, setSessionTheme } = useSessionTheme();
+  const { richText, setRichText } = useRichText();
   const [connection, setConnection] = useState<Connection>(
     () => (localStorage.getItem(CONNECTION_KEY) as Connection) || "jira",
   );
@@ -629,6 +631,8 @@ export function App() {
             onSaved={loadMeta}
             sessionTheme={sessionTheme}
             onSessionThemeChange={setSessionTheme}
+            richText={richText}
+            onRichTextChange={setRichText}
             onOpenRun={openRunById}
           />
         </div>
@@ -728,6 +732,7 @@ export function App() {
           onClearTask={() => clearTaskSessions(activeRun.runId)}
           onOpenInTerminal={() => openInTerminal(activeRun.runId)}
           terminalConfigured={terminalConfigured}
+          richText={richText}
         />
       )}
     </div>
