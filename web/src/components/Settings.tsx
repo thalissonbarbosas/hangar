@@ -26,7 +26,17 @@ import {
   Workflow as WorkflowIcon,
 } from "lucide-react";
 import { api } from "../api";
-import { Agent, BoardConfig, FullConfig, Skill, WorkflowConfig, WorkflowStep } from "../types";
+import {
+  Agent,
+  BoardConfig,
+  FullConfig,
+  isActive,
+  Skill,
+  UpdateResult,
+  UpdateStatus,
+  WorkflowConfig,
+  WorkflowStep,
+} from "../types";
 import { dedupeByName, projectColor, skillProject } from "../utils";
 
 type Saved = "idle" | "saving" | "saved" | "error";
@@ -41,7 +51,8 @@ type SectionKey =
   | "isolation"
   | "runtime"
   | "limits"
-  | "terminal";
+  | "terminal"
+  | "update";
 
 const SECTIONS: { key: SectionKey; label: string; icon: typeof Plug }[] = [
   { key: "jira", label: "Jira connection", icon: Plug },
@@ -54,6 +65,7 @@ const SECTIONS: { key: SectionKey; label: string; icon: typeof Plug }[] = [
   { key: "runtime", label: "Exclusive runtime", icon: Boxes },
   { key: "limits", label: "Run limits", icon: Gauge },
   { key: "terminal", label: "Terminal", icon: TerminalSquare },
+  { key: "update", label: "Updates", icon: Download },
 ];
 
 export function Settings({ onSaved }: { onSaved: () => void }) {
@@ -88,6 +100,7 @@ export function Settings({ onSaved }: { onSaved: () => void }) {
         {section === "runtime" && <RuntimeSection onSaved={onSaved} />}
         {section === "limits" && <LimitsSection onSaved={onSaved} />}
         {section === "terminal" && <TerminalSection onSaved={onSaved} />}
+        {section === "update" && <UpdateSection />}
       </div>
     </div>
   );
@@ -291,6 +304,166 @@ function TerminalSection({ onSaved }: { onSaved: () => void }) {
           </span>
         )}
       </div>
+    </section>
+  );
+}
+
+/* ---------------- Updates ---------------- */
+
+function UpdateSection() {
+  const [status, setStatus] = useState<UpdateStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<UpdateResult | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function refresh() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      setStatus(await api.updateStatus());
+    } catch (e) {
+      setMsg(String((e as Error).message ?? e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const canUpdate =
+    !!status && status.git && status.behind > 0 && status.ahead === 0 && !status.dirty && !status.fetchError;
+
+  async function update() {
+    if (!canUpdate) return;
+    // Sessions persist to .hangar/ (untouched by git) — but the restart marks active runs stopped.
+    let active = 0;
+    try {
+      const { runs } = await api.runs();
+      active = runs.filter((r) => isActive(r.state)).length;
+    } catch {
+      // Non-fatal — proceed with a generic warning if we can't count runs.
+    }
+    const warn = active
+      ? `${active} session(s) are active. Updating restarts the server — active runs will be marked stopped (their transcripts are kept). Continue?`
+      : "Update will git-pull the latest code and restart the server. Continue?";
+    if (!window.confirm(warn)) return;
+
+    setBusy(true);
+    setMsg(null);
+    setResult(null);
+    try {
+      const res = await api.applyUpdate();
+      setResult(res);
+      setTimeout(() => void refresh(), 1500);
+    } catch (e) {
+      setMsg(String((e as Error).message ?? e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card-panel">
+      <h2>
+        <Download size={17} /> Updates
+      </h2>
+      <p className="hint">
+        Pull the latest Hangar code into the directory where the app is running. Your sessions live under{" "}
+        <code>.hangar/</code> and are never touched by the update — after the server restarts, all session
+        records are restored (any that were running are marked stopped, with transcripts kept). The pull is
+        fast-forward only and refuses if you have uncommitted changes.
+      </p>
+
+      {loading && <p className="hint">Checking…</p>}
+
+      {status && !loading && (
+        <>
+          <div className="field">
+            <label>Version</label>
+            <span>
+              {status.version ?? "unknown"}
+              {status.branch && (
+                <>
+                  {" "}
+                  <span className="hint">
+                    ({status.branch}
+                    {status.currentCommit ? ` @ ${status.currentCommit}` : ""})
+                  </span>
+                </>
+              )}
+            </span>
+          </div>
+
+          {!status.git && (
+            <p className="hint">
+              {status.fetchError ?? "Not a git checkout — in-app updates are unavailable."}
+            </p>
+          )}
+
+          {status.git && (
+            <>
+              {status.fetchError && (
+                <p className="bad">
+                  <AlertCircle size={14} /> Couldn't reach the remote: {status.fetchError}
+                </p>
+              )}
+              {status.dirty && (
+                <p className="bad">
+                  <AlertCircle size={14} /> Working tree has uncommitted changes — commit or stash before
+                  updating.
+                </p>
+              )}
+              {!status.fetchError && status.behind === 0 && status.ahead === 0 && (
+                <p className="ok">
+                  <Check size={14} /> Up to date.
+                </p>
+              )}
+              {status.behind > 0 && (
+                <p className="hint">
+                  {status.behind} commit(s) behind {status.upstream}.
+                </p>
+              )}
+              {status.ahead > 0 && (
+                <p className="hint">
+                  {status.ahead} local commit(s) ahead — cannot fast-forward automatically.
+                </p>
+              )}
+            </>
+          )}
+
+          <div className="row">
+            <button className="btn" onClick={() => void refresh()} disabled={busy}>
+              Check for updates
+            </button>
+            <button className="btn" onClick={() => void update()} disabled={!canUpdate || busy}>
+              {busy ? "Updating…" : "Update now"}
+            </button>
+          </div>
+        </>
+      )}
+
+      {result && (
+        <div className="row">
+          <span className="ok">
+            <Check size={14} /> Updated {result.fromCommit} → {result.toCommit} ({result.changedFiles}{" "}
+            file(s)).
+          </span>
+        </div>
+      )}
+      {result?.restartExpected && <p className="hint">Server is restarting to load the new code…</p>}
+      {result?.depsChanged && (
+        <p className="bad">
+          <AlertCircle size={14} /> Dependencies changed — run <code>npm run install:all</code> and restart.
+        </p>
+      )}
+      {msg && (
+        <p className="bad">
+          <AlertCircle size={14} /> {msg}
+        </p>
+      )}
     </section>
   );
 }
