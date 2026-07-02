@@ -349,6 +349,22 @@ export function App() {
       })
       .catch((e) => setError(String(e.message ?? e)));
   }
+  function restart(runId: string) {
+    const prev = activeRun;
+    setError(null);
+    api
+      .restartRun(runId)
+      .then((r) => {
+        setActiveRun({
+          runId: r.runId,
+          ticketKey: prev?.ticketKey ?? "",
+          agentName: prev?.agentName ?? "",
+          ticketUrl: prev?.ticketUrl,
+        });
+        refreshRuns();
+      })
+      .catch((e) => setError(String(e.message ?? e)));
+  }
   function stop(runId: string) {
     api
       .stopRun(runId)
@@ -385,6 +401,21 @@ export function App() {
         if (scope === "all") {
           if (!runIds || (activeRun && runIds.includes(activeRun.runId))) setActiveRun(null);
         }
+        refreshRuns();
+      })
+      .catch(() => {});
+  }
+
+  // Delete every session tied to a task: all runs sharing the run's ticketKey (or just the run
+  // itself when it's ad-hoc). Stops active ones, then closes the panel.
+  function clearTaskSessions(runId: string) {
+    const run = runs.find((r) => r.id === runId);
+    if (!run) return;
+    const ids = run.ticketKey ? runs.filter((r) => r.ticketKey === run.ticketKey).map((r) => r.id) : [runId];
+    api
+      .clearRuns("all", ids)
+      .then(() => {
+        setActiveRun(null);
         refreshRuns();
       })
       .catch(() => {});
@@ -674,7 +705,9 @@ export function App() {
           agents={activeRunAgents}
           skills={activeRunSkills}
           onHandoff={handoff}
+          onRestart={() => restart(activeRun.runId)}
           onClose={() => setActiveRun(null)}
+          onClearTask={() => clearTaskSessions(activeRun.runId)}
           onOpenInTerminal={() => openInTerminal(activeRun.runId)}
           terminalConfigured={terminalConfigured}
         />

@@ -93,11 +93,32 @@ const roadmapSeedNote = (boardPath: string): string =>
   "with: key (incrementing, e.g. DC-1), title, status: Planning, kind: thread — followed by the task " +
   "details as the markdown body.";
 
+// /autopilot runs in place and executes a whole roadmap end-to-end, opening a PR per task. Ask it to
+// keep the Hangar board in sync as a side effect of that work: seed a card when it starts a task, and
+// advance that card to Delivery once the task's PR is open. Mirrors roadmapSeedNote — the board dir is
+// an absolute path in Hangar's data dir, and we hand over the card-key prefix so the agent's keys
+// continue the existing numbering instead of colliding with cards already on the board. (HAN-28)
+const autopilotSeedNote = (project: AiwfProject): string => {
+  const boardPath = boardDir(project);
+  const prefix = projectPrefix(project);
+  return (
+    "You are running inside Hangar's AI Workflow board. As you execute the roadmap, keep the Hangar " +
+    `board in sync by writing/updating card markdown files in ${boardPath} (create the directory if it ` +
+    "doesn't exist). Only touch cards you create here — never edit pre-existing cards.\n" +
+    `- When you start a roadmap task, create one board card per task: a file <KEY>.md keyed ${prefix}-<n>, ` +
+    `incrementing from the highest existing ${prefix}-<n> already in that directory. YAML frontmatter: ` +
+    "key, title (the task name), status: Implementation, kind: thread — followed by the task's spec path " +
+    "or summary as the markdown body.\n" +
+    "- When that task finishes (its PR is opened), rewrite that same card's frontmatter to status: Delivery."
+  );
+};
+
 /** Compose the note for a project-level skill run: the user's note plus any skill-specific addendum. */
 export function projectRunNote(skill: string, project: AiwfProject, userNote?: string): string | undefined {
   const parts: string[] = [];
   if (userNote?.trim()) parts.push(userNote.trim());
   if (skill === "roadmap") parts.push(roadmapSeedNote(boardDir(project)));
+  if (skill === "autopilot") parts.push(autopilotSeedNote(project));
   return parts.length ? parts.join("\n\n") : undefined;
 }
 
