@@ -8,6 +8,7 @@ import { workflowsRouter } from "./routes/workflows";
 import { aiwfRouter } from "./routes/aiwf";
 import { usageRouter } from "./routes/usage";
 import { updateRouter } from "./routes/update";
+import { doctorRouter } from "./routes/doctor";
 import { clearRuns, loadPersistedRuns, seedDemoRuns } from "./sessions";
 import { sweepOldRuns } from "./store";
 import { isDemo } from "./demo";
@@ -42,6 +43,7 @@ app.use(workflowsRouter);
 app.use(aiwfRouter);
 app.use(usageRouter);
 app.use(updateRouter);
+app.use(doctorRouter);
 
 // Export the app so tests (and other entry points) can mount it without binding a port.
 export { app };
