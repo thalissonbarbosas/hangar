@@ -106,7 +106,11 @@ A **card is a work thread** that flows through the phases:
 
 Each phase column's skill list matches the table above; the `Complete` column has none. The `roadmap`
 skill is additionally instructed to **seed the board** — it writes one card per roadmap task into
-the project's board dir (Hangar passes it the absolute data-dir path).
+the project's board dir (Hangar passes it the absolute data-dir path). The `autopilot` orchestrator
+gets a similar injected note so it **keeps the board in sync as it works**: it creates one card per
+roadmap task (in **Implementation**) when it starts the task, and advances that card to **Delivery**
+when the task's PR is opened. Hangar hands it the board dir path and the project's card-key prefix so
+new cards continue the existing numbering; it only touches cards it creates.
 
 <img src="screenshots/aiwf-new-item.png" alt="Creating a session or task in a phase column" width="640" />
 

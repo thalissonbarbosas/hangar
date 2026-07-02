@@ -8,6 +8,11 @@ import { isDemo, demoConfig } from "./demo";
 
 // Resolve repo root = hangar/ (two levels up from server/src)
 const ROOT = path.resolve(__dirname, "..", "..");
+
+// Repo root where the app runs — used by the update module to git-pull in place.
+export function repoRoot(): string {
+  return ROOT;
+}
 const ENV_PATH = path.resolve(ROOT, ".env");
 
 dotenv.config({ path: ENV_PATH });
