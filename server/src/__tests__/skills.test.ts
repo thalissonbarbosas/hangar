@@ -79,6 +79,33 @@ describe("allSkills / findSkill / skillExists", () => {
     expect(skillExists(cfg, "ghost")).toBe(false);
   });
 
+  it("includes repo skills from AI Workflow projects, deduped against board paths", () => {
+    const userDir = fs.mkdtempSync(path.join(os.tmpdir(), "hangar-user-"));
+    makeSkill(userDir, "u", "---\nname: only-user\ndescription: x\n---\nbody");
+
+    const aiwfRepo = fs.mkdtempSync(path.join(os.tmpdir(), "hangar-aiwf-"));
+    makeSkill(
+      path.join(aiwfRepo, ".claude", "skills"),
+      "custom",
+      "---\nname: project-skill\ndescription: project version\n---\nbody",
+    );
+
+    const cfg: HangarConfig = {
+      agentsDir: "~/x",
+      skillsDir: userDir,
+      boards: [{ key: "A", name: "A", statuses: ["x"] }],
+      aiWorkflow: {
+        projects: [{ id: "p1", name: "AIWF", repoPath: aiwfRepo, createdAt: 0 }],
+      },
+    };
+
+    const skills = allSkills(cfg);
+    const projectSkill = skills.find((s) => s.name === "project-skill");
+    expect(projectSkill?.source).toBe("repo");
+    expect(projectSkill?.repo).toBe(path.basename(aiwfRepo));
+    expect(projectSkill?.repoPath).toBe(aiwfRepo);
+  });
+
   it("defaults skillsDir to ~/.claude/skills when unset", () => {
     const cfg: HangarConfig = { agentsDir: "~/x", boards: [{ key: "A", name: "A", statuses: ["x"] }] };
     // Just assert it doesn't throw and returns an array (the home dir may or may not have skills).
