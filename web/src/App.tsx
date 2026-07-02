@@ -47,6 +47,7 @@ type Overlay = "settings" | "sessions" | "run" | "usage" | null;
 const SELECTED_BOARDS_KEY = "hangar.selectedBoards";
 const ASSIGNEE_KEY = "hangar.assignee";
 const CONNECTION_KEY = "hangar.connection";
+const AIWF_SELECTED_KEY = "hangar.aiwf.selectedProject";
 
 function loadSelectedBoards(): string[] | null {
   try {
@@ -88,7 +89,9 @@ export function App() {
   // AI Workflow connection state (shared between the sub-menu bar and the content view).
   const [aiwf, setAiwf] = useState<AiwfStatus | null>(null);
   const [aiwfProjects, setAiwfProjects] = useState<AiwfProject[]>([]);
-  const [aiwfSelected, setAiwfSelected] = useState<string | null>(null);
+  const [aiwfSelected, setAiwfSelected] = useState<string | null>(() =>
+    localStorage.getItem(AIWF_SELECTED_KEY),
+  );
   // Doc tree sidebar open/closed — persisted to localStorage so it survives page reloads.
   const [aiwfSidebarOpen, setAiwfSidebarOpen] = useState<boolean>(() => {
     try {
@@ -232,6 +235,14 @@ export function App() {
       /* ignore */
     }
   }, [assignee]);
+  useEffect(() => {
+    try {
+      if (aiwfSelected) localStorage.setItem(AIWF_SELECTED_KEY, aiwfSelected);
+      else localStorage.removeItem(AIWF_SELECTED_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, [aiwfSelected]);
 
   function toggleBoard(key: string) {
     setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
