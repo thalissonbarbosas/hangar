@@ -97,6 +97,7 @@ export function RunPanel({
   onClearTask,
   onOpenInTerminal,
   terminalConfigured,
+  richText = true,
 }: {
   runId: string;
   ticketKey: string;
@@ -110,6 +111,7 @@ export function RunPanel({
   onClearTask?: () => void;
   onOpenInTerminal?: () => void;
   terminalConfigured?: boolean;
+  richText?: boolean;
 }) {
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [submitting, setSubmitting] = useState<Set<string>>(new Set());
@@ -361,7 +363,15 @@ export function RunPanel({
               <Loader2 size={14} className="spin" /> Connecting…
             </div>
           )}
-          {renderEvents(events, resolvedDecisions, resolvedQuestions, submitting, decide, sendFollowup)}
+          {renderEvents(
+            events,
+            resolvedDecisions,
+            resolvedQuestions,
+            submitting,
+            decide,
+            sendFollowup,
+            richText,
+          )}
           {isActive(state) && !pendingQuestion && !pendingPermission && events.length > 0 && (
             <ActivityStatus />
           )}
@@ -503,7 +513,12 @@ function deriveState(
   return "starting";
 }
 
-// Render each assistant_text event as a complete Markdown block, interleaved with other events.
+// Rich text renders Markdown; raw renders a plain text node (never HTML), preserving whitespace.
+function renderText(text: string, richText: boolean): JSX.Element {
+  return richText ? <Markdown>{text}</Markdown> : <div className="run-raw">{text}</div>;
+}
+
+// Render each assistant_text event as a complete block, interleaved with other events.
 function renderEvents(
   events: RunEvent[],
   resolved: Map<string, string>,
@@ -511,6 +526,7 @@ function renderEvents(
   submitting: Set<string>,
   decide: (id: string, d: "allow" | "deny") => void,
   answer: (text: string) => void,
+  richText: boolean,
 ) {
   const out: JSX.Element[] = [];
 
@@ -518,12 +534,12 @@ function renderEvents(
     if (e.kind === "assistant_text") {
       out.push(
         <div className="run-line text" key={e.seq}>
-          <Markdown>{s(e.text)}</Markdown>
+          {renderText(s(e.text), richText)}
         </div>,
       );
       continue;
     }
-    const el = renderOther(e, resolved, resolvedQuestions, submitting, decide, answer);
+    const el = renderOther(e, resolved, resolvedQuestions, submitting, decide, answer, richText);
     if (el) out.push(el);
   }
   return out;
@@ -536,6 +552,7 @@ function renderOther(
   submitting: Set<string>,
   decide: (id: string, d: "allow" | "deny") => void,
   answer: (text: string) => void,
+  richText: boolean,
 ): JSX.Element | null {
   switch (e.kind) {
     case "permission_request": {
@@ -597,9 +614,7 @@ function renderOther(
           <div className="run-result-head">
             <CheckCircle2 size={15} /> Result
           </div>
-          <div className="run-result-body">
-            <Markdown>{s(e.result)}</Markdown>
-          </div>
+          <div className="run-result-body">{renderText(s(e.result), richText)}</div>
         </div>
       ) : (
         <div className="run-result error" key={e.seq}>

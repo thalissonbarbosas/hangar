@@ -1925,6 +1925,18 @@ a.session-ticket {
   box-shadow: inset 0 0 0 2px var(--accent-soft);
 }
 
+/* Raw plain-text rendering (rich text toggle off): preserve whitespace, wrap long lines. */
+.run-raw {
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+html[data-session-theme="terminal"] .run-raw {
+  font-family: var(--mono);
+  color: var(--term-fg);
+}
+
 /* ============================ markdown (agent result) ============================ */
 .md {
   font-size: 13px;
