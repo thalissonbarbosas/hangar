@@ -4143,7 +4143,7 @@ html[data-session-theme="terminal"] .run-overlay {
   padding: 5vh 4vw;
 }
 html[data-session-theme="terminal"] .run-panel {
-  width: min(960px, 94vw);
+  width: min(1400px, 94vw);
   max-width: 94vw;
   height: min(82vh, 860px);
   border: 1px solid var(--term-border);
