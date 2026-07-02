@@ -64,6 +64,11 @@ with the wrong path. The project keeps its id, and since the board lives in Hang
 by that id, the cards carry over unchanged — re-pointing the location just runs future work against
 the new path.
 
+Starting a standalone **Claude session** for a project (the per-project Claude button) opens an
+agent/skill picker scoped to that project: your user agents, the aiwf toolkit skills, and the
+selected project's own repo skills (`<repoPath>/.claude/skills`) — never skills from other boards or
+projects.
+
 Projects are stored in `hangar.config.json` under `aiWorkflow.projects` (see
 [Configuration](#configuration)). Cards are **runtime board state** — their `status:` and history
 are rewritten on every move and run — so they live in **Hangar's own data dir** at
@@ -95,8 +100,11 @@ A **card is a work thread** that flows through the phases:
 
 - **Create** — each phase column has a **＋** to add a **Session** (pick one of that phase's skills,
   with an optional note → creates the card and starts the run) or a **Task** (a manual card, no skill).
-- **Move** — dragging a card into another phase column **pops up that phase's skill picker** to start a
-  session there (or "Just move, no session"). Dropping into **Complete** just marks it done — no popup.
+- **Move** — dragging a card into another phase column **pops up that phase's skill picker**. If the
+  card already has a session, the picker offers **Same session** (default — resumes the card's
+  current run so the skill keeps its accumulated context) and **New session** (a fresh run); a card
+  with no prior session shows only **Start session**. "Just move, no session" skips the run entirely.
+  Dropping into **Complete** just marks it done — no popup.
 - **History** — every finished session is appended to the card's history, tagged with the phase it ran
   in. The card shows a compact `phase·/skill ✓` trail; the repo also accumulates the skill's own
   artifacts (`docs/ARCHITECTURE.md`, specs, etc.). Board + repo together are the project history.

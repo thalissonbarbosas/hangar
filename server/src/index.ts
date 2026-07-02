@@ -9,10 +9,10 @@ import { aiwfRouter } from "./routes/aiwf";
 import { usageRouter } from "./routes/usage";
 import { updateRouter } from "./routes/update";
 import { doctorRouter } from "./routes/doctor";
-import { clearRuns, loadPersistedRuns, seedDemoRuns } from "./sessions";
+import { shutdownRuns, loadPersistedRuns, seedDemoRuns } from "./sessions";
 import { sweepOldRuns } from "./store";
 import { isDemo } from "./demo";
-import { clearWorkflowRuns, loadPersistedWorkflowRuns } from "./workflows";
+import { shutdownWorkflowRuns, loadPersistedWorkflowRuns } from "./workflows";
 import { pruneWorktrees } from "./worktree";
 
 const app = express();
@@ -79,10 +79,10 @@ if (require.main === module) {
     console.log(`  jira: ${jira ? jira.baseUrl : "NOT CONFIGURED (set in Settings)"}`);
   });
 
-  // Graceful shutdown: clean up active runs and worktrees before exiting.
+  // Graceful shutdown stops live runs and cleans worktrees but keeps persisted records so sessions survive the restart.
   async function shutdown(signal: string): Promise<void> {
     console.log(`[hangar] ${signal} received — shutting down gracefully`);
-    await Promise.allSettled([clearRuns("all"), clearWorkflowRuns("all")]);
+    await Promise.allSettled([shutdownRuns(), shutdownWorkflowRuns()]);
     process.exit(0);
   }
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
