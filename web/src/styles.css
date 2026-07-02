@@ -4113,6 +4113,10 @@ html[data-session-theme="terminal"] .run-raw {
 .doc-panel-body pre {
   overflow-x: auto;
 }
+/* AIWF docs are prose, not a console stream — always use the UI font even under the terminal session theme. Inline code/pre keep their mono via .md code / .md pre code. */
+html[data-session-theme="terminal"] .run-body.doc-panel-body {
+  font-family: var(--font);
+}
 
 /* "View session" button on each history row */
 .aiwf-data-hist-view-btn {
