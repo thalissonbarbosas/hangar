@@ -677,9 +677,9 @@ export function AiWorkflowView({
     return run ? isActive(run.state) : false;
   });
 
-  function runCard(key: string, skill: string, note?: string) {
+  function runCard(key: string, skill: string, note?: string, resumeRunId?: string) {
     api
-      .aiwfRunCard(project!.id, key, skill, note)
+      .aiwfRunCard(project!.id, key, skill, note, resumeRunId)
       .then((r) => onOpenSession({ runId: r.runId, ticketKey: key, agentName: skill }))
       .catch((e) => onError(String(e.message ?? e)));
   }
@@ -945,10 +945,12 @@ export function AiWorkflowView({
           phase={picker.phase}
           phaseSkills={phaseSkills[picker.phase] ?? []}
           skillsByName={skillsByName}
+          existingRun={picker.key.startsWith("SPEC-") ? undefined : runByTicket.get(picker.key)}
           onCancel={() => setPicker(null)}
-          onRun={(skill, note) => {
-            // Spec rows promote-then-run; existing board cards run in place.
+          onRun={(skill, note, mode) => {
+            // Spec rows promote-then-run; "same" resumes the card's current run, "new" starts fresh.
             if (picker.key.startsWith("SPEC-")) promoteSpecAndRun(picker.key, picker.phase, skill, note);
+            else if (mode === "same") runCard(picker.key, skill, note, runByTicket.get(picker.key)?.id);
             else runCard(picker.key, skill, note);
             setPicker(null);
           }}
@@ -1792,13 +1794,15 @@ function PhaseSkillModal({
   phase,
   phaseSkills,
   skillsByName,
+  existingRun,
   onRun,
   onCancel,
 }: {
   phase: string;
   phaseSkills: string[];
   skillsByName: Map<string, Skill>;
-  onRun: (skill: string, note?: string) => void;
+  existingRun?: RunSummary;
+  onRun: (skill: string, note?: string, mode?: "same" | "new") => void;
   onCancel: () => void;
 }) {
   const [skill, setSkill] = useState(phaseSkills[0] ?? "");
@@ -1850,8 +1854,27 @@ function PhaseSkillModal({
           <button className="btn-ghost" onClick={onCancel}>
             Just move, no session
           </button>
-          <button className="btn" disabled={!skill} onClick={() => onRun(skill, note.trim() || undefined)}>
-            Start session
+          {existingRun && (
+            <button
+              className="btn-ghost"
+              disabled={!skill}
+              title="Start a fresh session with no prior context"
+              onClick={() => onRun(skill, note.trim() || undefined, "new")}
+            >
+              New session
+            </button>
+          )}
+          <button
+            className="btn"
+            disabled={!skill}
+            title={
+              existingRun
+                ? "Continue the card's existing session, keeping its context"
+                : "Start a session for this card"
+            }
+            onClick={() => onRun(skill, note.trim() || undefined, existingRun ? "same" : "new")}
+          >
+            {existingRun ? "Same session" : "Start session"}
           </button>
         </div>
       </div>
