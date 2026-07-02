@@ -3317,22 +3317,6 @@ html[data-session-theme="terminal"] .run-raw {
   color: #e08e0b;
   border-color: color-mix(in srgb, #e08e0b 40%, transparent);
 }
-.aiwf-history {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
-}
-.aiwf-hist {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  color: var(--text-dim);
-  background: var(--accent-soft);
-  border-radius: 5px;
-  padding: 1px 5px;
-}
 .btn-ghost.sm {
   padding: 3px 8px;
   font-size: 12px;
