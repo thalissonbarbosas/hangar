@@ -5,28 +5,45 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.8.0] - 2026-07-02
+
+### Added
+
+- Terminal session theme: the live session stream can render as a monospace console —
+  prompt-prefixed lines, tool calls echoed as commands, and a flat dark surface, now with a
+  matching light mode. Switch between the new **Terminal** look (default) and the previous
+  **Classic** look in **Settings → Session theme**, each shown with a preview thumbnail; the
+  choice is per-browser and independent of the light/dark toggle (HAN-30)
+- **Rich text / Raw** toggle in the session run panel to switch between rendered Markdown and the
+  raw text stream
+- Agent/skill selection when starting a project orphan session, so an ad-hoc session can be scoped
+  to a specific agent or skill
+- "Clear" button in the session side panel: deletes every session tied to the current task at
+  once — stopping any active ones — then closes the panel (HAN-31)
+- **Restart** button to relaunch errored sessions from the run panel
+- **Settings → Doctor** section: runs a health check against Hangar's configuration and environment
+- **Settings → Updates** section for pulling the latest Hangar version
+- AIWF board auto-moves tasks between columns when they are created or finished by `/autopilot`
+- The last opened AI Workflow project is remembered across reloads
 
 ### Changed
 
 - Session panel no longer echoes raw tool commands (bash lines, tool arguments). It shows only the
   agent's messages plus a live, rotating "working" status with a spinner while tools run — the raw
   tool input is no longer streamed or persisted (HAN-34)
+- Settings navigation grouped into labelled categories
+- Faster session startup (HAN-26)
+- AIWF **Complete** column ordered by completion date
 
 ### Fixed
 
-- Terminal session theme now presents the session as a centered modal window in the middle of the
-  screen instead of the right-docked run panel, matching its console-window look (HAN-35)
-
-### Added
-
-- Terminal session theme: the live session stream can render as a monospace console —
-  prompt-prefixed lines, tool calls echoed as commands, and a flat dark surface. Switch between
-  the new **Terminal** look (default) and the previous **Classic** look in
-  **Settings → Session theme**, each shown with a preview thumbnail; the choice is per-browser
-  and independent of the light/dark toggle (HAN-30)
-- "Clear" button in the session side panel (run panel): deletes every session tied to the current
-  task at once — stopping any active ones — then closes the panel (HAN-31)
+- Terminal session now presented as a centered modal window in the middle of the screen instead of
+  the right-docked run panel, matching its console-window look, and widened for a more horizontal
+  layout (HAN-35)
+- Assign dropdown no longer glitches when a card is near the bottom of the screen
+- Typing lag in the session message composer
+- Board agent/skill tag colors render correctly
+- Same-named skills/agents deduplicated in board settings
 
 ## [0.7.0] - 2026-06-26
 
