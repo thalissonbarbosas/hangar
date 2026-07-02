@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- "Clear" button in the session side panel (run panel): deletes every session tied to the current
+  task at once — stopping any active ones — then closes the panel (HAN-31)
+
 ## [0.7.0] - 2026-06-26
 
 ### Added
