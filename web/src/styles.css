@@ -4136,7 +4136,20 @@ html[data-session-theme="terminal"] .run-panel {
   --term-prompt: #5ef2a0;
   --term-panel: #12161f;
   --term-border: #222a37;
+  /* Remap the neutral scale to console tokens so every descendant reads as a terminal in either app theme; accent/semantic colors stay as-is. */
+  --bg: var(--term-bg);
+  --surface: var(--term-panel);
+  --surface-2: var(--term-panel);
+  --surface-3: #1a2130;
+  --border: var(--term-border);
+  --border-strong: #2c3648;
+  --text: var(--term-fg);
+  --text-muted: var(--term-dim);
+  --text-dim: var(--term-dim);
+  --text-faint: var(--term-dim);
   background: var(--term-bg);
+  /* Anchor inherited color to the console fg so color-inheriting descendants (rq-text, run-phase, run-title) stay legible under the light app theme. */
+  color: var(--text);
 }
 /* Present the terminal session as a centered modal window, not a right-docked panel. */
 html[data-session-theme="terminal"] .run-overlay {
@@ -4167,13 +4180,27 @@ html[data-session-theme="terminal"] .run-body {
   line-height: 1.5;
   gap: 3px;
 }
-/* Prompt-gutter lines: assistant text, user input, tool echoes. */
-html[data-session-theme="terminal"] .run-line.text,
-html[data-session-theme="terminal"] .run-user-text {
+/* Prompt-gutter line: assistant text (the `▸` marker below needs position:relative). */
+html[data-session-theme="terminal"] .run-line.text {
   position: relative;
   padding-left: 16px;
   font-family: var(--mono);
   color: var(--term-fg);
+}
+/* User input reads as a flat prompt row, not a right-aligned chat bubble. */
+html[data-session-theme="terminal"] .run-user {
+  align-self: stretch;
+  max-width: 100%;
+  align-items: stretch;
+}
+html[data-session-theme="terminal"] .run-user-text {
+  position: relative;
+  padding: 0 0 0 16px;
+  font-family: var(--mono);
+  color: var(--term-fg);
+  background: none;
+  border: none;
+  border-radius: 0;
 }
 html[data-session-theme="terminal"] .run-line.text::before {
   content: "▸";
