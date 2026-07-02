@@ -25,7 +25,10 @@ app.use(
     credentials: false,
   }),
 );
-app.use(express.json());
+// Global JSON body parser (default ~100kb). The attachments upload route needs a much larger
+// limit, so it's skipped here and mounts its own 30 MB parser (see routes/runs.ts).
+const jsonParser = express.json();
+app.use((req, res, next) => (req.path === "/api/attachments" ? next() : jsonParser(req, res, next)));
 
 loadConfig(); // initialize (throws early if the config file is invalid)
 loadPersistedRuns(); // restore runs saved before the last restart

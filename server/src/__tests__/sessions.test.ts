@@ -249,6 +249,56 @@ describe("startRun — standalone (no ticket)", () => {
   });
 });
 
+describe("formatAttachments", () => {
+  it("returns an empty string for no/empty/blank-only paths", () => {
+    expect(sessions.formatAttachments()).toBe("");
+    expect(sessions.formatAttachments([])).toBe("");
+    expect(sessions.formatAttachments(["", "   "])).toBe("");
+  });
+
+  it("renders a header plus one trimmed bullet per usable path", () => {
+    expect(sessions.formatAttachments(["/a", " /b "])).toBe(
+      "Attachments (local file paths — read them as needed):\n- /a\n- /b",
+    );
+  });
+});
+
+describe("attachments in the prompt", () => {
+  it("appends an Attachments block to a ticket prompt, before the closing instruction", async () => {
+    const run = sessions.startRun({
+      kind: "agent",
+      name: "debugger",
+      ticket,
+      attachments: ["/docs/a.pdf", "/img/b.png"],
+    });
+    await waitForState(run, "done");
+    expect(lastSeedText).toContain("Attachments (local file paths — read them as needed):");
+    expect(lastSeedText).toContain("- /docs/a.pdf");
+    expect(lastSeedText).toContain("- /img/b.png");
+    // block sits before the closing "Investigate…" line
+    expect(lastSeedText!.indexOf("/docs/a.pdf")).toBeLessThan(lastSeedText!.indexOf("Investigate"));
+  });
+
+  it("appends the block to a standalone prompt, between the note and the working directory", async () => {
+    const run = sessions.startRun({
+      kind: "agent",
+      name: "debugger",
+      cwd: "/tmp/work",
+      note: "do X",
+      attachments: ["/p/one.txt"],
+    });
+    await waitForState(run, "done");
+    expect(lastSeedText).toContain("- /p/one.txt");
+    expect(lastSeedText!.indexOf("/p/one.txt")).toBeLessThan(lastSeedText!.indexOf("Working directory:"));
+  });
+
+  it("omits the block entirely when no attachments are given", async () => {
+    const run = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await waitForState(run, "done");
+    expect(lastSeedText).not.toContain("Attachments (");
+  });
+});
+
 describe("startRun — chat session (modelOverride)", () => {
   it("maps modelOverride 'sonnet' to the sonnet model id", async () => {
     const run = sessions.startRun({
@@ -425,6 +475,22 @@ describe("sendMessage — steer & resume", () => {
     expect(run.inputOpen).toBe(true);
     expect(sessions.sendMessage(run, "also check logout")).toBe("steer");
     expect(run.events.some((e) => e.kind === "user_message" && e.text === "also check logout")).toBe(true);
+  });
+
+  it("appends attachments to a steered message, and sends the block alone when text is empty", async () => {
+    holdOpen = true;
+    sdkScript = [{ type: "system", subtype: "init", session_id: "s", model: "m" }];
+    const run = sessions.startRun({ kind: "agent", name: "debugger", ticket });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(sessions.sendMessage(run, "check logs", ["/p/log.txt"])).toBe("steer");
+    const withText = run.events.find((e) => e.kind === "user_message")!;
+    expect(withText.text).toContain("check logs");
+    expect(withText.text).toContain("- /p/log.txt");
+    // attachment-only message (no text) carries just the block
+    expect(sessions.sendMessage(run, "", ["/p/only.txt"])).toBe("steer");
+    const attachmentOnly = run.events.filter((e) => e.kind === "user_message").pop()!;
+    expect(attachmentOnly.text).toContain("- /p/only.txt");
+    expect(String(attachmentOnly.text).startsWith("Attachments (")).toBe(true);
   });
 
   it("resumes a finished session with the SDK resume option", async () => {
