@@ -397,7 +397,19 @@ mechanism — and is **orthogonal** to light/dark: all four combinations render.
 
 The Terminal surface introduces a few local tokens (scoped to
 `html[data-session-theme="terminal"] .run-panel`), independent of the neutral scale so the
-console reads as a true terminal regardless of the app theme: `--term-bg` `#0a0c10`, `--term-fg`
-`#d3dae6`, `--term-dim` `#6b7488`, `--term-prompt` `#5ef2a0` (phosphor green), `--term-panel`
-`#12161f`, `--term-border` `#222a37`. Semantic success/danger colors are reused for result-block
-left borders.
+console reads as a terminal. The palette **follows the app light/dark theme** — the dark set is
+the default, and a light override (`html[data-theme="light"][data-session-theme="terminal"]`)
+supplies a paper-console variant. Semantic success/danger colors are reused for result-block left
+borders in both.
+
+| Token | Dark | Light | Role |
+|-------|------|-------|------|
+| `--term-bg` | `#0a0c10` | `#f6f7f9` | Console surface |
+| `--term-fg` | `#d3dae6` | `#1f2430` | Console text |
+| `--term-dim` | `#6b7488` | `#6b7280` | Muted / secondary |
+| `--term-prompt` | `#5ef2a0` (phosphor green) | `#0f9d63` (light `--success`) | `▸` / `$` prompt markers |
+| `--term-panel` | `#12161f` | `#ffffff` | Window chrome, cards, gates |
+| `--term-border` | `#222a37` | `#dfe3ea` | Console borders |
+
+The Settings terminal preview swatch mirrors these via `--tp-*` tokens so the picker reflects the
+active theme.
