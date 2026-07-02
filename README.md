@@ -23,9 +23,9 @@ run, with a human in the loop when it matters.
 - **Launch an agent on a ticket** — pick from your `~/.claude/agents` and `~/.claude/skills`,
   optionally add a note, and run. The session runs in that board's repo (with extra repos accessible
   in the same session for cross-repo work).
-- **Live run panel** — live output, tool calls, the captured session id and running
-  cost, an auto-detected PR link, and an **Open in terminal** button for finished sessions
-  (set up in **Settings → Terminal**).
+- **Live run panel** — live output, a rotating activity status while tools run, the captured
+  session id and running cost, an auto-detected PR link, a **Rich text / Raw** toggle, and an
+  **Open in terminal** button for finished sessions (set up in **Settings → Terminal**).
 - **Usage cost panel** — a topbar button shows Claude Code session costs (requires
   [ccusage](https://github.com/ryoppippi/ccusage)) broken down by day, month, and billing block.
 - **Human-in-the-loop** — run unrestricted, or _gated_: reads and edits auto-run while risky
@@ -118,6 +118,7 @@ hands it off to your shell (set it up in **Settings → Terminal**):
 
 Prefer a terminal aesthetic? **Settings → Session theme** switches the live session stream
 between a monospace **Terminal** console (the default) and the **Classic** chat-style feed.
+**Settings → Doctor** runs a health check against Hangar's configuration and environment.
 
 **Configure everything in the UI** — boards, columns, repo paths, and agents, no file editing required:
 
