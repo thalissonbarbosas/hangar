@@ -52,6 +52,23 @@ describe("workflow routes — happy paths", () => {
     expect(startWorkflow).toHaveBeenCalledWith("PP", "triage", ticket);
   });
 
+  it("POST /api/workflows/runs coerces missing boardKey/workflowId to empty strings", async () => {
+    startWorkflow.mockResolvedValueOnce({ id: "wf-7" });
+    const res = await request(makeApp()).post("/api/workflows/runs").send({ ticket });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ workflowRunId: "wf-7" });
+    expect(startWorkflow).toHaveBeenCalledWith("", "", ticket);
+  });
+
+  it("POST /api/workflows/runs stringifies a non-Error thrown value", async () => {
+    startWorkflow.mockRejectedValueOnce("boom");
+    const res = await request(makeApp())
+      .post("/api/workflows/runs")
+      .send({ boardKey: "PP", workflowId: "triage", ticket });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "boom" });
+  });
+
   it("POST /api/workflows/runs/:id/stop returns ok when the run exists", async () => {
     stopWorkflowRun.mockResolvedValueOnce(true);
     const res = await request(makeApp()).post("/api/workflows/runs/wf-42/stop");

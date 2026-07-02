@@ -41,6 +41,15 @@ describe("config write routes — error branches", () => {
     expect(res.body).toEqual({ error: "bad board config" });
   });
 
+  it("PUT /api/config stringifies a non-Error thrown value", async () => {
+    saveConfig.mockImplementationOnce(() => {
+      throw "boom";
+    });
+    const res = await request(makeApp()).put("/api/config").send({ boards: [] });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: "boom" });
+  });
+
   it("PUT /api/settings/jira returns 400 with the error message when the save throws", async () => {
     saveJiraSettings.mockImplementationOnce(() => {
       throw new Error("invalid base url");
@@ -57,5 +66,13 @@ describe("config write routes — error branches", () => {
     const res = await request(makeApp()).put("/api/settings/jira").send({});
     expect(res.status).toBe(400);
     expect(res.body).toEqual({ error: "boom" });
+  });
+
+  it("PUT /api/settings/jira defaults a missing body to an empty object", async () => {
+    const app = express();
+    app.use(configRouter);
+    const res = await request(app).put("/api/settings/jira");
+    expect(res.status).toBe(200);
+    expect(saveJiraSettings).toHaveBeenCalledWith({});
   });
 });
