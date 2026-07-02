@@ -233,6 +233,40 @@ describe("runs lifecycle", () => {
     expect(res.status).toBe(200);
   });
 
+  it("starts a scoped agent run with an explicit model override (orphan session)", async () => {
+    const res = await request(app).post("/api/runs").send({
+      kind: "agent",
+      name: "debugger",
+      cwd: "/tmp",
+      title: "Demo — Claude",
+      note: "do x",
+      model: "opus",
+    });
+    expect(res.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 20));
+    const one = await request(app).get(`/api/runs/${res.body.runId}`);
+    expect(one.body.kind).toBe("agent");
+    expect(one.body.agentName).toBe("debugger");
+    expect(one.body.model).toBe("claude-opus-4-8");
+  });
+
+  it("starts a scoped agent run with no model override (frontmatter/default wins)", async () => {
+    const res = await request(app)
+      .post("/api/runs")
+      .send({ kind: "agent", name: "debugger", cwd: "/tmp", title: "Demo — Claude", note: "do x" });
+    expect(res.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 20));
+    const one = await request(app).get(`/api/runs/${res.body.runId}`);
+    expect(one.body.model).not.toBe("claude-opus-4-8");
+  });
+
+  it("rejects a scoped skill run with an empty note (400)", async () => {
+    const res = await request(app)
+      .post("/api/runs")
+      .send({ kind: "skill", name: "deploy", cwd: "/tmp", title: "Demo — Claude", note: "" });
+    expect(res.status).toBe(400);
+  });
+
   it("starts a ticket run, lists it, fetches it, and streams it", async () => {
     const start = await request(app)
       .post("/api/runs")
