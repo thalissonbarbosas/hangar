@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Terminal session theme now presents the session as a centered modal window in the middle of the
+  screen instead of the right-docked run panel, matching its console-window look (HAN-35)
+
 ### Added
 
 - Terminal session theme: the live session stream can render as a monospace console —
