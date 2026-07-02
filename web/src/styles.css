@@ -931,14 +931,14 @@ html[data-theme="light"] .model-haiku {
   margin-top: 4px;
 }
 .run-result.done {
-  background: color-mix(in srgb, var(--success) 10%, transparent);
+  background: color-mix(in srgb, var(--success) 9%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--success) 28%, var(--border));
 }
 .run-result.error {
   display: flex;
   align-items: center;
   gap: 7px;
-  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--border));
   color: var(--danger);
   font-size: 13px;
@@ -4190,13 +4190,13 @@ html[data-session-theme="terminal"] .run-activity {
   font-family: var(--mono);
   color: var(--term-dim);
 }
-/* Result blocks drop the rounded card for a ruled console block with a left accent. */
+/* Result blocks keep the console block look but get a filled panel so they read as a card. */
 html[data-session-theme="terminal"] .run-result {
   border-radius: 0;
-  background: none;
+  background: var(--term-panel);
   border: none;
   border-left: 2px solid var(--term-border);
-  padding: 4px 0 4px 12px;
+  padding: 8px 12px;
 }
 html[data-session-theme="terminal"] .run-result.done {
   border-left-color: var(--success);
