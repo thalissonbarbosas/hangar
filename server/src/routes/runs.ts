@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, json } from "express";
 import rateLimit from "express-rate-limit";
 import { existsSync } from "fs";
 import path from "path";
@@ -19,7 +19,21 @@ import {
 } from "../sessions";
 import { openInTerminal, TerminalError } from "../terminal";
 import { DELIVERY_SKILLS, resolveCardWorktree } from "../aiwf";
+import { saveAttachment } from "../store";
 import { Ticket } from "../types";
+
+// Uploaded attachments cap: 25 MB decoded. base64 inflates by ~33%, so the route's JSON parser
+// (40 MB, below) must sit above 25 MB × 4/3 for a file at the cap to parse before this check runs.
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+const ATTACHMENT_JSON_LIMIT = "40mb";
+
+// Pull a list of attachment file paths out of a request body, dropping non-string/blank entries.
+function parseAttachments(body: unknown): string[] | undefined {
+  const raw = (body as { attachments?: unknown })?.attachments;
+  if (!Array.isArray(raw)) return undefined;
+  const list = raw.filter((a): a is string => typeof a === "string" && a.trim().length > 0);
+  return list.length ? list : undefined;
+}
 
 // Limit session-spawning endpoints: 30 requests per minute per IP.
 // Hangar is a single-operator tool; this guards against runaway loops or misconfigured clients.
@@ -54,6 +68,7 @@ runsRouter.post("/api/runs", runCreateLimiter, async (req, res) => {
   const name = String(req.body?.name ?? req.body?.agentName ?? "");
   const kind = req.body?.kind === "skill" ? "skill" : req.body?.kind === "chat" ? "chat" : "agent";
   const note = typeof req.body?.note === "string" ? req.body.note : undefined;
+  const attachments = parseAttachments(req.body);
   const cwd = typeof req.body?.cwd === "string" ? req.body.cwd : undefined;
   const title = typeof req.body?.title === "string" ? req.body.title : undefined;
   const model = typeof req.body?.model === "string" ? req.body.model : undefined;
@@ -102,12 +117,13 @@ runsRouter.post("/api/runs", runCreateLimiter, async (req, res) => {
 
   const skillSource = kind === "skill" ? findSkill(cfg, name)?.source : undefined;
   const run = parentRunId
-    ? startRun({ kind, name: resolvedName, note, parentRunId, skillSource })
+    ? startRun({ kind, name: resolvedName, note, attachments, parentRunId, skillSource })
     : hasTicket
       ? startRun({
           kind,
           name: resolvedName,
           note,
+          attachments,
           ticket,
           skillSource,
           ...(jiraTaskCwd
@@ -118,6 +134,7 @@ runsRouter.post("/api/runs", runCreateLimiter, async (req, res) => {
           kind,
           name: resolvedName,
           note,
+          attachments,
           cwd,
           title,
           modelOverride: model,
@@ -170,10 +187,32 @@ runsRouter.post("/api/runs/:id/message", (req, res) => {
   const run = getRun(req.params.id);
   if (!run) return res.status(404).json({ error: "No such run" });
   const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
-  if (!text) return res.status(400).json({ error: "text is required" });
-  const mode = sendMessage(run, text);
+  const attachments = parseAttachments(req.body);
+  // Attachments alone (no text) are a valid message — the paths become the payload.
+  if (!text && !attachments) return res.status(400).json({ error: "text or attachments required" });
+  const mode = sendMessage(run, text, attachments);
   if (mode === "none") return res.status(409).json({ error: "Run has no open session to message." });
   res.json({ ok: true, mode });
+});
+
+// Store an uploaded file and return its saved absolute path — the attachment. Mounts its own
+// JSON parser since the global express.json() limit (~100kb) is too small for file bytes;
+// index.ts skips the global parser for this path so this one takes effect.
+runsRouter.post("/api/attachments", json({ limit: ATTACHMENT_JSON_LIMIT }), (req, res) => {
+  const name = typeof req.body?.name === "string" ? req.body.name : "";
+  const contentBase64 = typeof req.body?.contentBase64 === "string" ? req.body.contentBase64 : "";
+  if (!name || !contentBase64) {
+    return res.status(400).json({ error: "name and contentBase64 are required" });
+  }
+  const bytes = Buffer.from(contentBase64, "base64");
+  if (bytes.length > MAX_ATTACHMENT_BYTES) {
+    return res.status(400).json({ error: "Attachment exceeds the 25 MB limit." });
+  }
+  try {
+    res.json(saveAttachment(name, bytes));
+  } catch (err) {
+    res.status(500).json({ error: String(err instanceof Error ? err.message : err) });
+  }
 });
 
 // Open the run's Claude session in the operator's configured terminal (resume from where it left

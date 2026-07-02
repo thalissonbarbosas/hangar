@@ -236,14 +236,30 @@ function detectPr(run: Run, text: string): void {
   }
 }
 
-function buildPrompt(opts: { ticket?: Ticket; note?: string; skillName?: string; cwd: string }): string {
-  const { ticket, note, skillName, cwd } = opts;
+// Render attached local file paths as a plain block the agent reads directly (reads are
+// auto-allowed). Returns "" when there are no usable paths.
+export function formatAttachments(paths?: string[]): string {
+  const list = (paths ?? []).map((p) => (typeof p === "string" ? p.trim() : "")).filter(Boolean);
+  if (!list.length) return "";
+  return ["Attachments (local file paths — read them as needed):", ...list.map((p) => `- ${p}`)].join("\n");
+}
+
+function buildPrompt(opts: {
+  ticket?: Ticket;
+  note?: string;
+  skillName?: string;
+  cwd: string;
+  attachments?: string[];
+}): string {
+  const { ticket, note, skillName, cwd, attachments } = opts;
+  const attachmentBlock = formatAttachments(attachments);
 
   // Standalone (no ticket): the note IS the task.
   if (!ticket) {
     const lines = [];
     if (skillName) lines.push(`Use the "${skillName}" skill for the following request.`);
     lines.push(note?.trim() || "(no instructions provided)");
+    if (attachmentBlock) lines.push(attachmentBlock);
     lines.push(`Working directory: ${cwd}`);
     return lines.filter(Boolean).join("\n");
   }
@@ -262,6 +278,7 @@ function buildPrompt(opts: { ticket?: Ticket; note?: string; skillName?: string;
   if (note?.trim()) {
     lines.push("Operator note (additional context — does not replace the task):", note.trim());
   }
+  if (attachmentBlock) lines.push(attachmentBlock);
   lines.push("Investigate, then carry out the work end to end.");
   return lines.filter(Boolean).join("\n");
 }
@@ -468,6 +485,7 @@ export interface StartOpts {
   kind: "agent" | "skill" | "chat";
   name: string;
   note?: string;
+  attachments?: string[]; // local file paths surfaced to the agent as an "Attachments:" block
   ticket?: Ticket; // omit for a standalone (task-less) run
   cwd?: string; // standalone working directory
   title?: string; // standalone label
@@ -579,6 +597,7 @@ export function startRun(opts: StartOpts): Run {
     skillSource: opts.skillSource,
     model,
     note: opts.note,
+    attachments: opts.attachments,
     ticket: opts.ticket,
     additionalDirectories,
   };
@@ -698,6 +717,7 @@ interface DriveCtx {
   skillSource?: "user" | "repo";
   model?: string;
   note?: string;
+  attachments?: string[];
   ticket?: Ticket;
   additionalDirectories?: string[];
 }
@@ -872,7 +892,7 @@ async function streamTurn(run: Run, options: Record<string, unknown>, seedText: 
 }
 
 async function drive(run: Run, ctx: DriveCtx): Promise<void> {
-  const { agent, skillName, model, note, ticket } = ctx;
+  const { agent, skillName, model, note, ticket, attachments } = ctx;
   let additionalDirectories = ctx.additionalDirectories ?? [];
   emit(run, "info", {
     message: `Starting ${run.kind} "${run.agentName}" on ${ticket?.key ?? "ad-hoc run"}`,
@@ -934,7 +954,7 @@ async function drive(run: Run, ctx: DriveCtx): Promise<void> {
     skillSource: ctx.skillSource,
     additionalDirectories,
   });
-  await streamTurn(run, options, buildPrompt({ ticket, note, skillName, cwd: run.cwd }));
+  await streamTurn(run, options, buildPrompt({ ticket, note, skillName, cwd: run.cwd, attachments }));
 }
 
 /** Continue a finished session with a follow-up message (SDK `resume`), reusing its worktree. */
@@ -975,19 +995,25 @@ async function resumeRun(run: Run, text: string): Promise<void> {
  * Send a follow-up from the operator: answer an open question, steer a running turn,
  * or resume a finished session. Returns which path was taken.
  */
-export function sendMessage(run: Run, text: string): "answer" | "steer" | "resume" | "none" {
+export function sendMessage(
+  run: Run,
+  text: string,
+  attachments?: string[],
+): "answer" | "steer" | "resume" | "none" {
+  const attachmentBlock = formatAttachments(attachments);
+  const message = attachmentBlock ? (text ? `${text}\n${attachmentBlock}` : attachmentBlock) : text;
   const pendingQuestion = run.questions.keys().next().value as string | undefined;
   if (pendingQuestion) {
-    answerQuestion(run, pendingQuestion, text);
+    answerQuestion(run, pendingQuestion, message);
     return "answer";
   }
   if (run.inputOpen && ACTIVE.includes(run.state)) {
-    emit(run, "user_message", { text });
-    run.input?.push({ type: "user", message: { role: "user", content: text }, parent_tool_use_id: null });
+    emit(run, "user_message", { text: message });
+    run.input?.push({ type: "user", message: { role: "user", content: message }, parent_tool_use_id: null });
     return "steer";
   }
   if (run.sessionId) {
-    resumeRun(run, text)
+    resumeRun(run, message)
       .catch((err) => {
         if (!run.endedAt) {
           run.state = "error";

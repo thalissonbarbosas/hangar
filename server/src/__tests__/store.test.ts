@@ -89,6 +89,45 @@ describe("HANGAR_DATA_DIR home expansion", () => {
   });
 });
 
+describe("saveAttachment", () => {
+  it("writes the bytes under attachments/<uuid>/<name> and returns the saved path", () => {
+    const dir = tempDir();
+    const store = loadStore(dir);
+    const buf = Buffer.from("hello attachment");
+    const saved = store.saveAttachment("report.pdf", buf);
+    expect(saved.name).toBe("report.pdf");
+    expect(saved.size).toBe(buf.length);
+    expect(saved.path.startsWith(path.join(dir, "attachments"))).toBe(true);
+    expect(path.basename(saved.path)).toBe("report.pdf");
+    expect(fs.readFileSync(saved.path)).toEqual(buf);
+  });
+
+  it("sanitizes a traversal filename to its basename, staying inside the attachments dir", () => {
+    const dir = tempDir();
+    const store = loadStore(dir);
+    const saved = store.saveAttachment("../../etc/evil", Buffer.from("x"));
+    expect(path.basename(saved.path)).toBe("evil");
+    expect(path.resolve(saved.path).startsWith(path.resolve(path.join(dir, "attachments")))).toBe(true);
+  });
+
+  it("falls back to 'file' when the name has no usable basename", () => {
+    const dir = tempDir();
+    const store = loadStore(dir);
+    expect(path.basename(store.saveAttachment("..", Buffer.from("x")).path)).toBe("file");
+    expect(path.basename(store.saveAttachment("", Buffer.from("x")).path)).toBe("file");
+  });
+
+  it("gives each upload its own dir so identical filenames never collide", () => {
+    const dir = tempDir();
+    const store = loadStore(dir);
+    const a = store.saveAttachment("dup.txt", Buffer.from("a"));
+    const b = store.saveAttachment("dup.txt", Buffer.from("b"));
+    expect(a.path).not.toBe(b.path);
+    expect(fs.readFileSync(a.path).toString()).toBe("a");
+    expect(fs.readFileSync(b.path).toString()).toBe("b");
+  });
+});
+
 describe("sweepOldRuns", () => {
   const OLD_TS = Date.now() - 100 * 24 * 60 * 60 * 1000; // 100 days ago
   const NEW_TS = Date.now() - 1 * 24 * 60 * 60 * 1000; // 1 day ago
