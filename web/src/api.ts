@@ -3,6 +3,7 @@ import {
   AiwfDocTreeNode,
   AiwfProject,
   AiwfStatus,
+  Attachment,
   DoctorReport,
   FullConfig,
   JiraSettings,
@@ -32,6 +33,17 @@ async function getJson<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) throw new Error((await parseError(res)) || `${res.status} ${res.statusText}`);
   return res.json() as Promise<T>;
+}
+
+// Encode bytes to base64 in bounded chunks so a large file doesn't blow the call-stack arg limit.
+function base64FromArrayBuffer(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
 
 async function sendJson<T>(method: string, url: string, body: unknown): Promise<T> {
@@ -198,8 +210,13 @@ export const api = {
   ticketPr: (key: string) => getJson<{ prUrl: string | null }>(`/api/tickets/${encodeURIComponent(key)}/pr`),
   checkPath: (path: string) =>
     getJson<{ exists: boolean }>(`/api/fs/exists?path=${encodeURIComponent(path)}`),
-  startRun: (ticket: Ticket, name: string, kind: RunKind = "agent", note?: string) =>
-    sendJson<StartRunResult>("POST", "/api/runs", { ticket, name, kind, note }),
+  startRun: (ticket: Ticket, name: string, kind: RunKind = "agent", note?: string, attachments?: string[]) =>
+    sendJson<StartRunResult>("POST", "/api/runs", { ticket, name, kind, note, attachments }),
+  // Upload a file's bytes; the server saves it and returns the local path used as the attachment.
+  uploadAttachment: async (file: File): Promise<Attachment> => {
+    const contentBase64 = base64FromArrayBuffer(await file.arrayBuffer());
+    return sendJson<Attachment>("POST", "/api/attachments", { name: file.name, contentBase64 });
+  },
   startStandalone: (
     name: string,
     kind: RunKind,

@@ -157,6 +157,14 @@ export interface TicketDragData {
 
 export type RunKind = "agent" | "skill" | "chat";
 
+// Mirrors the server's saveAttachment response (server/src/store.ts). `path` is a local
+// absolute path surfaced to the agent as an "Attachments:" block.
+export interface Attachment {
+  path: string;
+  name: string;
+  size: number;
+}
+
 export type RunState = "queued" | "starting" | "running" | "awaiting_input" | "done" | "error" | "stopped";
 
 export interface RunEvent {

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { Bot, Sparkles, X, Play } from "lucide-react";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
+import { AttachmentBar } from "./AttachmentBar";
+import { useAttachments } from "../hooks/useAttachments";
 
 export function NoteModal({
   ticketKey,
@@ -13,10 +15,12 @@ export function NoteModal({
   ticketKey: string;
   name: string;
   kind: "agent" | "skill";
-  onRun: (note: string) => void;
+  onRun: (note: string, attachments: string[]) => void;
   onCancel: () => void;
 }) {
   const [note, setNote] = useState("");
+  const attachments = useAttachments();
+  const run = () => onRun(note, attachments.paths());
 
   return createPortal(
     <div className="modal-overlay" onClick={onCancel}>
@@ -39,14 +43,15 @@ export function NoteModal({
           value={note}
           onChange={(e) => setNote(e.target.value)}
           onKeyDown={(e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") onRun(note);
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") run();
           }}
         />
+        <AttachmentBar items={attachments.items} onAdd={attachments.add} onRemove={attachments.remove} />
         <div className="modal-actions">
           <button className="btn-ghost" onClick={onCancel}>
             Cancel
           </button>
-          <button className="btn" onClick={() => onRun(note)}>
+          <button className="btn" onClick={run}>
             <Play size={14} /> Run with note
           </button>
         </div>
