@@ -52,6 +52,26 @@ export function skillProject(s: { aiwf?: boolean; repo?: string }): string | nul
   return null;
 }
 
+/** The last path segment of a repo path, matching the server's repo basename for skills. */
+function repoBasename(repoPath: string): string {
+  return (
+    repoPath
+      .replace(/[\\/]+$/, "")
+      .split(/[\\/]/)
+      .pop() ?? ""
+  );
+}
+
+/**
+ * Skills offered in the AI Workflow orphan-session picker: only AIWF toolkit skills plus the
+ * selected project's own repo skills — never skills from other boards/projects.
+ * Pass project=null to get back only AIWF skills.
+ */
+export function filterAiwfSkills(project: { repoPath: string } | null, skills: Skill[]): Skill[] {
+  const repo = project ? repoBasename(project.repoPath) : null;
+  return skills.filter((s) => s.aiwf || (!!repo && s.repo === repo));
+}
+
 /**
  * Apply the same board-scoped agent/skill filtering used in Board.tsx.
  * Pass board=null to get back the original unfiltered lists unchanged.

@@ -49,7 +49,8 @@ export function loadRepoSkills(repoPath: string): Skill[] {
 
 /**
  * Every skill available across the install: user-scoped skills plus the repo skills for each
- * unique codebase path across all boards, ordered by name (user before repo on ties).
+ * unique codebase path across all boards and AI Workflow projects, ordered by name (user before
+ * repo on ties).
  */
 export function allSkills(cfg: HangarConfig): Skill[] {
   const user: Skill[] = loadSkills(cfg.skillsDir ?? "~/.claude/skills").map((s) => ({
@@ -59,12 +60,14 @@ export function allSkills(cfg: HangarConfig): Skill[] {
 
   const seen = new Set<string>();
   const repoSkills: Skill[] = [];
-  for (const b of cfg.boards) {
-    for (const p of boardPaths(b)) {
-      if (seen.has(p)) continue;
-      seen.add(p);
-      repoSkills.push(...loadRepoSkills(p));
-    }
+  const repoPaths = [
+    ...cfg.boards.flatMap((b) => boardPaths(b)),
+    ...(cfg.aiWorkflow?.projects ?? []).map((p) => expandHome(p.repoPath)),
+  ];
+  for (const p of repoPaths) {
+    if (seen.has(p)) continue;
+    seen.add(p);
+    repoSkills.push(...loadRepoSkills(p));
   }
   return [...user, ...repoSkills].sort(
     (a, b) => a.name.localeCompare(b.name) || (a.source ?? "").localeCompare(b.source ?? ""),

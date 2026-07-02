@@ -64,6 +64,11 @@ with the wrong path. The project keeps its id, and since the board lives in Hang
 by that id, the cards carry over unchanged — re-pointing the location just runs future work against
 the new path.
 
+Starting a standalone **Claude session** for a project (the per-project Claude button) opens an
+agent/skill picker scoped to that project: your user agents, the aiwf toolkit skills, and the
+selected project's own repo skills (`<repoPath>/.claude/skills`) — never skills from other boards or
+projects.
+
 Projects are stored in `hangar.config.json` under `aiWorkflow.projects` (see
 [Configuration](#configuration)). Cards are **runtime board state** — their `status:` and history
 are rewritten on every move and run — so they live in **Hangar's own data dir** at
