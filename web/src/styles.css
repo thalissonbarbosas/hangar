@@ -4125,6 +4125,28 @@ html[data-session-theme="terminal"] .run-panel {
   --term-border: #222a37;
   background: var(--term-bg);
 }
+/* Present the terminal session as a centered modal window, not a right-docked panel. */
+html[data-session-theme="terminal"] .run-overlay {
+  justify-content: center;
+  align-items: center;
+  padding: 5vh 4vw;
+}
+html[data-session-theme="terminal"] .run-panel {
+  width: min(960px, 94vw);
+  max-width: 94vw;
+  height: min(82vh, 860px);
+  border: 1px solid var(--term-border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  animation: run-modal-pop 160ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes run-modal-pop {
+  from {
+    transform: translateY(8px) scale(0.98);
+    opacity: 0;
+  }
+}
 html[data-session-theme="terminal"] .run-body {
   background: var(--term-bg);
   font-family: var(--mono);
