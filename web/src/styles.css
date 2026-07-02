@@ -1672,7 +1672,8 @@ html[data-theme="light"] .model-haiku {
   animation: fade 140ms ease;
 }
 .modal {
-  width: min(520px, 92vw);
+  /* unified modal width — matches the worktree history (modal-xl) modal */
+  width: min(860px, 96vw);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
@@ -1680,7 +1681,7 @@ html[data-theme="light"] .model-haiku {
   padding: 18px;
 }
 .modal.modal-lg {
-  width: min(640px, 94vw);
+  width: min(860px, 96vw);
 }
 .modal.modal-xl {
   width: min(860px, 96vw);
