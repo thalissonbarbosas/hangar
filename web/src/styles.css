@@ -4310,3 +4310,71 @@ html[data-session-theme="terminal"] .run-composer textarea {
   line-height: 1.45;
   color: var(--text-muted);
 }
+
+/* Doctor settings section */
+.doctor-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: var(--surface);
+}
+.doctor-check.warn {
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+}
+.doctor-check.error {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+.doctor-status-icon {
+  flex: none;
+  margin-top: 1px;
+}
+.doctor-status-icon.ok {
+  color: var(--success);
+}
+.doctor-status-icon.warn {
+  color: var(--warning);
+}
+.doctor-status-icon.error {
+  color: var(--danger);
+}
+.doctor-check-label {
+  font-weight: 600;
+}
+.doctor-check-detail {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.doctor-check-hint {
+  color: var(--text-dim);
+  font-size: 12px;
+  margin-top: 2px;
+}
+.doctor-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.doctor-session {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.doctor-session.unrecoverable {
+  opacity: 0.6;
+}
+.doctor-session-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}

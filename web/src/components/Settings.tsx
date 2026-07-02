@@ -25,13 +25,21 @@ import {
   TerminalSquare,
   Palette,
   Workflow as WorkflowIcon,
+  Stethoscope,
+  RefreshCw,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 import { api } from "../api";
 import {
   Agent,
   BoardConfig,
+  DoctorCheck,
+  DoctorReport,
+  DoctorStatus,
   FullConfig,
   isActive,
+  RecoverableSession,
   Skill,
   UpdateResult,
   UpdateStatus,
@@ -56,6 +64,7 @@ type SectionKey =
   | "limits"
   | "terminal"
   | "appearance"
+  | "doctor"
   | "update";
 
 type SectionItem = { key: SectionKey; label: string; icon: typeof Plug };
@@ -86,6 +95,7 @@ const SECTION_GROUPS: { label: string; items: SectionItem[] }[] = [
     label: "System",
     items: [
       { key: "terminal", label: "Terminal", icon: TerminalSquare },
+      { key: "doctor", label: "Doctor", icon: Stethoscope },
       { key: "update", label: "Updates", icon: Download },
     ],
   },
@@ -95,10 +105,12 @@ export function Settings({
   onSaved,
   sessionTheme,
   onSessionThemeChange,
+  onOpenRun,
 }: {
   onSaved: () => void;
   sessionTheme: SessionTheme;
   onSessionThemeChange: (t: SessionTheme) => void;
+  onOpenRun: (runId: string) => void;
 }) {
   const [section, setSection] = useState<SectionKey>("jira");
 
@@ -139,9 +151,126 @@ export function Settings({
         {section === "appearance" && (
           <AppearanceSection sessionTheme={sessionTheme} onChange={onSessionThemeChange} />
         )}
+        {section === "doctor" && <DoctorSection onOpenRun={onOpenRun} />}
         {section === "update" && <UpdateSection />}
       </div>
     </div>
+  );
+}
+
+/* ---------------- Doctor (diagnostics + session recovery) ---------------- */
+
+const DOCTOR_STATUS_ICON: Record<DoctorStatus, typeof ShieldCheck> = {
+  ok: ShieldCheck,
+  warn: AlertTriangle,
+  error: AlertCircle,
+};
+
+function DoctorSection({ onOpenRun }: { onOpenRun: (runId: string) => void }) {
+  const [report, setReport] = useState<DoctorReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [recovering, setRecovering] = useState<string | null>(null);
+
+  async function refresh() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      setReport(await api.doctor());
+    } catch (e) {
+      setMsg(String((e as Error).message ?? e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  async function recover(s: RecoverableSession) {
+    setRecovering(s.id);
+    setMsg(null);
+    try {
+      const { runId } = await api.recoverSession(s.id);
+      onOpenRun(runId);
+    } catch (e) {
+      setMsg(String((e as Error).message ?? e));
+    } finally {
+      setRecovering(null);
+      void refresh();
+    }
+  }
+
+  const recoverable = report?.recoverableSessions ?? [];
+
+  return (
+    <section className="card-panel">
+      <h2>
+        <Stethoscope size={17} /> Doctor
+      </h2>
+      <p className="hint">
+        Read-only health checks for your environment, plus one-click recovery of sessions that ended when the
+        server last restarted. Recovering reattaches the Claude session and continues where it left off.
+      </p>
+
+      <div className="row" style={{ marginBottom: 10 }}>
+        <button className="btn" onClick={() => void refresh()} disabled={loading}>
+          <RefreshCw size={15} /> {loading ? "Checking…" : "Re-run checks"}
+        </button>
+        {report && <span className="hint">Checked {new Date(report.generatedAt).toLocaleTimeString()}</span>}
+      </div>
+
+      {msg && (
+        <p className="bad">
+          <AlertCircle size={14} /> {msg}
+        </p>
+      )}
+
+      {report?.checks.map((c: DoctorCheck) => {
+        const Icon = DOCTOR_STATUS_ICON[c.status];
+        return (
+          <div className={`doctor-check ${c.status}`} key={c.id}>
+            <Icon size={16} className={`doctor-status-icon ${c.status}`} />
+            <div className="doctor-check-body">
+              <div className="doctor-check-label">{c.label}</div>
+              <div className="doctor-check-detail">{c.detail}</div>
+              {c.hint && <div className="doctor-check-hint">{c.hint}</div>}
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="exclusive-group-label" style={{ marginTop: 16 }}>
+        <RotateCcw size={12} /> Recoverable sessions
+      </div>
+      {recoverable.length === 0 && !loading && (
+        <p className="hint">No sessions to recover — nothing ended mid-run.</p>
+      )}
+      <div className="doctor-session-list">
+        {recoverable.map((s) => (
+          <div className={`doctor-session${s.cwdExists ? "" : " unrecoverable"}`} key={s.id}>
+            <div className="doctor-session-body">
+              <span className="mono">{s.title}</span>
+              <span className="hint">
+                {s.agentName} · {s.state}
+                {s.endedAt ? ` · ${new Date(s.endedAt).toLocaleString()}` : ""}
+              </span>
+              {!s.cwdExists && (
+                <span className="bad">
+                  <AlertCircle size={12} /> worktree removed — can't recover
+                </span>
+              )}
+            </div>
+            {s.cwdExists && (
+              <button className="btn-ghost sm" disabled={recovering === s.id} onClick={() => void recover(s)}>
+                <RotateCcw size={14} /> {recovering === s.id ? "Resuming…" : "Resume"}
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

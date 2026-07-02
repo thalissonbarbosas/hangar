@@ -3,6 +3,7 @@ import {
   AiwfDocTreeNode,
   AiwfProject,
   AiwfStatus,
+  DoctorReport,
   FullConfig,
   JiraSettings,
   RunKind,
@@ -209,6 +210,9 @@ export const api = {
   runs: () => getJson<{ runs: RunSummary[] }>("/api/runs"),
   updateStatus: () => getJson<UpdateStatus>("/api/update/status"),
   applyUpdate: () => sendJson<UpdateResult>("POST", "/api/update/pull", {}),
+  doctor: () => getJson<DoctorReport>("/api/doctor"),
+  recoverSession: (id: string) =>
+    sendJson<{ ok: true; runId: string }>("POST", `/api/doctor/sessions/${id}/recover`, {}),
   resolvePermission: (runId: string, requestId: string, decision: "allow" | "deny") =>
     sendJson<{ ok: boolean }>("POST", `/api/runs/${runId}/permissions/${requestId}`, { decision }),
   sendMessage: (runId: string, text: string) =>
