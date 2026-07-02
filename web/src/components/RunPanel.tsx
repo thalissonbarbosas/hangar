@@ -25,6 +25,7 @@ import { api } from "../api";
 import { Agent, RunEvent, RunKind, RunState, Skill, isActive } from "../types";
 import { HandoffModal } from "./HandoffModal";
 import { Markdown } from "./Markdown";
+import { AutoGrowTextarea } from "./AutoGrowTextarea";
 
 // Default prompt sent by the one-click "Resume" — picks the session back up without a custom steer.
 const RESUME_MESSAGE = "Continue.";
@@ -459,7 +460,7 @@ function Composer({
         submit();
       }}
     >
-      <textarea
+      <AutoGrowTextarea
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
