@@ -37,6 +37,19 @@ computed version, skip ahead to tagging; otherwise start at the changelog PR.
 - **Tag only a merged commit.** Never push a `v*` tag for a release whose PR hasn't merged to `main`.
 - **Tag format is `v<version>`** (e.g. `v0.9.0`). The pre-existing `bundled-0.4.0` tag is legacy and
   not part of this scheme — ignore it for "last release" detection.
+- **Always run the release in a dedicated git worktree.** Never do release work in the main repo
+  checkout or inside a Hangar-managed run worktree/live process. Create a throwaway worktree
+  (`git worktree add`) for the `release/<version>` branch, do all changelog/version/screenshot work
+  there, and remove it when done. This keeps the operator's main checkout and any running Hangar
+  process untouched by the release's branch switches, commits, and screenshot server.
+- **Screenshots MUST come from demo mode — never the operator's real `.env`.** The screenshots
+  script forces `HANGAR_DEMO=1`, but that alone is not enough: the Settings/Jira-connection screen
+  historically read `JIRA_BASE_URL`/`JIRA_EMAIL` straight from `.env` and leaked the operator's real
+  Jira URL and email into `settings.png`. After regenerating, **open `docs/screenshots/settings.png`
+  and confirm it shows `demo.atlassian.net` / `demo@example.com`** — never a real domain or email. If
+  it shows real data, stop and fix the demo guard before committing. Never capture screenshots against
+  a non-demo server, and never on the default ports where the operator's live (real-data) Hangar may
+  be running.
 
 ## Steps
 
@@ -51,10 +64,14 @@ git pull --ff-only
 
 If the tree is dirty or you're not on `main`, stop and tell the user.
 
-> **⚠ Never run the release inside a Hangar worktree or the current active Hangar process.** Check
-> for a `HANGAR_RUN_ID` env var or confirm `pwd` is the real repo checkout
-> (`~/dev/thalissonbarbosa/hangar`), not a temp worktree path. If you're inside a worktree session,
-> stop and instruct the user to run `/release` from a regular terminal in the real repo.
+> **⚠ Never run the release inside a Hangar-managed run worktree or the current active Hangar
+> process.** Check for a `HANGAR_RUN_ID` env var or confirm `pwd` is the real repo checkout
+> (`~/dev/thalissonbarbosa/hangar`), not a temp Hangar run path. If you're inside a Hangar run
+> session, stop and instruct the user to run `/release` from a regular terminal.
+>
+> Even from a regular terminal, **all release work happens in a dedicated git worktree you create in
+> Step 5** — not in the main checkout — so branch switches, commits, and the screenshot server never
+> disturb the operator's main checkout or a live Hangar process.
 
 **Step 2 — Find the last release.** The latest version tag:
 
@@ -79,11 +96,19 @@ Parse each commit's conventional prefix and `!`/`BREAKING CHANGE:` markers.
 drove it, e.g. _"3 feats + 5 fixes since v0.8.0 → minor bump → **0.9.0**. Override?"_ Wait for
 confirmation (accept an explicit override version).
 
-**Step 5 — Create the branch:**
+**Step 5 — Create the branch in a dedicated worktree.** Do not `git switch` the main checkout —
+add a throwaway worktree for the release branch and `cd` into it for the rest of Phase 1:
 
 ```
-git switch -c release/<version>
+git worktree add ../hangar-release-<version> -b release/<version>
+cd ../hangar-release-<version>
+npm run install:all   # the worktree needs its own node_modules for the screenshot server
 ```
+
+Run every remaining Phase 1 step (screenshots, changelog, version bump, commit, push) from inside
+this worktree. After the PR is pushed, return to the main checkout and remove the worktree:
+`git worktree remove ../hangar-release-<version>`. Removing it before the PR merges is fine — the
+branch and PR live on the remote.
 
 **Step 6 — Sync `docs/AI_WORKFLOW.md` with the implementation.** Run `/aiwf-sync`. If it finds
 drift, apply the fixes before continuing — stale AIWF docs in a release PR are confusing. If it
@@ -101,14 +126,21 @@ doesn't kill any currently-running Hangar instance:
 WEB_PORT=5280 PORT=3101 npm run screenshots
 ```
 
-The script starts a demo server, drives Playwright through the 8 key UI states, and saves PNGs to
-`docs/screenshots/`. Always use the alternate ports above — the default ports (5180/3001) may be
-occupied by the user's live Hangar process, and the script aggressively kills whatever is on the
-configured ports before starting. If screenshots fail (Playwright not installed, port conflict, etc.)
-print the error, skip this step, and continue — screenshots are best-effort; they do not block the
-release. If Playwright's Chromium browser has never been installed, the error will say so; the user
-can run `npx playwright install chromium` and re-run
+The script starts a **demo server** (`HANGAR_DEMO=1`), drives Playwright through the 8 key UI states,
+and saves PNGs to `docs/screenshots/`. Always use the alternate ports above — the default ports
+(5180/3001) may be occupied by the user's live Hangar process, and the script aggressively kills
+whatever is on the configured ports before starting. If screenshots fail (Playwright not installed,
+port conflict, etc.) print the error, skip this step, and continue — screenshots are best-effort;
+they do not block the release. If Playwright's Chromium browser has never been installed, the error
+will say so; the user can run `npx playwright install chromium` and re-run
 `WEB_PORT=5280 PORT=3101 npm run screenshots` manually.
+
+> **⚠ Verify no real credentials leaked.** Screenshots must come from demo data only, never the
+> operator's real `.env`. After the script finishes, **open `docs/screenshots/settings.png` and
+> confirm the Jira connection shows `https://demo.atlassian.net` / `demo@example.com`** — if it shows
+> a real domain or email, the demo guard in `jiraSettingsView()` (`server/src/config.ts`) is missing
+> or the shot was captured against a non-demo server. Stop, fix it, and re-shoot before committing.
+> Never commit a screenshot containing a real Jira URL, email, or token.
 
 **Step 9 — Update `CHANGELOG.md`** (create it if missing) in [Keep a Changelog](https://keepachangelog.com)
 format. Insert a new section directly under the header, newest first. Get the date from `date +%F`.
