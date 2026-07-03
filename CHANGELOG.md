@@ -5,6 +5,38 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-07-02
+
+### Added
+
+- File attachments in session notes: provide context files as paths and drag-and-drop PDFs, images,
+  or text files directly into the run note before starting a session — paths are delivered to the
+  agent alongside the prompt (HAN-52)
+- Session status circle on the start-session button shows at a glance whether a session for the
+  card is running, waiting for input, or finished (HAN-51)
+- Auto-growing text inputs in the note, resume, and message composer areas — each field expands as
+  you type instead of requiring a fixed-height scroll box (HAN-47)
+- Background highlight on the result message in the AIWF run panel so the final outcome stands out
+  from intermediate messages (HAN-53)
+
+### Changed
+
+- Moving an AIWF card between columns now continues the same agent session rather than spawning a
+  fresh one — context and transcript are preserved across column transitions (HAN-55)
+- AIWF "see data" side-panel enhanced with richer structured display of card metadata (HAN-48)
+- Modal widths unified across all size variants for a consistent, predictable layout (HAN-46)
+- Terminal theme toggle decoupled from the transcript style; run panel appearance polished for both
+  Terminal and Classic themes (HAN-45)
+
+### Fixed
+
+- Agent sessions survive a graceful server restart — active sessions are preserved across
+  `SIGTERM`/restart cycles so in-flight work is not lost (HAN-56)
+- AIWF docs now rendered in the UI font instead of the terminal monospace font (HAN-54)
+- AI Workflow project skills correctly scoped to the selected project — skills from other projects
+  no longer bleed into the picker (HAN-49)
+- Session history removed from the task card to reduce noise in the board view (HAN-50)
+
 ## [0.8.0] - 2026-07-02
 
 ### Added

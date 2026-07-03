@@ -51,6 +51,11 @@ git pull --ff-only
 
 If the tree is dirty or you're not on `main`, stop and tell the user.
 
+> **⚠ Never run the release inside a Hangar worktree or the current active Hangar process.** Check
+> for a `HANGAR_RUN_ID` env var or confirm `pwd` is the real repo checkout
+> (`~/dev/thalissonbarbosa/hangar`), not a temp worktree path. If you're inside a worktree session,
+> stop and instruct the user to run `/release` from a regular terminal in the real repo.
+
 **Step 2 — Find the last release.** The latest version tag:
 
 ```
@@ -89,18 +94,21 @@ apply any that are clear-cut (missing features, stale config table entries, brok
 anything that needs significant new prose — that belongs in a separate docs PR, not here. If no
 issues are found, move on immediately.
 
-**Step 8 — Refresh README screenshots.** Run the screenshots script so the release PR ships
-up-to-date visuals alongside the changelog:
+**Step 8 — Refresh README screenshots.** Run the screenshots script on **alternate ports** so it
+doesn't kill any currently-running Hangar instance:
 
 ```
-npm run screenshots
+WEB_PORT=5280 PORT=3101 npm run screenshots
 ```
 
-This starts the demo server, drives Playwright through the 8 key UI states, and saves PNGs to
-`docs/screenshots/`. If it fails (Playwright not installed, port conflict, etc.) print the error,
-skip this step, and continue — screenshots are best-effort; they do not block the release. If
-Playwright's Chromium browser has never been installed, the error message will say so; the user can
-run `npx playwright install chromium` and re-run `npm run screenshots` manually.
+The script starts a demo server, drives Playwright through the 8 key UI states, and saves PNGs to
+`docs/screenshots/`. Always use the alternate ports above — the default ports (5180/3001) may be
+occupied by the user's live Hangar process, and the script aggressively kills whatever is on the
+configured ports before starting. If screenshots fail (Playwright not installed, port conflict, etc.)
+print the error, skip this step, and continue — screenshots are best-effort; they do not block the
+release. If Playwright's Chromium browser has never been installed, the error will say so; the user
+can run `npx playwright install chromium` and re-run
+`WEB_PORT=5280 PORT=3101 npm run screenshots` manually.
 
 **Step 9 — Update `CHANGELOG.md`** (create it if missing) in [Keep a Changelog](https://keepachangelog.com)
 format. Insert a new section directly under the header, newest first. Get the date from `date +%F`.
