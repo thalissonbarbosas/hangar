@@ -37,6 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer bleed into the picker (HAN-49)
 - Session history removed from the task card to reduce noise in the board view (HAN-50)
 
+### Security
+
+- Demo mode no longer surfaces the real Jira base URL and email on the Settings screen — the
+  connection view now returns demo placeholders under `HANGAR_DEMO=1`, so README screenshots
+  captured from demo mode can no longer leak the operator's real Jira credentials
+
 ## [0.8.0] - 2026-07-02
 
 ### Added
