@@ -303,6 +303,15 @@ export function loadJiraEnv(): JiraEnv | null {
 
 /** Non-secret view of the current Jira settings (never exposes the token). */
 export function jiraSettingsView() {
+  if (isDemo()) {
+    return {
+      configured: true,
+      baseUrl: "https://demo.atlassian.net",
+      email: "demo@example.com",
+      myTicketsOnly: false,
+      hasToken: true,
+    };
+  }
   return {
     configured: loadJiraEnv() !== null,
     baseUrl: process.env.JIRA_BASE_URL ?? "",
