@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-08-25
+
+### Fixed
+
+- Board skills in Settings now lists each repo's copy of a same-named skill as its own option with
+  its own project tag, selectable per repo (the allow-list accepts `repo:skill` entries; plain
+  names still match every copy) — and only shows skills from the selected board's repos
+- Skill names no longer disappear in Settings rows crowded by project/model tags
+
 ## [0.9.1] - 2026-08-25
 
 ### Fixed

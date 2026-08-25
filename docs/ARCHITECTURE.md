@@ -221,8 +221,8 @@ in the assign menu.
 **Agent frontmatter parsed:** `model`, `tools`, description (first non-heading paragraph).
 **Skill frontmatter parsed:** `model`, description. Symlinked skill folders are followed, so
 skills linked into the skills dir from another repo load like regular folders. Skills from repos
-are flagged with their repo basename; where the UI collapses same-named skills to one row, the row
-shows every project offering it (`pr-review (eyeconic) (vese)`).
+are flagged with their repo basename, so each repo's copy of a same-named skill is a distinct
+entry (`pr-review (eyeconic)` vs `pr-review (vese)`) selectable per board.
 
 ---
 
@@ -261,7 +261,7 @@ and four overlays (board, settings, sessions, run panel).
   (PRD, architecture, design, roadmap, specs). Collapsible; state persisted to `localStorage`.
 - `DocPanel` — right-hand doc viewer (reuses RunPanel CSS shell); fetches and renders doc
   markdown by relative path; replaces RunPanel when a doc is open.
-- `Settings` — Jira connection, boards config, board agent/skill pickers (same-named skills collapse to one multi-tag row), permission toggle, exclusive runtime, terminal command, updates pull, Doctor health checks, session-theme picker.
+- `Settings` — Jira connection, boards config, board agent/skill pickers (each repo's copy of a skill is its own row, toggled via repo-qualified allow-list entries), permission toggle, exclusive runtime, terminal command, updates pull, Doctor health checks, session-theme picker.
 
 **Theme:** CSS custom properties (`--bg`, `--fg`, `--accent`, …). `useTheme.ts` toggles
 light/dark and persists to `localStorage`. No external CSS framework.
