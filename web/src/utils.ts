@@ -61,6 +61,21 @@ export function collapseSkillsByName(skills: Skill[]): (Skill & { projects: stri
   return [...rows.values()];
 }
 
+/** Per-instance selection key for board skill access: repo-qualified for repo skills. */
+export function skillKey(s: { name: string; repo?: string }): string {
+  return s.repo ? `${s.repo}:${s.name}` : s.name;
+}
+
+/**
+ * Board skill allow-list check. Qualified `repo:name` entries pin one repo's copy of a skill;
+ * plain-name entries (the legacy format, still written for user skills) match every copy.
+ * An empty/absent list means all skills are allowed.
+ */
+export function boardAllowsSkill(list: string[] | undefined, s: { name: string; repo?: string }): boolean {
+  if (!list?.length) return true;
+  return list.includes(skillKey(s)) || list.includes(s.name);
+}
+
 /** Return the display project key for a skill: "aiwf", a repo name, or null for ungrouped user skills. */
 export function skillProject(s: { aiwf?: boolean; repo?: string }): string | null {
   if (s.aiwf) return "aiwf";
@@ -102,8 +117,6 @@ export function filterByBoard(
   const pathFiltered = board.resolvedPaths?.length
     ? skills.filter((s) => s.source !== "repo" || board.resolvedPaths!.includes(s.repoPath ?? ""))
     : skills;
-  const filteredSkills = board.skills?.length
-    ? pathFiltered.filter((s) => board.skills!.includes(s.name))
-    : pathFiltered;
+  const filteredSkills = pathFiltered.filter((s) => boardAllowsSkill(board.skills, s));
   return { agents: filteredAgents, skills: filteredSkills };
 }

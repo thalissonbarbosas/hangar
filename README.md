@@ -164,18 +164,18 @@ a doc panel alongside the board.
 
 `hangar.config.json` (see [`hangar.config.example.json`](hangar.config.example.json)):
 
-| Field                       | Meaning                                                                                               |
-| --------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `agentsDir`                 | where to read agents (default `~/.claude/agents`)                                                     |
-| `skillsDir`                 | where to read user skills (default `~/.claude/skills`)                                                |
-| `boards[]`                  | `key` (Jira project), `name`, `statuses` (column order), `repoPaths`, optional `agents` / `workflows` |
-| `aiWorkflow.projects[]`     | self-hosted AI Workflow projects: `id`, `name`, `repoPath`, optional `columns`, `createdAt`           |
-| `bypassPermissions`         | `true` = unrestricted; `false` = gated (approve risky shell)                                          |
-| `isolateRuns`               | run each session in its own git worktree + branch (default on)                                        |
-| `exclusiveAgents`           | agent/skill names that need shared ports/tunnels — run one at a time                                  |
-| `maxTurns` / `maxBudgetUsd` | per-run limits (default 300 turns, no spend cap)                                                      |
-| `runRetentionDays`          | auto-delete finished runs older than N days on startup; unset = keep forever                          |
-| `terminal`                  | "Open in terminal" command template (`{{dir}}` + `{{command}}` placeholders); unset = action warns    |
+| Field                       | Meaning                                                                                                                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agentsDir`                 | where to read agents (default `~/.claude/agents`)                                                                                                                                 |
+| `skillsDir`                 | where to read user skills (default `~/.claude/skills`)                                                                                                                            |
+| `boards[]`                  | `key` (Jira project), `name`, `statuses` (column order), `repoPaths`, optional `agents` / `skills` / `workflows` (skill entries may be repo-qualified, e.g. `eyeconic:pr-review`) |
+| `aiWorkflow.projects[]`     | self-hosted AI Workflow projects: `id`, `name`, `repoPath`, optional `columns`, `createdAt`                                                                                       |
+| `bypassPermissions`         | `true` = unrestricted; `false` = gated (approve risky shell)                                                                                                                      |
+| `isolateRuns`               | run each session in its own git worktree + branch (default on)                                                                                                                    |
+| `exclusiveAgents`           | agent/skill names that need shared ports/tunnels — run one at a time                                                                                                              |
+| `maxTurns` / `maxBudgetUsd` | per-run limits (default 300 turns, no spend cap)                                                                                                                                  |
+| `runRetentionDays`          | auto-delete finished runs older than N days on startup; unset = keep forever                                                                                                      |
+| `terminal`                  | "Open in terminal" command template (`{{dir}}` + `{{command}}` placeholders); unset = action warns                                                                                |
 
 Environment (`.env`, see [`.env.example`](.env.example)): `JIRA_BASE_URL`, `JIRA_EMAIL`,
 `JIRA_API_TOKEN`, optional `JIRA_MY_TICKETS_ONLY`, `PORT`, and `HANGAR_DEMO`.

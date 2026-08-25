@@ -34,7 +34,7 @@ import { Avatar } from "./Avatar";
 import { NoteModal } from "./NoteModal";
 import { AgentSkillPicker } from "./AgentSkillPicker";
 import { WorktreeManagerModal } from "./WorktreeManagerModal";
-import { projectColor, skillProject } from "../utils";
+import { boardAllowsSkill, projectColor, skillProject } from "../utils";
 
 const COLUMN_COLORS = [
   "#4f7cff",
@@ -782,9 +782,7 @@ export function Board({
     ? skills.filter((s) => s.source !== "repo" || board.resolvedPaths!.includes(s.repoPath ?? ""))
     : skills;
   // Further restrict to the board's skill allow-list (empty/undefined = all path-filtered skills).
-  const boardSkills = board.skills?.length
-    ? pathFiltered.filter((s) => board.skills!.includes(s.name))
-    : pathFiltered;
+  const boardSkills = pathFiltered.filter((s) => boardAllowsSkill(board.skills, s));
   const ctx: CardCtx = {
     boardKey: board.key,
     agents: boardAgents,
