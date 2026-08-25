@@ -48,7 +48,14 @@ import {
 } from "../types";
 import { SessionTheme } from "../useSessionTheme";
 import { ClassicPreview, TerminalPreview } from "./SessionThemePreviews";
-import { collapseSkillsByName, dedupeByName, projectColor, skillProject } from "../utils";
+import {
+  boardAllowsSkill,
+  collapseSkillsByName,
+  dedupeByName,
+  projectColor,
+  skillKey,
+  skillProject,
+} from "../utils";
 
 type Saved = "idle" | "saving" | "saved" | "error";
 
@@ -1337,7 +1344,7 @@ function AgentAccessSection({ onSaved }: { onSaved: () => void }) {
 
 function BoardSkillsSection({ onSaved }: { onSaved: () => void }) {
   const [boards, setBoards] = useState<BoardConfig[]>([]);
-  const [skills, setSkills] = useState<(Skill & { projects: string[] })[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
   const [sel, setSel] = useState(0);
   const [saved, setSaved] = useState<Saved>("idle");
   const [msg, setMsg] = useState<string | null>(null);
@@ -1353,17 +1360,19 @@ function BoardSkillsSection({ onSaved }: { onSaved: () => void }) {
         if (pa !== pb) return pa.localeCompare(pb);
         return a.name.localeCompare(b.name);
       });
-      // Board skills are name-based, so same-named skills would render as separate
-      // checkboxes that all share one selection — collapse them to one row per name.
-      setSkills(collapseSkillsByName(enriched));
+      setSkills(enriched);
     });
   }, []);
 
   const board = boards[sel];
-  const enabled = (name: string) => !board?.skills?.length || board.skills.includes(name);
+  // Same path filter as the board's Assign menu: user skills always, repo skills only from this
+  // board's repos — so a same-named skill from another board's repo isn't offered here at all.
+  const visible = board?.resolvedPaths?.length
+    ? skills.filter((s) => s.source !== "repo" || board.resolvedPaths!.includes(s.repoPath ?? ""))
+    : skills;
+  const enabled = (s: Skill) => boardAllowsSkill(board?.skills, s);
 
-  async function setSkillsFor(list: string[]) {
-    const next = list.length === skills.length ? [] : list;
+  async function setSkillsFor(next: string[]) {
     const nextBoards = boards.map((b, i) => (i === sel ? { ...b, skills: next } : b));
     setBoards(nextBoards);
     setSaved("saving");
@@ -1384,9 +1393,15 @@ function BoardSkillsSection({ onSaved }: { onSaved: () => void }) {
     }
   }
 
-  function toggle(name: string) {
-    const cur = board?.skills?.length ? board.skills : skills.map((s) => s.name);
-    const next = cur.includes(name) ? cur.filter((n) => n !== name) : [...cur, name];
+  function toggle(s: Skill) {
+    const cur = board?.skills ?? [];
+    // Entries matching none of this board's skills (stale names, other repos) are kept untouched.
+    const unknown = cur.filter((e) => !visible.some((v) => e === skillKey(v) || e === v.name));
+    const target = skillKey(s);
+    const nextSel = visible.filter((v) => (skillKey(v) === target ? !enabled(v) : enabled(v)));
+    // Everything enabled and nothing stale → back to the "empty = all skills" default.
+    const next =
+      nextSel.length === visible.length && unknown.length === 0 ? [] : [...unknown, ...nextSel.map(skillKey)];
     setSkillsFor(next);
   }
 
@@ -1397,28 +1412,30 @@ function BoardSkillsSection({ onSaved }: { onSaved: () => void }) {
       </h2>
       <p className="hint">
         Choose which skills appear in this board's <b>Assign</b> menu. With none checked, <b>all</b> skills
-        are available (the default).
+        are available (the default). A skill offered by several of this board's repos is listed once per repo,
+        and each copy toggles on its own.
       </p>
       <BoardPicker boards={boards} sel={sel} onSelect={setSel} />
       {board && (
         <div className="exclusive-list">
-          {skills.map((s) => (
-            <label className="exclusive-item" key={s.name} title={s.description}>
-              <input type="checkbox" checked={enabled(s.name)} onChange={() => toggle(s.name)} />
-              <Sparkles size={12} />
-              <span className="mono">{s.name}</span>
-              {s.projects.map((proj) => {
-                const pc = projectColor(proj);
-                return (
-                  <span key={proj} className="proj-chip" style={{ color: pc, background: `${pc}20` }}>
+          {visible.map((s) => {
+            const proj = skillProject(s);
+            const pc = proj ? projectColor(proj) : undefined;
+            return (
+              <label className="exclusive-item" key={`${skillKey(s)}:${s.sourcePath}`} title={s.description}>
+                <input type="checkbox" checked={enabled(s)} onChange={() => toggle(s)} />
+                <Sparkles size={12} />
+                <span className="mono">{s.name}</span>
+                {proj && pc && (
+                  <span className="proj-chip" style={{ color: pc, background: `${pc}20` }}>
                     ({proj})
                   </span>
-                );
-              })}
-              {s.model && <span className="model-chip">{s.model}</span>}
-            </label>
-          ))}
-          {skills.length === 0 && <span className="hint">No skills found.</span>}
+                )}
+                {s.model && <span className="model-chip">{s.model}</span>}
+              </label>
+            );
+          })}
+          {visible.length === 0 && <span className="hint">No skills found.</span>}
         </div>
       )}
       <SaveStatus saved={saved} msg={msg} />

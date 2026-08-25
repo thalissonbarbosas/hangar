@@ -1150,6 +1150,11 @@ html[data-theme="light"] .model-haiku {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* chips keep their width so a crowded row ellipsizes the name instead of erasing it */
+.exclusive-item .proj-chip,
+.exclusive-item .model-chip {
+  flex-shrink: 0;
+}
 
 .agent-menu {
   position: relative;
