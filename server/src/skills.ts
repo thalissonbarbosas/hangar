@@ -20,13 +20,14 @@ export function loadSkills(skillsDir: string): Skill[] {
   const dir = expandHome(skillsDir);
   if (!fs.existsSync(dir)) return [];
   const out: Skill[] = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const sourcePath = path.join(dir, entry.name, "SKILL.md");
+  for (const entry of fs.readdirSync(dir)) {
+    // statSync follows symlinks, so skill folders linked from elsewhere load too
+    if (!fs.statSync(path.join(dir, entry), { throwIfNoEntry: false })?.isDirectory()) continue;
+    const sourcePath = path.join(dir, entry, "SKILL.md");
     if (!fs.existsSync(sourcePath)) continue;
     const fm = frontmatter(fs.readFileSync(sourcePath, "utf8"));
     out.push({
-      name: fm.name || entry.name,
+      name: fm.name || entry,
       description: fm.description || "",
       model: fm.model || undefined,
       sourcePath,
