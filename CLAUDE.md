@@ -29,8 +29,9 @@ Run from the repo root:
 - `npm run install:all` — install server + web deps (root deps come from a plain `npm install`)
 - `npm run dev` — start server (`:3001`) and web (`:5180`, override with `WEB_PORT`) via `concurrently`
 - `npm run dev:server` / `npm run dev:web` — run one side alone
-- `npm run typecheck` — `tsc --noEmit` across server + web. **Run this after any change** — there
-  is no test suite yet, so typecheck is the gate.
+- `npm run typecheck` — `tsc --noEmit` across server + web. **Run this after any change.**
+- `npm --prefix server test` — the server Jest suite (100% coverage gate in CI); the web side is
+  typecheck-only.
 - `npm run watch` — typecheck both sides in watch mode
 
 The web dev server proxies `/api` to the server port, so always have the server running too.
@@ -132,7 +133,8 @@ its own key.
 - **AI Workflow doc (required)**: whenever you change the AI Workflow connection — its routes, board
   model, phases/skills, config shape, install flow, or card format — update `docs/AI_WORKFLOW.md` in
   the same change. Run **`/aiwf-sync`** after any such change to verify the doc is in sync.
-- No automated tests exist yet — verify changes with `npm run typecheck` and, where it matters, by
+- The server has a Jest suite (`npm --prefix server test`); the web side has no tests yet — verify
+  web changes with `npm run typecheck` and, where it matters, by
   running `npm run dev` and exercising the flow in the UI. Run **`/smoke`** before merging any
   server change — it boots demo mode and exercises the critical API paths end-to-end.
 - **Never bump `package.json` version in a feature branch.** Version changes belong only in

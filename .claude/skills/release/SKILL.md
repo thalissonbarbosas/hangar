@@ -183,7 +183,7 @@ gh pr create --base main --title "Release <version>" \
   --body "<summary + the new CHANGELOG section + a note that tagging happens after merge>"
 ```
 
-Report the PR URL. Remind the user that CI (test, typecheck, build, lint, format) must pass and
+Report the PR URL. Remind the user that CI (the single `checks` job) must pass and
 the PR must merge before Phase 2.
 
 ### Phase 2 — Tag + GitHub Release (after the PR merges)

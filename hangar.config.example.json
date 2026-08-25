@@ -1,5 +1,6 @@
 {
   "agentsDir": "~/.claude/agents",
+  "skillsDir": "~/.claude/skills",
   "boards": [
     {
       "key": "DEMO",

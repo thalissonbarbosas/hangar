@@ -219,8 +219,10 @@ skill directories (user `~/.claude/skills/` + per-repo `.claude/skills/`) into t
 in the assign menu.
 
 **Agent frontmatter parsed:** `model`, `tools`, description (first non-heading paragraph).
-**Skill frontmatter parsed:** `model`, description. Skills from repos are flagged with their
-repo basename so the UI can distinguish `pp-debugger (eyeconic)` from `pp-debugger (user)`.
+**Skill frontmatter parsed:** `model`, description. Symlinked skill folders are followed, so
+skills linked into the skills dir from another repo load like regular folders. Skills from repos
+are flagged with their repo basename; where the UI collapses same-named skills to one row, the row
+shows every project offering it (`pr-review (eyeconic) (vese)`).
 
 ---
 
@@ -259,7 +261,7 @@ and four overlays (board, settings, sessions, run panel).
   (PRD, architecture, design, roadmap, specs). Collapsible; state persisted to `localStorage`.
 - `DocPanel` — right-hand doc viewer (reuses RunPanel CSS shell); fetches and renders doc
   markdown by relative path; replaces RunPanel when a doc is open.
-- `Settings` — Jira connection, boards config, permission toggle, terminal command, updates pull, Doctor health checks, session-theme picker.
+- `Settings` — Jira connection, boards config, board agent/skill pickers (same-named skills collapse to one multi-tag row), permission toggle, exclusive runtime, terminal command, updates pull, Doctor health checks, session-theme picker.
 
 **Theme:** CSS custom properties (`--bg`, `--fg`, `--accent`, …). `useTheme.ts` toggles
 light/dark and persists to `localStorage`. No external CSS framework.
@@ -342,7 +344,8 @@ Machine (macOS / Linux)
 The web dev server's `vite.config.ts` proxy forwards all `/api` requests to the Express server,
 so the browser only speaks to `:5180`.
 
-**No CI/CD, no containers, no cloud.** The operator clones the repo, configures `.env` and
+**No containers, no cloud.** CI is a single GitHub Actions `checks` job (typecheck, lint,
+format, build, and the server Jest suite). The operator clones the repo, configures `.env` and
 `hangar.config.json`, and runs `npm run dev`. Auth is the operator's existing Claude Code
 login (`~/.claude`) or `ANTHROPIC_API_KEY` in the environment.
 

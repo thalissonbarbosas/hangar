@@ -167,6 +167,7 @@ a doc panel alongside the board.
 | Field                       | Meaning                                                                                               |
 | --------------------------- | ----------------------------------------------------------------------------------------------------- |
 | `agentsDir`                 | where to read agents (default `~/.claude/agents`)                                                     |
+| `skillsDir`                 | where to read user skills (default `~/.claude/skills`)                                                |
 | `boards[]`                  | `key` (Jira project), `name`, `statuses` (column order), `repoPaths`, optional `agents` / `workflows` |
 | `aiWorkflow.projects[]`     | self-hosted AI Workflow projects: `id`, `name`, `repoPath`, optional `columns`, `createdAt`           |
 | `bypassPermissions`         | `true` = unrestricted; `false` = gated (approve risky shell)                                          |

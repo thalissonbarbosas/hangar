@@ -145,14 +145,15 @@ that directory and surfaces matching files as **read-only spec cards** in a coll
   that card, so the work has a visible home and accruing history. Running a skill on the same spec
   again **reuses** the existing (non-archived) board task rather than creating a duplicate, so all
   history accumulates on one card. The read-only `SPEC-NNN` card stays visible.
-- **Task isolation** — when a code, delivery, or review skill (`feature`, `fix`, `commit`, `pr`,
-  `review`, `sec-review`) is run on a spec-derived task, Hangar creates a shared worktree on a
-  semantic branch derived from the spec's filename and type (e.g. `feat/standardize-agent-skill-selects`,
-  always based on `main`). The promoted board card preserves this semantic branch — the server
-  recovers the source spec from the card's `Spec: <path>` description line — so it does not regress
-  to `feat/<card-key>`. Every skill run on that card reuses the same branch, so `/commit` and
-  `/pr` deliver from the task's actual worktree even when started as a new run rather than a
-  handoff. The state persists until the card is transitioned to Complete.
+- **Task isolation** — when a delivery skill (`spec`, `feature`, `fix`, `commit`, `pr`,
+  `review`, `sec-review`) is run on a card of any kind, Hangar creates a persistent task worktree
+  shared by every run on that card. Spec-derived tasks get a semantic branch from the spec's
+  filename and type (e.g. `feat/standardize-agent-skill-selects`, always based on `main`) — the
+  promoted board card preserves it because the server recovers the source spec from the card's
+  `Spec: <path>` description line — while other cards branch from the card key (`feat/<key>`, or
+  `fix/<key>` for `fix`/`sec-review`). Every skill run on that card reuses the same branch, so
+  `/commit` and `/pr` deliver from the task's actual worktree even when started as a new run rather
+  than a handoff. The state persists until the card is transitioned to Complete.
 - **Read-only guarantee** — spec files are never modified by Hangar. Transition and archive/delete
   routes return `400 Spec cards are read-only.` for `SPEC-*` keys — the one exception is
   transitioning to `Complete`, which succeeds and resets the card's task-worktree state.
@@ -163,10 +164,12 @@ that directory and surfaces matching files as **read-only spec cards** in a coll
 Most AI Workflow sessions run **in place** in the project repo, because aiwf manages its own git
 (`/commit` and `/pr`) and its planning/doc skills must write into the real repo.
 
-**Spec card runs** with code, delivery, or review skills are the exception — see **Task isolation**
-above. Every other skill run on a regular board card also stays in place, except `feature` and `fix`
-on regular cards, which run in a per-run worktree + branch so parallel implementation runs can't
-clobber each other. The `autopilot`/`factory` orchestrators always stay in place: they spawn their
+**Delivery-skill runs** (`spec`, `feature`, `fix`, `commit`, `pr`, `review`, `sec-review`) are the
+exception on any card kind — they use the persistent task worktree described under **Task
+isolation** above. The task-worktree path is skipped entirely when run isolation is off (every
+skill then runs in the real repo), and a run whose worktree cannot be created (e.g. the branch is
+already checked out elsewhere) fails with a 503 rather than silently running in the wrong
+directory. The `autopilot`/`factory` orchestrators always stay in place: they spawn their
 own worktree subagents and open their own PRs.
 
 Each run is a normal skill session streamed into the run panel; on success its result is logged to
@@ -240,11 +243,11 @@ All under `/api/aiwf/*` (defined in `server/src/routes/aiwf.ts`):
 | `DELETE /api/aiwf/projects/:id`                        | unregister a project (repo files untouched)          |
 | `GET /api/aiwf/projects/:id/cards`                     | list the project's cards                             |
 | `GET /api/aiwf/projects/:id/cards/:key`                | get a single card by key                             |
-| `POST /api/aiwf/projects/:id/cards`                    | create a card `{ title, status?, kind?, skill? }`    |
+| `POST /api/aiwf/projects/:id/cards`                    | create a card `{ title, status?, kind?, skill?, description? }` |
 | `POST /api/aiwf/projects/:id/cards/:key/transition`    | move a card `{ status }`                             |
 | `POST /api/aiwf/projects/:id/cards/:key/archive`       | archive or unarchive a card `{ archived: boolean }`  |
 | `DELETE /api/aiwf/projects/:id/cards/:key`             | permanently delete a card file                       |
-| `POST /api/aiwf/projects/:id/cards/:key/run`           | run a skill on a card `{ skill, note? }`             |
+| `POST /api/aiwf/projects/:id/cards/:key/run`           | run a skill on a card `{ skill, note?, resumeRunId? }` |
 | `POST /api/aiwf/projects/:id/cards/:key/checkout`      | checkout the card's task branch into a worktree      |
 | `POST /api/aiwf/projects/:id/checkout`                 | checkout a branch for the project                    |
 | `GET /api/aiwf/projects/:id/worktrees`                 | list active worktrees for the project                |
@@ -274,7 +277,8 @@ All under `/api/aiwf/*` (defined in `server/src/routes/aiwf.ts`):
 - `web/src/App.tsx` — the connection switcher + sub-menu wiring (connection / overlay model).
 - `web/src/api.ts`, `web/src/types.ts` — typed wrappers + mirrored types.
 
-**Tests:** `server/src/__tests__/aiwf.test.ts` (card store + history + detect/install/uninstall) and
+**Tests:** `server/src/__tests__/aiwf.test.ts` (card store + history + detect/install/uninstall),
+`server/src/__tests__/aiwf.card.test.ts` (card file parsing), and
 `server/src/__tests__/index.aiwf.test.ts` (the routes).
 
 ## Not in scope
