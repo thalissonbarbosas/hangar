@@ -48,7 +48,7 @@ import {
 } from "../types";
 import { SessionTheme } from "../useSessionTheme";
 import { ClassicPreview, TerminalPreview } from "./SessionThemePreviews";
-import { dedupeByName, projectColor, skillProject } from "../utils";
+import { collapseSkillsByName, dedupeByName, projectColor, skillProject } from "../utils";
 
 type Saved = "idle" | "saving" | "saved" | "error";
 
@@ -715,7 +715,7 @@ function UpdateSection() {
 function RuntimeSection({ onSaved }: { onSaved: () => void }) {
   const [exclusive, setExclusive] = useState<string[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [skills, setSkills] = useState<Skill[]>([]);
+  const [skills, setSkills] = useState<(Skill & { projects: string[] })[]>([]);
   const [saved, setSaved] = useState<Saved>("idle");
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -733,7 +733,7 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
       // Exclusive runtime is name-based (matched by name in sessions), so collapse
       // same-named agents/skills to one checkbox each.
       setAgents(dedupeByName(a.agents));
-      setSkills(dedupeByName(enriched));
+      setSkills(collapseSkillsByName(enriched));
     });
   }, []);
 
@@ -783,23 +783,22 @@ function RuntimeSection({ onSaved }: { onSaved: () => void }) {
         <Sparkles size={12} /> Skills
       </div>
       <div className="exclusive-list">
-        {skills.map((s) => {
-          const proj = skillProject(s);
-          const pc = proj ? projectColor(proj) : undefined;
-          return (
-            <label className="exclusive-item" key={`skill:${s.name}:${s.repo ?? ""}`}>
-              <input type="checkbox" checked={exclusive.includes(s.name)} onChange={() => toggle(s.name)} />
-              <Sparkles size={12} />
-              <span className="mono">{s.name}</span>
-              {proj && pc && (
-                <span className="proj-chip" style={{ color: pc, background: `${pc}20` }}>
+        {skills.map((s) => (
+          <label className="exclusive-item" key={`skill:${s.name}`}>
+            <input type="checkbox" checked={exclusive.includes(s.name)} onChange={() => toggle(s.name)} />
+            <Sparkles size={12} />
+            <span className="mono">{s.name}</span>
+            {s.projects.map((proj) => {
+              const pc = projectColor(proj);
+              return (
+                <span key={proj} className="proj-chip" style={{ color: pc, background: `${pc}20` }}>
                   ({proj})
                 </span>
-              )}
-              {s.model && <span className="model-chip">{s.model}</span>}
-            </label>
-          );
-        })}
+              );
+            })}
+            {s.model && <span className="model-chip">{s.model}</span>}
+          </label>
+        ))}
         {skills.length === 0 && <span className="hint">No skills found.</span>}
       </div>
       <div className="row" style={{ marginTop: 10 }}>
@@ -1338,7 +1337,7 @@ function AgentAccessSection({ onSaved }: { onSaved: () => void }) {
 
 function BoardSkillsSection({ onSaved }: { onSaved: () => void }) {
   const [boards, setBoards] = useState<BoardConfig[]>([]);
-  const [skills, setSkills] = useState<Skill[]>([]);
+  const [skills, setSkills] = useState<(Skill & { projects: string[] })[]>([]);
   const [sel, setSel] = useState(0);
   const [saved, setSaved] = useState<Saved>("idle");
   const [msg, setMsg] = useState<string | null>(null);
@@ -1356,7 +1355,7 @@ function BoardSkillsSection({ onSaved }: { onSaved: () => void }) {
       });
       // Board skills are name-based, so same-named skills would render as separate
       // checkboxes that all share one selection — collapse them to one row per name.
-      setSkills(dedupeByName(enriched));
+      setSkills(collapseSkillsByName(enriched));
     });
   }, []);
 
@@ -1403,23 +1402,22 @@ function BoardSkillsSection({ onSaved }: { onSaved: () => void }) {
       <BoardPicker boards={boards} sel={sel} onSelect={setSel} />
       {board && (
         <div className="exclusive-list">
-          {skills.map((s) => {
-            const proj = skillProject(s);
-            const pc = proj ? projectColor(proj) : undefined;
-            return (
-              <label className="exclusive-item" key={`${s.name}:${s.repo ?? ""}`} title={s.description}>
-                <input type="checkbox" checked={enabled(s.name)} onChange={() => toggle(s.name)} />
-                <Sparkles size={12} />
-                <span className="mono">{s.name}</span>
-                {proj && pc && (
-                  <span className="proj-chip" style={{ color: pc, background: `${pc}20` }}>
+          {skills.map((s) => (
+            <label className="exclusive-item" key={s.name} title={s.description}>
+              <input type="checkbox" checked={enabled(s.name)} onChange={() => toggle(s.name)} />
+              <Sparkles size={12} />
+              <span className="mono">{s.name}</span>
+              {s.projects.map((proj) => {
+                const pc = projectColor(proj);
+                return (
+                  <span key={proj} className="proj-chip" style={{ color: pc, background: `${pc}20` }}>
                     ({proj})
                   </span>
-                )}
-                {s.model && <span className="model-chip">{s.model}</span>}
-              </label>
-            );
-          })}
+                );
+              })}
+              {s.model && <span className="model-chip">{s.model}</span>}
+            </label>
+          ))}
           {skills.length === 0 && <span className="hint">No skills found.</span>}
         </div>
       )}

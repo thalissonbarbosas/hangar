@@ -28,6 +28,16 @@ describe("loadSkills", () => {
   it("returns [] for a missing dir", () => {
     expect(loadSkills(path.join(os.tmpdir(), "no-skills-xyz"))).toEqual([]);
   });
+
+  it("follows symlinked skill folders and skips broken links", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hangar-skills-"));
+    const real = fs.mkdtempSync(path.join(os.tmpdir(), "hangar-linked-"));
+    makeSkill(real, "linked", "---\nname: linked-skill\ndescription: via symlink\n---\nbody");
+    fs.symlinkSync(path.join(real, "linked"), path.join(dir, "linked"));
+    fs.symlinkSync(path.join(real, "missing"), path.join(dir, "broken"));
+
+    expect(loadSkills(dir).map((s) => s.name)).toEqual(["linked-skill"]);
+  });
 });
 
 describe("loadRepoSkills", () => {

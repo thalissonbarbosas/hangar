@@ -45,6 +45,22 @@ export function dedupeByName<T extends { name: string }>(items: T[]): T[] {
   });
 }
 
+/**
+ * Collapse same-named skills to one row while collecting every project tag they come from.
+ * Selection stays name-keyed (like `dedupeByName`), but the row shows all projects offering the
+ * skill instead of mislabeling it with whichever single project happened to sort first.
+ */
+export function collapseSkillsByName(skills: Skill[]): (Skill & { projects: string[] })[] {
+  const rows = new Map<string, Skill & { projects: string[] }>();
+  for (const s of skills) {
+    const proj = skillProject(s);
+    const row = rows.get(s.name);
+    if (!row) rows.set(s.name, { ...s, projects: proj ? [proj] : [] });
+    else if (proj && !row.projects.includes(proj)) row.projects.push(proj);
+  }
+  return [...rows.values()];
+}
+
 /** Return the display project key for a skill: "aiwf", a repo name, or null for ungrouped user skills. */
 export function skillProject(s: { aiwf?: boolean; repo?: string }): string | null {
   if (s.aiwf) return "aiwf";
