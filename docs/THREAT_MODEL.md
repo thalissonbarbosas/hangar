@@ -140,6 +140,7 @@ limit is the only control there.
 | 11 | `PUT /api/config` accepts `req.body as HangarConfig` with no schema validation beyond `validateConfig` in `config.ts` — a crafted payload could set `repoPaths` to sensitive dirs | Agent sessions execute in unintended directories, reading secrets | Low (requires API access first) | `validateConfig` enforces basic structure; no path allow-list |
 | 12 | `GET /api/fs/exists?path=...` accepts any filesystem path and returns whether it exists | Host filesystem enumeration (e.g. `/etc/passwd`, `~/.ssh/id_rsa`) | Low (localhost only) | None |
 | 16 | `DELETE /api/aiwf/projects/:id/worktrees/:key`, `POST /api/aiwf/projects/:id/cards/:key/checkout`, `POST .../transition`, `POST .../archive`, and `DELETE .../cards/:key` passed `req.params.key` into `path.join()` without validation — a `%2F`-encoded traversal key like `SPEC-..%2F..%2Ftarget` is decoded by Express to `SPEC-../../../../target`, reaching `fs.unlinkSync` outside DATA_DIR | Deletion of arbitrary `.json` files accessible to the server process | Low (local process only; CORS blocks browser) | `CARD_KEY_RE` allowlist (`/^[A-Za-z0-9]+-\d+$/`) added to all five routes |
+| 17 | A symlinked folder in the skills dir resolves to a `SKILL.md` anywhere on disk, whose body becomes session instructions (symlinks followed since 0.9.1) | Skill content sourced from outside `~/.claude/skills` | Low (skills dir is operator-owned; writing a symlink already implies host access) | Accepted — same trust as the skill files themselves |
 
 ---
 

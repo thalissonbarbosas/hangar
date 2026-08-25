@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-08-25
+
+### Fixed
+
+- Symlinked skill folders in the skills directory now load — skills linked into `~/.claude/skills`
+  from another repo were silently skipped and never appeared in the assign menu or board skill lists
+- Settings now shows every project tag on same-named skills (Board skills and Exclusive runtime
+  sections) instead of labeling the row with one arbitrary project
+
+### Changed
+
+- CI consolidated into a single checks job
+
 ## [0.9.0] - 2026-07-02
 
 ### Added
